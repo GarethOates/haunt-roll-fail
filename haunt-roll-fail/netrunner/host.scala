@@ -21,7 +21,13 @@ object Host extends hrf.host.BaseHost {
 
     def botFor(f : F) : Bot = ((games + f.isCorp.??(1)) % 2 == 0).?(new BasicBot(f)).|(new RandomBot(f))
 
-    def askBot(g : G, f : F, actions : $[UserAction]) = botFor(f).ask(actions, 0)(g)
+    // HRF_DECK_MIN_INDEX=n restricts the bots to the preset decks with index >= n (stress testing a card set)
+    val deckMinIndex = sys.env.get("HRF_DECK_MIN_INDEX")./(_.toInt).|(0)
+
+    def askBot(g : G, f : F, actions : $[UserAction]) = {
+        val filtered = actions.%!(a => a @@ { case ChoosePresetDeckAction(_, i) => i < deckMinIndex ; case _ => false })
+        botFor(f).ask(filtered.any.?(filtered).|(actions), 0)(g)
+    }
 
     def factions = $[Faction](Corp, Runner)
     def subjects = factions

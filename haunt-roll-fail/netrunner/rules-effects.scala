@@ -118,8 +118,10 @@ trait EffectRules { game : Game =>
             log(f, "loses", m.credits)
             NextAction
 
-        case DrawEffect(f, n) =>
+        case DrawEffect(f, n0) =>
             val d = deck(f)
+            val bonus = (n0 > 0).??(allActive./(x => impl(x).drawBonus(x, f)).sum)
+            val n = (d.num >= n0 + bonus).?(n0 + bonus).|(n0)
             if (f.isCorp && d.num < n) {
                 log(Corp, "cannot draw from an empty R&D")
                 GameOverAction(|(Runner), "Corp has no cards left in R&D")
@@ -130,6 +132,7 @@ trait EffectRules { game : Game =>
                 if (l.any) {
                     log(f, "draws", l.num.cards)
                     regInc("drawn-" + f.name, l.num)
+                    trigger(CardsDrawn(f, l))
                 }
                 NextAction
             }
@@ -561,6 +564,7 @@ trait EffectRules { game : Game =>
     }
 
     var lastDamaged : $[Card] = $
+    var lastTrashedRezzed = false
     var traceBase = 0
     var traceStrength = 0
     var traceSuccess : $[ForcedAction] = $
@@ -585,6 +589,7 @@ trait EffectRules { game : Game =>
     def trashCard(c : Card, by : Faction, accessed : Boolean) {
         val wasInstalled = isInstalled(c)
         val hostedInstalledCards = wasInstalled.??(hostedInstalled(c))
+        lastTrashedRezzed = isRezzed(c)
         val hostedTrashed = wasInstalled.??(leavePlay(c))
         val from = zone(c)
         val wasRezzed = isRezzed(c)
@@ -705,6 +710,9 @@ trait EffectRules { game : Game =>
                 case None => NextAction
             }
 
+        case p : SU21Purpose =>
+            resolveSU21Purpose(f, l, p)
+
         case p : CardPurpose =>
             impl(p.card).chosen(p, l)
 
@@ -727,18 +735,17 @@ trait EffectRules { game : Game =>
     }
 
     // pay credits, using hosted run credits first if in a run
-    def payCredits(f : Faction, n : Int, self : |[Card]) {
+    def payCredits(f : Faction, n : Int, self : |[Card], purpose : String = "") {
         var left = n
-        if (f.isRunner && run.any) {
-            creditSources(f).foreach { c =>
-                val m = left.atMost(counter(c, "credit"))
-                if (m > 0) {
-                    addCounter(c, "credit", -m)
-                    left -= m
-                    log(Runner, "spends", m.credits, "from", c)
-                    trigger(CounterAdded(c, "credit"))
-                    trigger(CreditsSpentFromCard(c, m))
-                }
+        creditSourcesFor(f, purpose).foreach { c =>
+            val m = left.atMost(counter(c, "credit"))
+            if (m > 0) {
+                addCounter(c, "credit", -m)
+                left -= m
+                log(f, "spends", m.credits, "from", c)
+                regInc("spent-from-card")
+                trigger(CounterAdded(c, "credit"))
+                trigger(CreditsSpentFromCard(c, m))
             }
         }
         credits += f -> (credits(f) - left)

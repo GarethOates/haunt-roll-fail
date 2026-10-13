@@ -167,7 +167,7 @@ object VPCards {
                 val l = g.run./(r => g.ice(r.server).%(g.isRezzed)).|($)
                 if (l.any)
                     g.push(ChooseOneEffect(Corp, "Kompromat: derez a piece of ice protecting the attacked server or take 1 bad publicity", $(
-                        Alt("Derez a piece of ice", $(ChooseCardEffect(Corp, l, DerezPurpose(self), "Kompromat: choose a piece of ice to derez", false))),
+                        Alt("Derez a piece of ice", $(ChooseCardEffect(Corp, l, DerezPurpose(), "Kompromat: choose a piece of ice to derez", false))),
                         Alt("Take 1 bad publicity", $(BadPubEffect(1))))))
                 else
                     g.push(BadPubEffect(1))

@@ -117,10 +117,10 @@ trait RunRules { game : Game =>
                     val subs = impl(c).subroutines(c)
                     val unbroken = unbrokenSubs(c)
                     val str = iceStrength(c)
-                    val breakers = installedCards(Runner).%(b => isActive(b) && (impl(b).breaks(b).any || impl(b).pumps(b).any))
+                    val breakers = (installedCards(Runner) ++ identity.get(Runner).$).%(b => isActive(b) && (impl(b).breaks(b).any || impl(b).pumps(b).any))
                     val breakOptions = breakers.distinct./~ { b =>
                         impl(b).breaks(b).indexed./~ { (br, bi) =>
-                            val typeOk = (br.subtypes.none || br.subtypes.exists(t => has(c, t))) && impl(c).canBreakWith(c, b)
+                            val typeOk = (br.subtypes.none || br.subtypes.exists(t => has(c, t))) && impl(c).canBreakWith(c, b) && !allActive.exists(x => impl(x).preventsBreak(x, c, b))
                             val strOk = !isIcebreaker(b) || breakerStrength(b) >= str
                             val payOk = canPay(Runner, br.costs, |(b))
                             if (!typeOk || unbroken.none)
@@ -264,7 +264,7 @@ trait RunRules { game : Game =>
 
         case SuccessfulRunAction() =>
             run match {
-                case Some(r) if !r.ended && allActive.exists(c => impl(c).blocksSuccessfulRun(c, r.server)) =>
+                case Some(r) if !r.ended && (allActive.exists(c => impl(c).blocksSuccessfulRun(c, r.server)) || root(r.server).exists(x => isRezzed(x) && impl(x).preventsSuccessfulRun(x, r.server))) =>
                     log("The run on", r.server, "cannot be declared successful")
                     push(RunEndsAction())
                     NextAction

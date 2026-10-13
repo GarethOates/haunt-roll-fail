@@ -187,7 +187,7 @@ trait AbilityRules { game : Game =>
             }
         } ++ f.isRunner.??(run./~(_.ice).%(isRezzed).$./~ { ice =>
             impl(ice).runnerAbilities(ice).indexed./ { (a, i) =>
-                UseRunnerAbilityAction(f, ice, i, ctx).!(!a.ok, a.reason).!(!canPay(f, a.costs, |(ice)), "cannot pay")
+                UseRunnerAbilityAction(f, ice, i, ctx).!(!a.ok, a.reason).!(!canPay(f, a.costs, |(ice)), "cannot pay").!(has(ice, "Bioroid") && reg("no-bioroid-abilities") > 0, "blocked this turn")
             }
         }) ++ extraAbilityOptions(f, ctx, allowClick)
     }

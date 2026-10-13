@@ -212,7 +212,7 @@ object ElevCards {
             case Trashed(c, Runner, _) if g.owner(c).isCorp && !g.usedThisTurn(self, "cacophony") => $(MarkUsedEffect(self, "cacophony"), AddCounterEffect(self, "power", 1))
             case AgendaStolen(_) if !g.usedThisTurn(self, "cacophony") => $(MarkUsedEffect(self, "cacophony"), AddCounterEffect(self, "power", 1))
             case ActionPhaseEnds(Runner) if g.counter(self, "power") >= 2 =>
-                $(OptionalEffect(Runner, "Cacophony: remove 2 power counters to sabotage 3?", $(AddCounterEffect(self, "power", -2), SabotageEffect(self, 3)), $))
+                $(OptionalEffect(Runner, "Cacophony: remove 2 power counters to sabotage 3?", $(AddCounterEffect(self, "power", -2), SabotageEffect(3)), $))
             case _ => $
         }
     }
@@ -1069,7 +1069,7 @@ object ElevCards {
                     g.push(PlutusDerezAction(self))
                 else
                     g.push(ChooseOneEffect(Corp, "Plutus: additional rez cost", $(
-                        Alt("Forfeit 1 agenda", $(ChooseCardEffect(Corp, agendas, ForfeitPurpose(self), "Plutus: choose an agenda to forfeit", false)), agendas.any),
+                        Alt("Forfeit 1 agenda", $(ChooseCardEffect(Corp, agendas, ForfeitPurpose(), "Plutus: choose an agenda to forfeit", false)), agendas.any),
                         Alt("Reveal and trash 3 cards from HQ", $(ChooseCardsEffect(Corp, h, 3, 3, TrashFromHQPurpose(self, true), "Plutus: choose 3 cards in HQ to reveal and trash")), h.num >= 3))))
                 NextAction
             case PlutusDerezAction(self) =>
@@ -1083,7 +1083,7 @@ object ElevCards {
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && g.scored(Corp).exists(_.data.isAgenda)).?(-10).|(0)
         override def onRez(self : Card)(implicit g : Game) = {
             val agendas = g.scored(Corp).%(_.data.isAgenda)
-            agendas.any.$(ChooseCardEffect(Corp, agendas, ForfeitPurpose(self), "Biawak: choose an agenda to forfeit (paid 10 credits of the rez cost)", false))
+            agendas.any.$(ChooseCardEffect(Corp, agendas, ForfeitPurpose(), "Biawak: choose an agenda to forfeit (paid 10 credits of the rez cost)", false))
         }
         override def subroutines(self : Card)(implicit g : Game) = {
             val programs = g.installedCards(Runner).%(_.data.isProgram)

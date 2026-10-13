@@ -192,7 +192,7 @@ trait AccessRules { game : Game =>
                         }
                         else
                             Ask(Runner)
-                                .add(canTrash.$(PayTrashAction(Runner, c).!(availableCredits(Runner, None) < tc.|(0), "not enough credits")))
+                                .add(canTrash.$(PayTrashAction(Runner, c).!(availableCredits(Runner, None, "trash-" + c.data.kind.toLowerCase) < tc.|(0), "not enough credits")))
                                 .add(accessAbilities.%(_ => !inArchives))
                                 .add(NoAccessAction(Runner, c))
                     }
@@ -210,7 +210,7 @@ trait AccessRules { game : Game =>
 
         case PayTrashAction(f, c) =>
             val tc = trashCost(c).|(0)
-            payCredits(Runner, tc, None)
+            payCredits(Runner, tc, None, "trash-" + c.data.kind.toLowerCase)
             log(Runner, "pays", tc.credits, "to trash", c)
             push(AccessDoneAction(c))
             trashCard(c, Runner, true)
@@ -251,10 +251,16 @@ trait AccessRules { game : Game =>
             NextAction
 
         case BreachEndAction() =>
-            run.foreach { r =>
-                r.breachServer = None
+            run match {
+                case Some(r) if r.accessOnly =>
+                    run = r.outer
+                    NextAction
+                case _ =>
+                    run.foreach { r =>
+                        r.breachServer = None
+                    }
+                    push(RunEndsAction())
+                    NextAction
             }
-            push(RunEndsAction())
-            NextAction
     }
 }

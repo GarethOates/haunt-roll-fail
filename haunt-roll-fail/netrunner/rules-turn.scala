@@ -146,11 +146,11 @@ trait TurnRules { game : Game =>
             NextAction
 
         case PlayMenuAction(f) =>
-            Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(credits(f) < playCost(c), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
+            Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(availableCredits(f, None, "play-" + c.data.kind.toLowerCase) < playCost(c), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
 
         case PlayCardAction(f, c) =>
             spendClick(f)
-            payCredits(f, playCost(c), None)
+            payCredits(f, playCost(c), None, "play-" + c.data.kind.toLowerCase)
             moveTo(c, PlayZone(f))
             state(c).seen = true
             impl(c).initialCounters(c).foreach { case (k, n) => addCounter(c, k, n) }
@@ -280,7 +280,7 @@ trait TurnRules { game : Game =>
             if (f.isRunner && max < 0)
                 GameOverAction(|(Corp), "Runner is flatlined (hand size below zero)")
             else {
-                val n = hand(f).num - max.atLeast(0)
+                val n = (reg("skip-discard") > 0).?(0).|(hand(f).num - max.atLeast(0))
                 if (n <= 0)
                     NextAction
                 else
@@ -328,7 +328,7 @@ trait TurnRules { game : Game =>
 
     def isAdvanceable(c : Card) : Boolean = c.data.isAgenda || impl(c).advanceable(c) || (isRezzed(c) && impl(c).advanceable(c))
 
-    def scorableAgendas : $[Card] = installedCards(Corp).%(_.data.isAgenda).%(c => advancement(c) >= advancementRequirement(c)).%(_ => !cannotScoreThisTurn)
+    def scorableAgendas : $[Card] = installedCards(Corp).%(_.data.isAgenda).%(c => advancement(c) >= advancementRequirement(c)).%(_ => !cannotScoreThisTurn).%(c => !usedThisTurn(c, "cannot-score") && !allActive.exists(x => impl(x).preventsScoring(x, c)))
 
     def scoreOptions(f : Faction) : $[UserAction] = scorableAgendas./(c => ScoreAction(f, c))
 
@@ -336,7 +336,7 @@ trait TurnRules { game : Game =>
     def canScoreNow(kind : String) : Boolean = active.isCorp && run.none && (kind == "action" || kind == "turn-start" || kind == "turn-begins")
 
     def rezOptions(f : Faction, ctx : String, approached : |[Card]) : $[UserAction] =
-        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isIce && !c.data.isAgenda) ++ approached.$)./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits"))
+        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isIce && !c.data.isAgenda) ++ approached.$)./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits").!(!impl(c).canRez(c), "cannot rez").!(usedThisTurn(c, "cannot-rez"), "cannot rez this turn"))
 
     def reask(ctx : String) : ForcedAction = ctx match {
         case "action" => ActionPhaseAction(active)

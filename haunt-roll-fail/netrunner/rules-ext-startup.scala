@@ -37,7 +37,7 @@ case class StashZone(host : Card) extends Zone
 
 
 // ---- additional game state ------------------------------------------------------------------------------------------
-trait StartupState { game : Game =>
+trait StartupRules { game : Game =>
     var bonusClicks : Map[Faction, Int] = Map()          // allotted clicks modifier for the next turn
     var lastScoredAdvancement = 0                        // advancement counters on the last scored agenda
     var lastScoredInstalledTurn = -1                     // turn the last scored agenda was installed
@@ -154,29 +154,26 @@ case class NumberPickAction(self : Faction, card : Card, n : Int, key : String) 
 
 
 // ---- card actions and purposes handled by the Startup base class ------------------------------------------------------
-trait ExtPurpose extends CardPurpose
+trait StartupPurpose extends CardPurpose
 
 case class ServerPickedAction(card : Card, server : |[Server], key : String) extends CardAction
 case class NumberPickedAction(card : Card, n : Int, key : String) extends CardAction
 case class InstallLoopAction(card : Card, f : Faction, remaining : Int, discount : Int, ignoreCost : Boolean, from : String, kinds : $[String]) extends CardAction
-case class InstallLoopPurpose(card : Card, f : Faction, remaining : Int, discount : Int, ignoreCost : Boolean, from : String, kinds : $[String]) extends ExtPurpose
+case class InstallLoopPurpose(card : Card, f : Faction, remaining : Int, discount : Int, ignoreCost : Boolean, from : String, kinds : $[String]) extends StartupPurpose
 case class DiscountInstallAction(card : Card, target : Card, discount : Int, host : |[Card], server : |[Server]) extends CardAction
-case class ForfeitPurpose(card : Card) extends ExtPurpose
-case class TrashFromHQPurpose(card : Card, faceup : Boolean) extends ExtPurpose
-case class SabotagePurpose(card : Card, n : Int) extends ExtPurpose
-case class PlayPurpose(card : Card, payCost : Boolean, rfg : Boolean) extends ExtPurpose
-case class RezDiscountPurpose(card : Card, discount : Int) extends ExtPurpose
-case class DerezPurpose(card : Card) extends ExtPurpose
-case class ToDeckPurpose(card : Card, f : Faction, top : Boolean, shuffle : Boolean) extends ExtPurpose
-case class RfgPurpose(card : Card) extends ExtPurpose
-case class SubChoicePurpose(card : Card) extends ExtPurpose
-case class StashPurpose(card : Card, facedown : Boolean) extends ExtPurpose
-case class UninstallToHandPurpose(card : Card) extends ExtPurpose
-case class LookPurpose(card : Card) extends ExtPurpose
-case class RevealPurpose(card : Card) extends ExtPurpose
-case class TopOrBottomPurpose(card : Card) extends ExtPurpose
-case class ToHandTopPurpose(card : Card, f : Faction) extends ExtPurpose
-case class RunnerTrashPurpose(card : Card) extends ExtPurpose
+case class TrashFromHQPurpose(card : Card, faceup : Boolean) extends StartupPurpose
+case class PlayPurpose(card : Card, payCost : Boolean, rfg : Boolean) extends StartupPurpose
+case class RezDiscountPurpose(card : Card, discount : Int) extends StartupPurpose
+case class ToDeckPurpose(card : Card, f : Faction, top : Boolean, shuffle : Boolean) extends StartupPurpose
+case class RfgPurpose(card : Card) extends StartupPurpose
+case class SubChoicePurpose(card : Card) extends StartupPurpose
+case class StashPurpose(card : Card, facedown : Boolean) extends StartupPurpose
+case class UninstallToHandPurpose(card : Card) extends StartupPurpose
+case class LookPurpose(card : Card) extends StartupPurpose
+case class RevealPurpose(card : Card) extends StartupPurpose
+case class TopOrBottomPurpose(card : Card) extends StartupPurpose
+case class ToHandTopPurpose(card : Card, f : Faction) extends StartupPurpose
+case class RunnerTrashPurpose(card : Card) extends StartupPurpose
 case class RandomHandTrashedAction(card : Card, f : Faction, reveal : Boolean, shuffled : $[Card]) extends ShuffledAction[Card] with SelfPerform {
     def perform(soft : Void)(implicit g : Game) = {
         g.push(RandomHandTrashedDoneAction(card, f, reveal, shuffled))
@@ -244,23 +241,6 @@ case class ForfeitEffect(card : Card) extends ForcedAction with SelfPerform {
             g.push(CheckWinAction())
             g.trigger(Forfeited(card))
             g.pushAll(own)
-        }
-        NextAction
-    }
-}
-
-// the Corp trashes n cards of their choice from HQ and/or the top of R&D
-case class SabotageEffect(source : Card, n : Int) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        val h = g.hand(Corp)
-        val d = g.deck(Corp)
-        g.log("Sabotage", n.hl)
-        if (h.none)
-            g.push(MillEffect(Corp, n.atMost(d.num)))
-        else {
-            val min = (n - d.num).atLeast(0).atMost(h.num)
-            val max = n.atMost(h.num)
-            g.push(ChooseCardsEffect(Corp, h, min, max, SabotagePurpose(source, n), "Sabotage " + n + ": choose cards in HQ to trash (the rest comes from the top of R&D)"))
         }
         NextAction
     }
@@ -409,16 +389,6 @@ case class DiscountRezEffect(card : Card, discount : Int) extends ForcedAction w
     }
 }
 
-// refill hosted credits (recurring credits)
-case class RefillCreditsEffect(card : Card, n : Int) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        val m = n - g.counter(card, "credit")
-        if (m > 0)
-            g.push(AddCounterEffect(card, "credit", m))
-        NextAction
-    }
-}
-
 case class ExtraSubtypesEffect(card : Card, subtypes : $[String], add : Boolean) extends ForcedAction with SelfPerform {
     def perform(soft : Void)(implicit g : Game) = {
         val s = g.state(card)
@@ -557,12 +527,12 @@ abstract class Startup(val code : String) extends CardImpl {
     def doubleCanPlay(f : Faction)(implicit g : Game) = g.clicks(f) >= 2 || doubleFree(f)
     def doubleCost(f : Faction)(implicit g : Game) : $[ForcedAction] = $(RegisterEffect("double", 1)) ++ (!doubleFree(f)).$(LoseClicksEffect(f, 1))
 
-    final override def perform(a : CardAction)(implicit g : Game) : Continue = Ext.perform(this, a).|(performCard(a))
+    final override def perform(a : CardAction)(implicit g : Game) : Continue = StartupExt.perform(this, a).|(performCard(a))
 
     def performCard(a : CardAction)(implicit g : Game) : Continue = throw new Error("unhandled card action " + a)
 
     final override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) : Continue = p match {
-        case p : ExtPurpose => Ext.chosen(this, p, cards)
+        case p : StartupPurpose => StartupExt.chosen(this, p, cards)
         case _ => chosenCard(p, cards)
     }
 
@@ -575,7 +545,7 @@ abstract class Startup(val code : String) extends CardImpl {
 case class FlipAction(card : Card, back : String) extends CardAction
 
 
-object Ext {
+object StartupExt {
     def perform(impl : Startup, a : CardAction)(implicit g : Game) : |[Continue] = a match {
         case FlipAction(self, back) =>
             val f = g.counter(self, "flip") > 0
@@ -685,7 +655,7 @@ object Ext {
         case _ => None
     }
 
-    def chosen(impl : Startup, p : ExtPurpose, cards : $[Card])(implicit g : Game) : Continue = {
+    def chosen(impl : Startup, p : StartupPurpose, cards : $[Card])(implicit g : Game) : Continue = {
         p match {
             case InstallLoopPurpose(self, f, remaining, discount, ignoreCost, from, kinds) =>
                 cards.single.foreach { c =>
@@ -711,10 +681,6 @@ object Ext {
                 }
                 NextAction
 
-            case ForfeitPurpose(self) =>
-                cards.foreach(c => g.push(ForfeitEffect(c)))
-                NextAction
-
             case TrashFromHQPurpose(self, faceup) =>
                 cards.foreach { c =>
                     if (faceup) g.log(Corp, "trashes", c, "from HQ") else g.log(Corp, "trashes a card from HQ")
@@ -723,27 +689,12 @@ object Ext {
                 }
                 NextAction
 
-            case SabotagePurpose(self, n) =>
-                cards.foreach { c =>
-                    g.toArchives(c, false)
-                }
-                if (cards.any)
-                    g.log(Corp, "trashes", cards.num.cards, "from HQ")
-                val rest = n - cards.num
-                if (rest > 0)
-                    g.push(MillEffect(Corp, rest))
-                NextAction
-
             case PlayPurpose(self, payCost, rfg) =>
                 cards.single.foreach(c => g.push(PlayCardEffect(g.owner(c), c, payCost, rfg)))
                 NextAction
 
             case RezDiscountPurpose(self, discount) =>
                 cards.single.foreach(c => g.push(DiscountRezEffect(c, discount)))
-                NextAction
-
-            case DerezPurpose(self) =>
-                cards.foreach(c => g.push(DerezEffect(c)))
                 NextAction
 
             case ToDeckPurpose(self, f, top, shuffle) =>

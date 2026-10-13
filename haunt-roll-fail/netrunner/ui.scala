@@ -95,6 +95,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             (s.virus > 0).$((s.virus + " virus").spn(styles.badge)(styles.badgeVirus)) ++
             (s.credits > 0).$((s.credits + "c").spn(styles.badge)(styles.badgeCredit)) ++
             (s.power > 0).$((s.power + " power").spn(styles.badge)(styles.badgePower)) ++
+            (s.counter("agenda") > 0).$((s.counter("agenda") + " agenda").spn(styles.badge)(styles.badgePower)) ++
             (visible && c.data.isIce && g.isRezzed(c) && g.iceStrength(c) != c.data.strength.|(0)).$(("str " + g.iceStrength(c)).spn(styles.badge)(styles.badgeStr)) ++
             (visible && c.data.isIcebreaker && g.breakerStrength(c) != c.data.strength.|(0)).$(("str " + g.breakerStrength(c)).spn(styles.badge)(styles.badgeStr))
         l.any.?(Div(l.merge, styles.badges)).|(Empty)

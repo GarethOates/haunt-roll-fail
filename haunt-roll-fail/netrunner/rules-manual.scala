@@ -130,8 +130,8 @@ trait ManualRules { game : Game =>
             current
 
         case ManualTrashAction(f, c) =>
-            trashCard(c, f, false)
             push(current)
+            trashCard(c, f, false)
             NextAction
 
         case ManualRezAction(f, c, r) =>
