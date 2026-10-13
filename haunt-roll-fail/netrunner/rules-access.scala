@@ -88,11 +88,13 @@ trait AccessRules { game : Game =>
                         case Archives =>
                             // all cards in Archives are turned faceup and accessed (the order is irrelevant: present them as a set)
                             val facedown = discard(Corp).%(c => !state(c).seen)
+                            val flipped = facedown.num
                             discard(Corp).foreach(c => state(c).seen = true)
                             if (facedown.any)
                                 log(facedown.num.cards, "in Archives turned faceup:", facedown.sortBy(_.title)./(cardElem).comma)
                             r.toAccess = discard(Corp).sortBy(_.title) ++ upgrades
                             push(AccessNextAction())
+                            if (flipped > 0) trigger(ArchivesFlipped(flipped))
                             NextAction
                         case _ =>
                             r.toAccess = upgrades
@@ -113,6 +115,7 @@ trait AccessRules { game : Game =>
             run match {
                 case Some(r) if !r.ended =>
                     r.toAccess = r.toAccess.%(c => location.contains(c) && !zone(c).is[ScoredZone] && zone(c) != DiscardZone(Runner) && zone(c) != RemovedZone(Corp))
+                    r.toAccess = allActive.foldLeft(r.toAccess)((l, c) => impl(c).accessFilter(c, l))
                     // cards from R&D must be accessed in order (top first); root cards can be accessed before, between or after them
                     val rd = r.toAccess.%(c => zone(c) == DeckZone(Corp))
                     val others = r.toAccess.%(c => zone(c) != DeckZone(Corp))
@@ -167,8 +170,8 @@ trait AccessRules { game : Game =>
                     val inArchives = zone(c).is[DiscardZone]
                     val accessAbilities = activeCards(Runner)./~(s => impl(s).accessAbility(s, c)./(a => AccessAbilityAction(Runner, s, c).!(!a.ok, a.reason).!(!canPay(Runner, a.costs, |(s)), "cannot pay")))
                     if (c.data.isAgenda) {
-                        val canSteal = !r.cannotStealOrTrash
-                        val extra = impl(c).accessCostPaidByRunner(c)
+                        val canSteal = !r.cannotStealOrTrash && !accessProtected(c)
+                        val extra = stealCostOf(c)
                         if (canSteal && extra.none && accessAbilities.none) {
                             push(AccessDoneAction(c))
                             stealAgenda(c)
@@ -182,7 +185,7 @@ trait AccessRules { game : Game =>
                     }
                     else {
                         val tc = trashCost(c)
-                        val canTrash = !inArchives && tc.any && !r.cannotStealOrTrash && impl(c).canBeTrashedOnAccess(c)
+                        val canTrash = !inArchives && tc.any && !r.cannotStealOrTrash && impl(c).canBeTrashedOnAccess(c) && !accessProtected(c)
                         if (inArchives && accessAbilities.none) {
                             push(AccessDoneAction(c))
                             NextAction
@@ -199,7 +202,7 @@ trait AccessRules { game : Game =>
             }
 
         case StealAction(f, c) =>
-            val extra = impl(c).accessCostPaidByRunner(c)
+            val extra = stealCostOf(c)
             payCosts(Runner, extra, None)
             push(AccessDoneAction(c))
             stealAgenda(c)

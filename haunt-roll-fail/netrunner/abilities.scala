@@ -43,6 +43,18 @@ trait CardImpl {
     def mustBeHosted(self : Card)(implicit g : Game) : Boolean = false
     def canBeTrashedOnAccess(self : Card)(implicit g : Game) : Boolean = true
     def accessCostPaidByRunner(self : Card)(implicit g : Game) : $[Cost] = $
+    // ---- hooks added for the Startup sets (rules-ext-startup.scala) ---------------------------------------------------
+    def corpAbilities(self : Card)(implicit g : Game) : $[Ability] = $                                  // abilities on a Runner card the Corp can use
+    def inactiveAbilities(self : Card)(implicit g : Game) : $[Ability] = $                              // abilities usable from HQ/Archives/grip/heap (Expend, flashback)
+    def canHost(self : Card, card : Card)(implicit g : Game) : Boolean = false                          // card may be installed hosted on self
+    def canBreakWith(self : Card, breaker : Card)(implicit g : Game) : Boolean = true                   // ice: breaker may break its subroutines
+    def endRunPrevention(self : Card)(implicit g : Game) : |[ForcedAction] = None                      // effect resolved instead of ending the run
+    def blocksSuccessfulRun(self : Card, server : Server)(implicit g : Game) : Boolean = false          // runs on server cannot be declared successful
+    def accessFilter(self : Card, cards : $[Card])(implicit g : Game) : $[Card] = cards                 // restrict the cards still to be accessed
+    def extraStealCost(self : Card, agenda : Card)(implicit g : Game) : $[Cost] = $                     // additional steal cost imposed on other agendas
+    def protectsFromAccess(self : Card, target : Card)(implicit g : Game) : Boolean = false             // target cannot be stolen or trashed on access
+    def pumpDuration(self : Card, breaker : Card, d : Duration)(implicit g : Game) : Duration = d       // modify the duration of a strength pump
+    def untrashableByRunner(self : Card)(implicit g : Game) : Boolean = false                           // the Runner cannot trash this card
 
     // ---- triggered abilities: effects to queue when an event happens ------------------------------------------------
     def triggers(self : Card, e : Event)(implicit g : Game) : $[ForcedAction] = $
@@ -83,7 +95,7 @@ object GenericImpl extends CardImpl {
 }
 
 object CardImpls {
-    lazy val all : Map[String, CardImpl] = (SGCards.all)./(i => i.code -> i).toMap
+    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all)./(i => i.code -> i).toMap
 
     def apply(code : String) : CardImpl = all.get(code).|(GenericImpl)
 

@@ -317,7 +317,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 // ---------------------------------------------------------------------------------------------------------------------
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
-    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules {
+    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules with StartupState {
 
     implicit def implicitGame : Game = this
 
@@ -575,14 +575,14 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def strength(c : Card) : Int = c.data.isIce.?(iceStrength(c)).|(breakerStrength(c))
 
-    def rezCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).rezCostMod(x, c)).sum).atLeast(0)
+    def rezCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).rezCostMod(x, c)).sum + (!allActive.has(c)).??(impl(c).rezCostMod(c, c))).atLeast(0)
 
     def installCost(c : Card, server : |[Server]) : Int = {
         val base = owner(c).isCorp.?(c.data.isIce.?(server./(ice(_).num).|(0)).|(0)).|(c.data.cost.|(0))
-        (base + allActive./(x => impl(x).installCostMod(x, c)).sum).atLeast(0)
+        (base + allActive./(x => impl(x).installCostMod(x, c)).sum + (!allActive.has(c)).??(impl(c).installCostMod(c, c))).atLeast(0)
     }
 
-    def playCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).playCostMod(x, c)).sum).atLeast(0)
+    def playCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).playCostMod(x, c)).sum + (!allActive.has(c)).??(impl(c).playCostMod(c, c))).atLeast(0)
 
     def trashCost(c : Card) : |[Int] = c.data.trashCost./(t => (t + allActive./(x => impl(x).trashCostMod(x, c)).sum).atLeast(0))
 

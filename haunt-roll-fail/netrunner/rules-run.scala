@@ -120,7 +120,7 @@ trait RunRules { game : Game =>
                     val breakers = installedCards(Runner).%(b => isActive(b) && (impl(b).breaks(b).any || impl(b).pumps(b).any))
                     val breakOptions = breakers.distinct./~ { b =>
                         impl(b).breaks(b).indexed./~ { (br, bi) =>
-                            val typeOk = br.subtypes.none || br.subtypes.exists(t => has(c, t))
+                            val typeOk = (br.subtypes.none || br.subtypes.exists(t => has(c, t))) && impl(c).canBreakWith(c, b)
                             val strOk = !isIcebreaker(b) || breakerStrength(b) >= str
                             val payOk = canPay(Runner, br.costs, |(b))
                             if (!typeOk || unbroken.none)
@@ -181,7 +181,7 @@ trait RunRules { game : Game =>
             windowPassed = $
             payCosts(f, p.costs, |(b))
             val s = state(b)
-            p.duration match {
+            pumpDurationFor(b, p.duration) match {
                 case EncounterDuration => s.strengthEncounter += p.strength
                 case RunDuration => s.strengthRun += p.strength
                 case TurnDuration => s.strengthTurn += p.strength
@@ -264,6 +264,10 @@ trait RunRules { game : Game =>
 
         case SuccessfulRunAction() =>
             run match {
+                case Some(r) if !r.ended && allActive.exists(c => impl(c).blocksSuccessfulRun(c, r.server)) =>
+                    log("The run on", r.server, "cannot be declared successful")
+                    push(RunEndsAction())
+                    NextAction
                 case Some(r) if !r.ended =>
                     r.phase = SuccessPhase
                     r.successful = true
@@ -311,6 +315,7 @@ trait RunRules { game : Game =>
 
         case BypassEffect() =>
             run.foreach(_.bypass = true)
+            run./~(_.ice).foreach(i => trigger(IceBypassed(i)))
             NextAction
 
         case BioroidBreakEffect(c) =>

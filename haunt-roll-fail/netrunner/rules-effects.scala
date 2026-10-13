@@ -108,6 +108,7 @@ trait EffectRules { game : Game =>
                 credits += f -> (credits(f) + n)
                 reopenWindows()
                 log(f, "gains", n.credits)
+                trigger(CreditsGained(f, n, at(PlayZone(f)).starting.||(scoringAgenda)))
             }
             NextAction
 
@@ -222,15 +223,20 @@ trait EffectRules { game : Game =>
             val m = n.atMost(tags)
             tags -= m
             log(Runner, "removes", m.tags)
+            if (m > 0) trigger(TagsRemoved(m))
             NextAction
 
         case BadPubEffect(n) =>
             badPublicity = (badPublicity + n).atLeast(0)
             log(Corp, (n > 0).?("takes").|("removes"), n.abs.hl, "bad publicity")
+            if (n > 0) trigger(BadPubGained(n))
             NextAction
 
         case EndRunEffect =>
             run.foreach { r =>
+                if (!r.ended && !r.jackedOut && allActive.exists(c => impl(c).endRunPrevention(c).any))
+                    allActive./~(c => impl(c).endRunPrevention(c)).starting.foreach(a => push(a))
+                else
                 if (!r.ended) {
                     r.ended = true
                     r.unsuccessful = !r.successful
@@ -302,6 +308,7 @@ trait EffectRules { game : Game =>
             NextAction
 
         case CheckWinAction() =>
+            scoringAgenda = None
             checkWin()
 
         case ChooseCardEffect(f, l, p, prompt, optional) =>
@@ -581,6 +588,7 @@ trait EffectRules { game : Game =>
         val hostedTrashed = wasInstalled.??(leavePlay(c))
         val from = zone(c)
         val wasRezzed = isRezzed(c)
+        lastTrashedFrom = from
         if (owner(c).isCorp)
             toArchives(c, true)
         else
@@ -729,6 +737,7 @@ trait EffectRules { game : Game =>
                     left -= m
                     log(Runner, "spends", m.credits, "from", c)
                     trigger(CounterAdded(c, "credit"))
+                    trigger(CreditsSpentFromCard(c, m))
                 }
             }
         }
