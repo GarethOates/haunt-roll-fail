@@ -317,7 +317,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 // ---------------------------------------------------------------------------------------------------------------------
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
-    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules {
+    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules with ExtRules {
 
     implicit def implicitGame : Game = this
 
@@ -377,7 +377,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     // -----------------------------------------------------------------------------------------------------------------
 
     def data(c : Card) = c.data
-    def impl(c : Card) : CardImpl = CardImpls(c.code)
+    def impl(c : Card) : CardImpl = extImpl(c)
 
     def state(c : Card) : CardState = cs.get(c).|{ val s = new CardState ; cs += c -> s ; s }
 
@@ -558,7 +558,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def handSize(f : Faction) : Int = 5 + allActive./(c => impl(c).handSize(c, f)).sum - f.isRunner.??(coreDamage)
 
-    def advancementRequirement(c : Card) : Int = (c.data.advancementCost.|(0) + allActive./(x => impl(x).advancementRequirementMod(x, c)).sum).atLeast(0)
+    def advancementRequirement(c : Card) : Int = (c.data.advancementCost.|(0) + (allActive :+ c).distinct./(x => impl(x).advancementRequirementMod(x, c)).sum).atLeast(0)
 
     def iceStrength(c : Card) : Int = {
         val s = state(c)
@@ -646,9 +646,10 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     // trigger an event: collect triggered abilities and push them to the queue (active player first)
     def trigger(e : Event) {
+        val ext = extTriggers(e)
         val order = $(active, active.opponent)
         val effects = order./~(f => activeCards(f)./~(c => impl(c).triggers(c, e)))
-        pushAll(effects)
+        pushAll(effects ++ ext)
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -692,7 +693,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities
+        val pf = performExt orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities
 
         a match {
             case NextAction => nextStep
