@@ -131,7 +131,7 @@ object MSCards {
 
     object Sable extends Ext("33011") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect())
+            case TurnBegins(Runner) => $(IdentifyMarkEffect)
             case SuccessfulRun(s) if g.isMark(s) && !g.usedThisTurn(self, "sable") => $(MarkUsedEffect(self, "sable"), MessageEffect(Runner, "uses Sable"), GainClicksEffect(Runner, 1))
             case _ => $
         }
@@ -139,7 +139,7 @@ object MSCards {
 
     object CarpeDiem extends Ext("33012") {
         override def makesRun(self : Card)(implicit g : Game) = true
-        override def onPlay(self : Card)(implicit g : Game) = $(IdentifyMarkEffect(), gain(Runner, 4), CarpeDiemAction(self))
+        override def onPlay(self : Card)(implicit g : Game) = $(IdentifyMarkEffect, gain(Runner, 4), CarpeDiemAction(self))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case CarpeDiemAction(self) =>
                 g.mark.foreach(m => g.push(OptionalEffect(Runner, "Carpe Diem: run " + m.name + " (your mark)?", $(RunEffect(m, |(self))), $)))
@@ -180,7 +180,7 @@ object MSCards {
     object Virtuoso extends Ext("33015") {
         override def memory(self : Card)(implicit g : Game) = 1
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect())
+            case TurnBegins(Runner) => $(IdentifyMarkEffect)
             case SuccessfulRun(s) if g.isMark(s) && !g.usedThisTurn(self, "virtuoso") =>
                 $(MarkUsedEffect(self, "virtuoso")) ++ ((s == HQ).?($(AccessBonusEffect(HQ, 1))).|($(MessageEffect(Runner, "will breach HQ when the run ends (Virtuoso)"), SetChoiceEffect(self, "breach-hq"))))
             case RunEnds(_, _, _) if g.state(self).choice == "breach-hq" => $(SetChoiceEffect(self, ""), BreachServerEffect(HQ))
@@ -213,9 +213,9 @@ object MSCards {
 
     object Backstitching extends Ext("33019") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect())
+            case TurnBegins(Runner) => $(IdentifyMarkEffect)
             case EncounterIce(ice) if g.run.exists(r => g.isMark(r.server)) =>
-                $(OptionalEffect(Runner, "Backstitching: trash it to bypass " + g.asciiTitle(ice) + "?", $(TrashEffect(self, Runner, false), BypassEffect()), $))
+                $(OptionalEffect(Runner, "Backstitching: trash it to bypass " + g.asciiTitle(ice) + "?", $(TrashEffect(self, Runner, false), BypassEffect), $))
             case _ => $
         }
     }
@@ -369,7 +369,7 @@ object MSCards {
     object ElivagarBifurcation extends Ext("33031") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = g.installedCards(Corp).%(g.isRezzed)
-            l.any.$(ChooseCardEffect(Corp, l, DerezPurpose(), "Elivagar Bifurcation: derez an installed card?", true))
+            l.any.$(ChooseCardEffect(Corp, l, DerezPurpose, "Elivagar Bifurcation: derez an installed card?", true))
         }
     }
 
@@ -390,7 +390,7 @@ object MSCards {
             l.any.$(ChooseCardEffect(Corp, l, TriestePurpose(self), "Trieste Model Bioroids: choose a rezzed bioroid ice", false))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.foreach(c => g.push(SetTargetEffect(p.card, c)))
+            cards.foreach(c => g.push(SetTargetEffect(p.card, |(c))))
             NextAction
         }
         override def preventsBreak(self : Card, ice : Card, breaker : Card)(implicit g : Game) = g.isRezzed(self) && g.state(self).target.has(ice) && !breaker.data.isIdentity
@@ -452,7 +452,7 @@ object MSCards {
             (g.reg("to-archives") == 0 && l.any).$(ChooseCardEffect(Corp, l, RegenesisPurpose(self), "Regenesis: reveal a facedown agenda in Archives and add it to the score area?", true))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.foreach(c => g.push(RevealEffect(Corp, c), AddToScoreAreaEffect(c)))
+            cards.foreach(c => g.push(RevealEffect(Corp, c), AddToScoreAreaEffect(c, Corp)))
             NextAction
         }
     }
@@ -586,7 +586,7 @@ object MSCards {
 
     object BackroomMachinations extends Ext("33055") {
         override def canPlay(self : Card)(implicit g : Game) = g.tagged
-        override def onPlay(self : Card)(implicit g : Game) = $(RemoveTagsEffect(1), AddToScoreAreaEffect(self))
+        override def onPlay(self : Card)(implicit g : Game) = $(RemoveTagsEffect(1), AddToScoreAreaEffect(self, Corp))
         override def agendaPointsBonus(self : Card)(implicit g : Game) = (g.zone(self) == ScoredZone(Corp)).?(1).|(0)
     }
 
@@ -609,7 +609,7 @@ object MSCards {
             case ObAction(self, cost) =>
                 val l = g.deck(Corp).%(c => (c.data.isAsset || c.data.isUpgrade || c.data.isIce) && c.data.cost.has(cost)).sortBy(_.title)
                 if (l.any)
-                    g.push(ChooseCardEffect(Corp, l, InstallRezPurpose(), "Ob Superheavy Logistics: choose a card to install and rez, ignoring credit costs", true))
+                    g.push(ChooseCardEffect(Corp, l, InstallRezPurpose, "Ob Superheavy Logistics: choose a card to install and rez, ignoring credit costs", true))
                 g.push(ShuffleDeckEffect(Corp))
                 NextAction
         }
@@ -685,7 +685,7 @@ object MSCards {
         override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 3
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.installedCards(Corp).%(c => g.isRezzed(c) && !c.data.isAgenda)
-            $(LoseClicksEffect(Corp, 2)) ++ l.any.$(ChooseCardsEffect(Corp, l, 0, l.num, TrashAndTagPurpose(), "Mutually Assured Destruction: choose any number of rezzed cards to trash (1 tag each)"))
+            $(LoseClicksEffect(Corp, 2)) ++ l.any.$(ChooseCardsEffect(Corp, l, 0, l.num, TrashAndTagPurpose, "Mutually Assured Destruction: choose any number of rezzed cards to trash (1 tag each)"))
         }
     }
 
@@ -695,7 +695,7 @@ object MSCards {
             val res = g.installedCards(Runner).%(_.data.isResource)
             val arch = g.discard(Corp).%(c => !c.data.isOperation && !c.data.isAgenda)
             res.any.$(ChooseCardEffect(Corp, res, TrashPurpose(Corp), "Trust Operation: choose a resource to trash", false)) ++
-            arch.any.$(ChooseCardEffect(Corp, arch, InstallRezPurpose(), "Trust Operation: install and rez a card from Archives, ignoring all costs?", true))
+            arch.any.$(ChooseCardEffect(Corp, arch, InstallRezPurpose, "Trust Operation: install and rez a card from Archives, ignoring all costs?", true))
         }
     }
 

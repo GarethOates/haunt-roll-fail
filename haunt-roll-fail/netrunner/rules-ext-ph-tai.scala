@@ -37,15 +37,13 @@ case class InstallDiscountPurpose(discount : Int) extends PHPurpose
 
 // effects
 // SabotageEffect(n) and ChargeEffect(f) are defined in rules-ext-su21.scala
-case class IdentifyMarkEffect() extends ForcedAction
+case object IdentifyMarkEffect extends ForcedAction
 case class MarkShuffledAction(shuffled : $[Server]) extends ShuffledAction[Server]
 case class AddFlagEffect(flag : Flag) extends ForcedAction
 case class RemoveFlagEffect(key : String, card : |[Card]) extends ForcedAction
 case class BypassIceEffect(ice : Card) extends ForcedAction
 case class RedirectBreachEffect(from : Server, to : Server) extends ForcedAction
-case class LookAtEffect(f : Faction, cards : $[Card], prompt : String) extends ForcedAction with Reaskable
-case class LookInfo(cards : $[Card], prompt : String) extends BaseInfo(prompt)(g => cards./(g.cardElem).comma.merge)
-case class LookDoneAction(self : Faction) extends BaseAction()("OK")
+// LookAtEffect(f, cards, prompt): rules-ext-rwr-df-ur.scala
 case class RunnerInstallDiscountEffect(card : Card, discount : Int) extends ForcedAction
 case class ChooseServerDiscountEffect(card : Card, discount : Int, rez : Boolean, servers : $[Server], allowNew : Boolean) extends ForcedAction with Reaskable
 case class ServerDiscountChosenAction(self : Faction, card : Card, server : |[Server], discount : Int, rez : Boolean) extends BaseAction("Install")(g => g.cardElem(card) ~ " in " ~ server./(_.elem).|("a new remote server".hl))
@@ -118,6 +116,36 @@ class DelegatingImpl(val raw : CardImpl) extends CardImpl {
     override def remoteLimit(self : Card)(implicit g : Game) = raw.remoteLimit(self)
     override def disablesHost(self : Card)(implicit g : Game) = raw.disablesHost(self)
     override def onActionTaken(self : Card, key : String, n : Int)(implicit g : Game) = raw.onActionTaken(self, key, n)
+    // hooks of the other extension sets
+    override def corpAbilities(self : Card)(implicit g : Game) = raw.corpAbilities(self)
+    override def inactiveAbilities(self : Card)(implicit g : Game) = raw.inactiveAbilities(self)
+    override def canHost(self : Card, card : Card)(implicit g : Game) = raw.canHost(self, card)
+    override def canBreakWith(self : Card, breaker : Card)(implicit g : Game) = raw.canBreakWith(self, breaker)
+    override def endRunPrevention(self : Card)(implicit g : Game) = raw.endRunPrevention(self)
+    override def blocksSuccessfulRun(self : Card, server : Server)(implicit g : Game) = raw.blocksSuccessfulRun(self, server)
+    override def accessFilter(self : Card, cards : $[Card])(implicit g : Game) = raw.accessFilter(self, cards)
+    override def extraStealCost(self : Card, agenda : Card)(implicit g : Game) = raw.extraStealCost(self, agenda)
+    override def protectsFromAccess(self : Card, target : Card)(implicit g : Game) = raw.protectsFromAccess(self, target)
+    override def pumpDuration(self : Card, breaker : Card, d : Duration)(implicit g : Game) = raw.pumpDuration(self, breaker, d)
+    override def untrashableByRunner(self : Card)(implicit g : Game) = raw.untrashableByRunner(self)
+    override def staysInPlay(self : Card)(implicit g : Game) = raw.staysInPlay(self)
+    override def activeInHand(self : Card)(implicit g : Game) = raw.activeInHand(self)
+    override def activeInHeap(self : Card)(implicit g : Game) = raw.activeInHeap(self)
+    override def canScore(self : Card)(implicit g : Game) = raw.canScore(self)
+    override def canRezIn(self : Card, ctx : String)(implicit g : Game) = raw.canRezIn(self, ctx)
+    override def runCost(self : Card, server : Server)(implicit g : Game) = raw.runCost(self, server)
+    override def stealCostMod(self : Card, agenda : Card)(implicit g : Game) = raw.stealCostMod(self, agenda)
+    override def extraSubroutines(self : Card, ice : Card)(implicit g : Game) = raw.extraSubroutines(self, ice)
+    override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) = raw.breakAllowed(self, breaker, ice)
+    override def beforeDraw(self : Card, f : Faction, n : Int)(implicit g : Game) = raw.beforeDraw(self, f, n)
+    override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = raw.creditsUsableFor(self, purpose)
+    override def preventsScoring(self : Card, agenda : Card)(implicit g : Game) = raw.preventsScoring(self, agenda)
+    override def preventsBreak(self : Card, ice : Card, breaker : Card)(implicit g : Game) = raw.preventsBreak(self, ice, breaker)
+    override def cannotLowerStrength(self : Card)(implicit g : Game) = raw.cannotLowerStrength(self)
+    override def preventsSuccessfulRun(self : Card, server : Server)(implicit g : Game) = raw.preventsSuccessfulRun(self, server)
+    override def disablesHosted(self : Card)(implicit g : Game) = raw.disablesHosted(self)
+    override def drawBonus(self : Card, f : Faction)(implicit g : Game) = raw.drawBonus(self, f)
+    override def onSetup(self : Card)(implicit g : Game) = raw.onSetup(self)
 }
 
 // a card that lost all its abilities (Klevetnik) or all but its printed subroutines (Hush)
@@ -348,7 +376,7 @@ trait PHTAIRules { game : Game =>
         case RunAnyServerEffect(source, l) => performEffects(RunAnyServerEffect(source, l.%(canRunServer)))
         case a : EncounterAction => extAsk(performRun(a), false)
         case a : BioroidBreakEffect => extAsk(performRun(a), false)
-        case a : AccessNextAction =>
+        case a @ AccessNextAction =>
             restrictAccess()
             performAccess(a)
         case a : CorpInstallEffect =>
@@ -423,6 +451,25 @@ trait PHTAIRules { game : Game =>
             }
             NextAction
 
+        case IdentifyMarkEffect =>
+            if (mark.any)
+                NextAction
+            else
+                Shuffle[Server](Server.centrals, MarkShuffledAction(_), "Mark")
+
+        case MarkShuffledAction(l) =>
+            val s = l.head
+            mark = |(s)
+            log(Runner, "identifies", s, "as the mark")
+            trigger(MarkIdentified(s))
+            NextAction
+
+        case SetMarkEffect(s) =>
+            mark = |(s)
+            log(Runner, "marks", s)
+            trigger(MarkIdentified(s))
+            NextAction
+
         case AddFlagEffect(f) =>
             addFlag(f)
             NextAction
@@ -445,15 +492,6 @@ trait PHTAIRules { game : Game =>
                 }
                 log(Runner, "will breach", to, "instead of", from)
             }
-            NextAction
-
-        case LookAtEffect(f, l, prompt) =>
-            if (l.none)
-                NextAction
-            else
-                Ask(f).add(LookInfo(l, prompt)).add(LookDoneAction(f))
-
-        case LookDoneAction(f) =>
             NextAction
 
         case RunnerInstallDiscountEffect(c, d) =>

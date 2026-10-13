@@ -56,6 +56,18 @@ trait CardImpl {
     def pumpDuration(self : Card, breaker : Card, d : Duration)(implicit g : Game) : Duration = d       // modify the duration of a strength pump
     def untrashableByRunner(self : Card)(implicit g : Game) : Boolean = false                           // the Runner cannot trash this card
 
+    // ---- hooks added for rwr / df / ur (see rules-ext-rwr-df-ur.scala) ----------------------------------------------
+    def staysInPlay(self : Card)(implicit g : Game) : Boolean = false                         // operation/event stays in the play area after resolving (lockdowns, "for the remainder of the turn")
+    def activeInHand(self : Card)(implicit g : Game) : Boolean = false                        // abilities usable while in hand (expendable cards)
+    def activeInHeap(self : Card)(implicit g : Game) : Boolean = false                        // triggers while in the heap (Jeitinho)
+    def canScore(self : Card)(implicit g : Game) : Boolean = true                             // agenda may be scored now
+    def canRezIn(self : Card, ctx : String)(implicit g : Game) : |[Boolean] = None            // override the generic rez window rule (None = default: non-ice anytime, ice when approached)
+    def runCost(self : Card, server : Server)(implicit g : Game) : $[Cost] = $                // additional costs to run a server
+    def stealCostMod(self : Card, agenda : Card)(implicit g : Game) : $[Cost] = $             // additional costs to steal an agenda (global)
+    def extraSubroutines(self : Card, ice : Card)(implicit g : Game) : $[Sub] = $             // subroutines granted to other ice
+    def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) : Boolean = true   // may breaker break (another) subroutine on ice now
+    def beforeDraw(self : Card, f : Faction, n : Int)(implicit g : Game) : $[ForcedAction] = $     // effects resolved before f draws n cards
+
     // ---- triggered abilities: effects to queue when an event happens ------------------------------------------------
     def triggers(self : Card, e : Event)(implicit g : Game) : $[ForcedAction] = $
 
@@ -113,7 +125,7 @@ object GenericImpl extends CardImpl {
 }
 
 object CardImpls {
-    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all ++ SU21Cards.all ++ MSCards.all ++ PHCards.all ++ TAICards.all)./(i => i.code -> i).toMap
+    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all ++ SU21Cards.all ++ MSCards.all ++ PHCards.all ++ TAICards.all ++ RWRCards.all ++ DFCards.all ++ URCards.all)./(i => i.code -> i).toMap
 
     def apply(code : String) : CardImpl = all.get(code).|(GenericImpl)
 

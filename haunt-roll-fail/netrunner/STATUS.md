@@ -48,6 +48,49 @@
 * Bots: `Random` (uniform over non-manual choices) and `Basic` (weighted heuristics: scores, steals, breaks, economy).
 * JVM harness `host.scala` (excluded from the JS build): bot-vs-bot games with log dumps.
 
+## Card sets
+
+All cards of eleven sets have an implementation object (695 cards). Per-set details, simplifications and the list of
+generic mechanics each set introduced are in the set status files; the engine side of the merge is described in
+`ENGINE.md` section 8.
+
+| Set | Cards | Implemented | Simplified / approximated | Files | Details |
+|---|---|---|---|---|---|
+| System Gateway (sg) | 77 | 77 | AMAZE Amusements, Bran 1.0, Tao's swap | `cards-sg.scala` | this file |
+| Elevation (elev) | 82 | 82 | 11 (Bling, Detente, Open Market, Azimat, Public Access Plaza, IP Enforcement, The Zwicky Group, Plutus, Biawak, Petty Cash, Mahkota Langit Grid) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Vantage Point (vp) | 66 | 66 | 14 (Corsair, Lampades, Hackerspace, Stick and Poke, Baker, Aircheck, Word on the Street, Perfect Recall, Melies U, The Red Room, Hype Machine, Myoshu, Reanimation Protocol, Flagship) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| System Update 2021 (su21) | 82 | 82 | 12 (Egret, En Passant, Daily Business Show, Architects of Tomorrow, Sneakdoor Beta, Ayla, Atman, Oaktown Renovation, Corporate Town / Archer, Marilyn Campaign, Reina Roja) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| Midnight Sun (ms) | 65 | 65 | 12 (Deep Dive, Into the Depths, Steelskin Scarring, Ob Superheavy Logistics, Azef Protocol, Light the Fire!, Mitosis, Anemone, Hakarl 1.0, Trieste, Mystic Maemi, ...) | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| Uprising Booster Pack (urbp) | 7 | 7 | 3 (La Costa Grid, Cayambe Grid, Megaprix Qualifier) | `cards-ms.scala` | `STATUS-su21-ms.md` |
+| Parhelion (ph) | 63 | 63 | ~22 (Matryoshka, Asmund Pudlat, Nanuq, Hostile Architecture, Anvil, Klevetnik, Issuaq Adaptics, Superdeep Borehole, Bloop, ...) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| The Automata Initiative (tai) | 65 | 65 | ~22 (Urban Art Vernissage, Bahia Bands, Daniela Jorge Inacio, Tucana, Banner, Wage Workers, Front Company, A Teia, AirbladeX, Starlit Knight, ...) | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| Rebellion Without Rehearsal (rwr) | 65 | 65 | 7 (Sebastiao Souza Pessoa, Boi-tata, Manuel Lattes de Moura, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation) | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Downfall (df) | 65 | 65 | 6 (Climactic Showdown, Trickster Taka, In the Groove, Direct Access, Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Uprising (ur) | 58 | 58 | 6 (Paladin Poemu, Mantle, Vaporframe Fabricator, GameNET, Earth Station, stealth restrictions); 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+
+Preset decks (`Decks.presets`, 48): 7 System Gateway starters, 15 su21/ms decks (decks.scala), 8 Startup decks
+(`StartupDecks`, cards-vp.scala), 8 ph/tai decks (`decks-ph-tai.scala`), 10 rwr/df/ur decks (`decks-rwr-df-ur.scala`); all
+validate.
+
+### Merge of the four set branches (unification)
+
+The sets were ported in parallel on top of the first engine commit and merged into the engine update one at a time.
+Mechanics implemented more than once were reduced to a single definition (see ENGINE.md section 8 for the surviving
+names and files); the branch-specific traits were renamed `StartupRules`, `SU21Rules`, `PHTAIRules`, `RWRRules` and
+their `performExt` / `extTriggers` / purpose resolvers chained. Engine-level changes made by several branches
+(self cost modifiers for inactive cards, the "re-ask before score / rez / trash / install hooks" ordering, `TagsRemoved`
+on tag removal, `IceBypassed` on bypass, `lastScoredAdvancement`) exist once; the ph/tai interception of
+`ScoreAction` / `RezAction` / `TrashResourceAction` / `RunnerInstallAction` was dropped in favour of the engine's version
+(which also handles the paid ability windows). Parameterless purposes and actions that can be embedded in user actions
+were turned into `case object`s so that the journal round trip works (the branches' harnesses had not checked this for
+them). The `isActive` check of a hosted card reads the host's `disablesHosted` from the raw implementation (the
+`extImpl` wrapper made it recursive).
+
+Known gaps carried over from the branches: cards hosted without being installed (`StashZone`: Bling, Madani, Detente,
+Read-Write Share, Asmund Pudlat, Matryoshka) and cards hosted on identities (Ayla) are not rendered by the UI; bad
+publicity credits are a permanent gain instead of run-only credits; "remote server only" / "limit 1 region per server"
+install restrictions are not enforced; stealth-credit restrictions are relaxed (hosted credits are usable during runs).
+
 ## Simplifications / known gaps
 
 * Paid ability windows follow the NSG structure (see ENGINE.md): start of turn (before and after "when your turn
@@ -108,6 +151,25 @@
 * Browser bot-vs-bot local games on the final build (`?speed=20`, Basic vs Basic and Basic vs Random) played to
   completion (flatline on turn 7; 8 stolen points) with the new windows and no console exceptions.
 * Earlier (previous iteration): JVM harness with hundreds of bot-vs-bot games (see host.scala).
+
+### Tested after the merge of the four set branches
+
+* `sbt -batch compile` and `sbt -batch fastOptJS` (the linker needs `sbt -J-Xmx8g` now) pass.
+* JVM harness (scratchpad `mergehost`, `MergeHost`: preset decks of all sets chosen uniformly at random, every offered and
+  chosen action round-tripped through `Serialize`): 300 games over all 48 presets + 100 games each restricted to the
+  Startup, ph/tai, rwr/df/ur and su21/ms presets + 60 mixed games: 760 games, 0 exceptions, 0 empty asks, 0 serialization
+  mismatches, no over-long games; 668 of the 695 cards appear in the logs of the mixed run (the rest are identities not
+  used by any preset and a few rarely played cards); the per-set runs mention 81/82 su21, 64/65 ms, 7/7 urbp, 61/63 ph,
+  64/65 tai, 75/82 elev, 63/66 vp and all rwr/df/ur cards.
+* The 40 scripted checks of the Startup sets (`ScriptTest`, scratchpad `mergehost/src`) pass against the merged engine
+  (the test's game builder now sets `current = ActionPhaseAction(Corp)` because scoring re-asks the current prompt).
+* Browser (headless Chrome through the DevTools protocol, good-game server on port 7070, final build): a bot-vs-bot game
+  (`?speed=20`) with Weyland Ob (ms) against Shaper Ayla (su21/ms) played to the Corp's 7-point win on turn 12; a local game
+  as the human Runner with the Elevation Anarch (Ryo) preset against the Jinteki PE (su21/ms) bot: deck gallery, mulligan,
+  click for credit, install Lampades from the hand (power counters shown), run on the remote, steal Nisei MK II with the
+  Personal Evolution net damage, draw, end of turn with the discard window, the Corp bot's next turn with the Runner's
+  non-blocking "No action" window. No plugin exceptions in the console (only the shell's `NetworkError` font-loading
+  entries and 404s for card images that are not in the local asset cache).
 
 ## Known bugs
 

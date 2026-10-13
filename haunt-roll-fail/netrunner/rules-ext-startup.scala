@@ -26,7 +26,6 @@ case class ArchivesFlipped(n : Int) extends Event
 case class BadPubGained(n : Int) extends Event
 case class TagsRemoved(n : Int) extends Event
 case class CreditsGained(f : Faction, n : Int, source : |[Card]) extends Event
-case class CreditsSpentFromCard(card : Card, n : Int) extends Event
 case class IceBypassed(ice : Card) extends Event
 case class Forfeited(card : Card) extends Event
 case class RunRedirected(server : Server) extends Event
@@ -38,7 +37,6 @@ case class StashZone(host : Card) extends Zone
 
 // ---- additional game state ------------------------------------------------------------------------------------------
 trait StartupRules { game : Game =>
-    var bonusClicks : Map[Faction, Int] = Map()          // allotted clicks modifier for the next turn
     var lastScoredAdvancement = 0                        // advancement counters on the last scored agenda
     var lastScoredInstalledTurn = -1                     // turn the last scored agenda was installed
     var lastStolenFrom : |[Server] = None
@@ -72,7 +70,8 @@ trait StartupRules { game : Game =>
 
     def pumpDurationFor(b : Card, d : Duration) : Duration = allActive.foldLeft(d)((d, c) => impl(c).pumpDuration(c, b, d))
 
-    def stealCostOf(c : Card) : $[Cost] = impl(c).accessCostPaidByRunner(c) ++ allActive./~(x => impl(x).extraStealCost(x, c))
+    // all additional steal costs of an agenda: its own, those imposed by other cards (extraStealCost / stealCostMod)
+    def stealCostOf(c : Card) : $[Cost] = impl(c).accessCostPaidByRunner(c) ++ allActive./~(x => impl(x).extraStealCost(x, c) ++ impl(x).stealCostMod(x, c))
 
     def accessProtected(c : Card) : Boolean = allActive.exists(x => impl(x).protectsFromAccess(x, c))
 
@@ -106,7 +105,7 @@ trait StartupRules { game : Game =>
     }
 
     def insertAfterRunCleanup(a : ForcedAction) {
-        val i = pending.indexWhere(_.is[RunCleanupAction])
+        val i = pending.indexWhere(_ == RunCleanupAction)
         if (i < 0)
             push(a)
         else
@@ -134,13 +133,6 @@ case class ServerPickAction(self : Faction, card : Card, server : |[Server], key
 case class SubChoiceAction(self : Faction, ice : Card, idx : Int) extends BaseAction(g => "Resolve a subroutine on " ~ g.cardElem(ice))(g => g.impl(ice).subroutines(ice)(g).lift(idx)./(_.label).|("?")) with SelfPerform {
     def perform(soft : Void)(implicit g : Game) = {
         g.push(ResolveSubEffect(ice, idx))
-        NextAction
-    }
-}
-
-case class ArrangePickAction(self : Faction, card : Card, remaining : $[Card], chosen : $[Card]) extends BaseAction("Choose the next card from the top")(g => g.cardElem(card)) with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        g.push(ArrangeTopEffect(self, remaining.but(card), chosen :+ card))
         NextAction
     }
 }
@@ -238,7 +230,7 @@ case class ForfeitEffect(card : Card) extends ForcedAction with SelfPerform {
             val own = g.impl(card).triggers(card, Forfeited(card))
             g.log(Corp, "forfeits", card)
             g.toArchives(card, true)
-            g.push(CheckWinAction())
+            g.push(CheckWinAction)
             g.trigger(Forfeited(card))
             g.pushAll(own)
         }
@@ -291,23 +283,9 @@ case class RedirectRunEffect(server : Server, position : Int, restart : Boolean)
                 if (restart) {
                     g.flushRun()
                     g.windowPassed = $
-                    g.push(RunNextAction())
+                    g.push(RunNextAction)
                 }
                 g.trigger(RunRedirected(server))
-            }
-        }
-        NextAction
-    }
-}
-
-case object JackOutEffect extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        g.run.foreach { r =>
-            if (!r.ended) {
-                r.jackedOut = true
-                g.windowPassed = $
-                g.log(Runner, "jacks out")
-                g.push(EndRunEffect)
             }
         }
         NextAction
@@ -334,22 +312,6 @@ case class ChooseSubEffect(f : Faction, ice : Card, unbrokenOnly : Boolean, opti
             NextAction
         else
             Ask(f).add(l./(i => SubChoiceAction(f, ice, i))).when(optional)(DeclineChoiceAction(f, LookPurpose(ice)))
-    }
-}
-
-// arrange cards on top of a deck (first chosen = top)
-case class ArrangeTopEffect(f : Faction, remaining : $[Card], chosen : $[Card]) extends ForcedAction with SelfPerform with Reaskable {
-    def perform(soft : Void)(implicit g : Game) = {
-        val rem = remaining.%(c => g.zone(c) == DeckZone(f))
-        if (rem.num <= 1) {
-            val order = chosen.%(c => g.zone(c) == DeckZone(f)) ++ rem
-            g.zones += DeckZone(f) -> (order ++ g.deck(f).%!(order.has))
-            if (chosen.any)
-                g.log(f, "arranges the top", order.num.cards, "of", f.isCorp.?("R&D").|("the stack"))
-            NextAction
-        }
-        else
-            Ask(f).group("Arrange: choose the next card from the top").add(rem./(c => ArrangePickAction(f, c, rem, chosen)))
     }
 }
 
@@ -403,26 +365,6 @@ case class ExtraSubtypesEffect(card : Card, subtypes : $[String], add : Boolean)
 case class SetCounterEffect(card : Card, kind : String, n : Int) extends ForcedAction with SelfPerform {
     def perform(soft : Void)(implicit g : Game) = {
         g.state(card).counters += kind -> n
-        NextAction
-    }
-}
-
-case class BonusClicksEffect(f : Faction, n : Int) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        g.bonusClicks += f -> (g.bonusClicks.get(f).|(0) + n)
-        g.log(f, "gets", ((n > 0).?("+").|("") + n).hl, "allotted click" + (n.abs != 1).??("s"), "next turn")
-        NextAction
-    }
-}
-
-// move a card to a server root (relocation of an installed card)
-case class MoveToRootEffect(card : Card, server : Server) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        if (g.isInstalled(card) && g.servers.has(server)) {
-            g.moveTo(card, RootZone(server))
-            g.log(card, "is moved to the root of", server)
-            g.cleanupRemotes()
-        }
         NextAction
     }
 }

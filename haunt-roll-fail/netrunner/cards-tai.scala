@@ -644,7 +644,7 @@ object TAICards {
     object FederalFundraising extends PT("34052") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.isRezzed(self) && g.deck(Corp).any =>
-                $(OptionalEffect(Corp, "Federal Fundraising: look at the top 3 cards of R&D and arrange them?", $(ArrangeTopEffect(Corp, g.deck(Corp).take(3), $), FedDrawAction(self)), $(FedDrawAction(self))))
+                $(OptionalEffect(Corp, "Federal Fundraising: look at the top 3 cards of R&D and arrange them?", $(ArrangeTopEffect(Corp, Corp, 3), FedDrawAction(self)), $(FedDrawAction(self))))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {

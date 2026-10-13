@@ -20,7 +20,7 @@ case class AbilityCostCardsAction(self : Faction, card : Card, idx : Int, ctx : 
 case class PaidWindowAction(kind : String) extends ForcedAction with Reaskable
 case class WindowPassAction(self : Faction, kind : String) extends BaseAction()(kind match { case "movement" => "Continue the run" ; case "action" => "No action" ; case _ => "Done" })
 case class TrashProgramForMemoryAction(self : Faction, card : Card) extends BaseAction("Memory exceeded: trash a program")(g => g.cardElem(card) ~ " (" ~ card.data.memory.|(0).hl ~ " MU)")
-case class CheckMemoryAction() extends ForcedAction with Reaskable
+case object CheckMemoryAction extends ForcedAction with Reaskable
 case class JackOutAction(self : Faction) extends BaseAction()("Jack out")
 case class ContinueRunAction(self : Faction) extends ForcedAction
 
@@ -121,7 +121,7 @@ trait AbilityRules { game : Game =>
             else
                 PaidWindowAction(kind)
 
-        case CheckMemoryAction() =>
+        case CheckMemoryAction =>
             if (memoryFree >= 0 || isOver)
                 NextAction
             else {
@@ -134,7 +134,7 @@ trait AbilityRules { game : Game =>
 
         case TrashProgramForMemoryAction(f, c) =>
             trashCard(c, Runner, false)
-            push(CheckMemoryAction())
+            push(CheckMemoryAction)
             NextAction
 
         case JackOutAction(f) =>
@@ -174,7 +174,7 @@ trait AbilityRules { game : Game =>
 
     // paid abilities available to f in context ctx
     def abilityOptions(f : Faction, ctx : String, allowClick : Boolean) : $[UserAction] = {
-        activeCards(f)./~ { c =>
+        (activeCards(f) ++ hand(f).%(c => impl(c).activeInHand(c)))./~ { c =>
             impl(c).abilities(c).indexed./~ { (a, i) =>
                 if (a.click && !allowClick)
                     None
@@ -208,6 +208,9 @@ trait AbilityRules { game : Game =>
         else
             push(reask(ctx))
         pushAll(a.effects)
+        trigger(AbilityUsed(f, c, a.click))
+        if (a.click)
+            trigger(ActionTaken(f, "ability-" + c.code))
         NextAction
     }
 }

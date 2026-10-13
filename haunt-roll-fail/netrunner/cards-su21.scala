@@ -195,7 +195,7 @@ object SU21Cards {
         override def canPlay(self : Card)(implicit g : Game) = g.successfulRunsThisTurn.has(HQ)
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.rezzedIce
-            l.any.$(ChooseCardEffect(Runner, l, DerezPurpose(), "Emergency Shutdown: choose a piece of ice to derez", false))
+            l.any.$(ChooseCardEffect(Runner, l, DerezPurpose, "Emergency Shutdown: choose a piece of ice to derez", false))
         }
     }
 
@@ -219,7 +219,7 @@ object SU21Cards {
         override def onPlay(self : Card)(implicit g : Game) = $(RunAnyServerEffect(|(self), g.servers))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if thisCardRun(self) && !g.state(self).usedRun.has("inside-job") =>
-                $(MarkRunUsedEffect(self, "inside-job"), MessageEffect(Runner, "bypasses the ice (Inside Job)"), BypassEffect())
+                $(MarkRunUsedEffect(self, "inside-job"), MessageEffect(Runner, "bypasses the ice (Inside Job)"), BypassEffect)
             case _ => $
         }
     }
@@ -243,7 +243,7 @@ object SU21Cards {
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(2), 2))
         override def abilities(self : Card)(implicit g : Game) = {
             val ok = encountering(self).exists(i => g.has(i, "Code Gate"))
-            $(Ability("bypass the encountered code gate", $(TrashSelfCost), $(BypassEffect()), ok = ok, reason = "not encountering a code gate"))
+            $(Ability("bypass the encountered code gate", $(TrashSelfCost), $(BypassEffect), ok = ok, reason = "not encountering a code gate"))
         }
     }
 
@@ -252,13 +252,13 @@ object SU21Cards {
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(2), 1))
         override def onInstall(self : Card)(implicit g : Game) = g.allIce.any.$(ChooseCardEffect(Runner, g.allIce, FemmePurpose(self), "Femme Fatale: choose a piece of ice to bypass", true))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.foreach(c => g.push(SetTargetEffect(p.card, c)))
+            cards.foreach(c => g.push(SetTargetEffect(p.card, |(c))))
             NextAction
         }
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if g.state(self).target.has(ice) =>
                 val n = g.impl(ice).subroutines(ice).num
-                (g.availableCredits(Runner, |(self)) >= n).$(OptionalEffect(Runner, "Femme Fatale: pay " + n + " credits to bypass the ice?", $(LoseCreditsEffect(Runner, n), BypassEffect()), $))
+                (g.availableCredits(Runner, |(self)) >= n).$(OptionalEffect(Runner, "Femme Fatale: pay " + n + " credits to bypass the ice?", $(LoseCreditsEffect(Runner, n), BypassEffect), $))
             case _ => $
         }
     }
@@ -315,7 +315,7 @@ object SU21Cards {
     object Kit extends Ext("31026") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if !g.usedThisTurn(self, "kit") =>
-                $(MarkUsedEffect(self, "kit")) ++ (!g.has(ice, "Code Gate")).$(AddSubtypeEffect(ice, "Code Gate"), SetTargetEffect(self, ice))
+                $(MarkUsedEffect(self, "kit")) ++ (!g.has(ice, "Code Gate")).$(AddSubtypeEffect(ice, "Code Gate"), SetTargetEffect(self, |(ice)))
             case RunEnds(_, _, _) => g.state(self).target.$./(i => RemoveSubtypeEffect(i, "Code Gate")) :+ SetChoiceEffect(self, "")
             case _ => $
         }
@@ -482,7 +482,7 @@ object SU21Cards {
     object Magnet extends Ext("31044") {
         override def onRez(self : Card)(implicit g : Game) = {
             val l = g.allIce.but(self)./~(i => g.hosted(i)).%(_.data.isProgram)
-            l.any.$(ChooseCardEffect(Corp, l, HostOnPurpose(self), "Magnet: choose a program hosted on another piece of ice to host on Magnet", false))
+            l.any.$(ChooseCardEffect(Corp, l, MoveHostedPurpose(self), "Magnet: choose a program hosted on another piece of ice to host on Magnet", false))
         }
         override def disablesHosted(self : Card)(implicit g : Game) = g.isRezzed(self)
         override def subroutines(self : Card)(implicit g : Game) = $(etrSub)
@@ -628,7 +628,7 @@ object SU21Cards {
     object LicenseAcquisition extends Ext("31061") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = (g.hand(Corp) ++ g.discard(Corp)).%(c => c.data.isAsset || c.data.isUpgrade)
-            l.any.$(ChooseCardEffect(Corp, l, InstallRezPurpose(), "License Acquisition: install and rez an asset or upgrade from HQ or Archives, ignoring all costs?", true))
+            l.any.$(ChooseCardEffect(Corp, l, InstallRezPurpose, "License Acquisition: install and rez an asset or upgrade from HQ or Archives, ignoring all costs?", true))
         }
     }
 
@@ -726,7 +726,7 @@ object SU21Cards {
 
     object CorporateTown extends Ext("31074") {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
-        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect())
+        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.isRezzed(self) && g.installedCards(Runner).exists(_.data.isResource) =>
                 $(OptionalEffect(Corp, "Corporate Town: trash an installed resource?", $(ChooseCardEffect(Corp, g.installedCards(Runner).%(_.data.isResource), TrashPurpose(Corp), "Choose a resource to trash", false)), $))
@@ -736,7 +736,7 @@ object SU21Cards {
 
     object Archer extends Ext("31075") {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
-        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect())
+        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
         override def subroutines(self : Card)(implicit g : Game) = $(gainSub(2), trashProgramSub, trashProgramSub, etrSub)
     }
 

@@ -65,8 +65,8 @@ trait TurnRules { game : Game =>
             clickDrawBonus = 0
             runnerDamageThisTurn = 0
             (cs.values).foreach { s => s.usedTurn = $ ; s.strengthTurn = 0 }
-            clicks += f -> (f.isCorp.?(3).|(4))
-            clicks += f -> (clicks(f) + bonusClicks.get(f).|(0)).atLeast(0) ; bonusClicks -= f
+            clicks += f -> (f.isCorp.?(3).|(4) + extraClicks.get(f).|(0)).atLeast(0)
+            extraClicks -= f
 
             log(DoubleLine)
             log("Turn", turn.hl, f, "(" ~ credits(f).credits ~ ", " ~ hand(f).num.cards ~ ")")
@@ -133,7 +133,9 @@ trait TurnRules { game : Game =>
             spendClick(f)
             credits += f -> (credits(f) + 1)
             log(f, "clicks for", 1.credits)
-            ActionPhaseAction(f)
+            push(ActionPhaseAction(f))
+            trigger(ActionTaken(f, "credit"))
+            NextAction
 
         case ClickDrawAction(f) =>
             spendClick(f)
@@ -143,6 +145,7 @@ trait TurnRules { game : Game =>
             clickDrawBonus = 0
             push(DrawEffect(f, n), ActionPhaseAction(f))
             trigger(ClickDraw(f))
+            trigger(ActionTaken(f, "draw"))
             NextAction
 
         case PlayMenuAction(f) =>
@@ -188,12 +191,14 @@ trait TurnRules { game : Game =>
         case CorpInstallAction(f, c, s) =>
             spendClick(f)
             push(CorpInstallEffect(c, s, false), ActionPhaseAction(f))
+            trigger(ActionTaken(f, "install"))
             NextAction
 
         case RunnerInstallAction(f, c, h, t) =>
             spendClick(f)
             push(RunnerInstallEffect(c, h, false), ActionPhaseAction(f))
             t.foreach(p => trashCard(p, f, false))
+            trigger(ActionTaken(f, "install"))
             NextAction
 
         case AdvanceMenuAction(f) =>
@@ -207,6 +212,7 @@ trait TurnRules { game : Game =>
             regInc("advanced")
             push(ActionPhaseAction(f))
             trigger(Advanced(c, 1))
+            trigger(ActionTaken(f, "advance"))
             NextAction
 
         case ScoreMenuAction(f) =>
@@ -228,19 +234,22 @@ trait TurnRules { game : Game =>
             log(f, "pays", 2.credits, "to trash a resource")
             push(ActionPhaseAction(f))
             trashCard(c, f, false)
+            trigger(ActionTaken(f, "trash-resource"))
             NextAction
 
         case PurgeAction(f) =>
             spendClick(f, 3)
             push(PurgeEffect, ActionPhaseAction(f))
+            trigger(ActionTaken(f, "purge"))
             NextAction
 
         case RunMenuAction(f) =>
-            Ask(f).add(servers.%(canRunOn)./(s => RunAction(f, s))).cancel
+            Ask(f).add(servers.%(canRunOn)./(s => RunAction(f, s).!(!canPay(f, runCosts(s), None), "cannot pay the additional cost"))).cancel
 
         case RunAction(f, s) =>
             spendClick(f)
             push(ActionPhaseAction(f))
+            trigger(ActionTaken(f, "run"))
             startRun(s, None, true)
 
         case RemoveTagAction(f) =>
@@ -250,6 +259,7 @@ trait TurnRules { game : Game =>
             log(f, "pays", 2.credits, "to remove a tag")
             push(ActionPhaseAction(f))
             trigger(TagsRemoved(1))
+            trigger(ActionTaken(f, "remove-tag"))
             NextAction
 
         case RezMenuAction(f) =>
@@ -328,7 +338,7 @@ trait TurnRules { game : Game =>
 
     def isAdvanceable(c : Card) : Boolean = c.data.isAgenda || impl(c).advanceable(c) || (isRezzed(c) && impl(c).advanceable(c))
 
-    def scorableAgendas : $[Card] = installedCards(Corp).%(_.data.isAgenda).%(c => advancement(c) >= advancementRequirement(c)).%(_ => !cannotScoreThisTurn).%(c => !usedThisTurn(c, "cannot-score") && !allActive.exists(x => impl(x).preventsScoring(x, c)))
+    def scorableAgendas : $[Card] = installedCards(Corp).%(_.data.isAgenda).%(c => advancement(c) >= advancementRequirement(c)).%(_ => !cannotScoreThisTurn).%(c => !usedThisTurn(c, "cannot-score") && !allActive.exists(x => impl(x).preventsScoring(x, c))).%(c => impl(c).canScore(c) && !usedThisTurn(c, "no-score"))
 
     def scoreOptions(f : Faction) : $[UserAction] = scorableAgendas./(c => ScoreAction(f, c))
 
@@ -336,7 +346,7 @@ trait TurnRules { game : Game =>
     def canScoreNow(kind : String) : Boolean = active.isCorp && run.none && (kind == "action" || kind == "turn-start" || kind == "turn-begins")
 
     def rezOptions(f : Faction, ctx : String, approached : |[Card]) : $[UserAction] =
-        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isIce && !c.data.isAgenda) ++ approached.$)./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits").!(!impl(c).canRez(c), "cannot rez").!(usedThisTurn(c, "cannot-rez"), "cannot rez this turn"))
+        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isAgenda && impl(c).canRezIn(c, ctx).|(!c.data.isIce)) ++ approached.$).distinct./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits").!(!impl(c).canRez(c), "cannot rez").!(usedThisTurn(c, "cannot-rez"), "cannot rez this turn"))
 
     def reask(ctx : String) : ForcedAction = ctx match {
         case "action" => ActionPhaseAction(active)
@@ -370,7 +380,7 @@ trait TurnRules { game : Game =>
         log(Corp, "scores", c, "and gains", points.hl, "agenda point" + (points != 1).??("s"))
         pushAll(impl(c).onScore(c))
         trigger(AgendaScored(c))
-        push(CheckWinAction())
+        push(CheckWinAction)
     }
 
     def stealAgenda(c : Card) {
@@ -387,7 +397,7 @@ trait TurnRules { game : Game =>
         run.foreach(_.didSteal = true)
         pushAll(impl(c).onSteal(c))
         trigger(AgendaStolen(c))
-        push(CheckWinAction())
+        push(CheckWinAction)
     }
 }
 

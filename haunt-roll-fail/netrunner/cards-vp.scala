@@ -167,7 +167,7 @@ object VPCards {
                 val l = g.run./(r => g.ice(r.server).%(g.isRezzed)).|($)
                 if (l.any)
                     g.push(ChooseOneEffect(Corp, "Kompromat: derez a piece of ice protecting the attacked server or take 1 bad publicity", $(
-                        Alt("Derez a piece of ice", $(ChooseCardEffect(Corp, l, DerezPurpose(), "Kompromat: choose a piece of ice to derez", false))),
+                        Alt("Derez a piece of ice", $(ChooseCardEffect(Corp, l, DerezPurpose, "Kompromat: choose a piece of ice to derez", false))),
                         Alt("Take 1 bad publicity", $(BadPubEffect(1))))))
                 else
                     g.push(BadPubEffect(1))
@@ -436,8 +436,8 @@ object VPCards {
 
     object CaveatEmptor extends Startup("36032") {
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseOneEffect(Corp, "Caveat Emptor: choose one", $(
-            Alt("Gain 6 credits, the Runner gets -1 allotted click next turn", $(gain(Corp, 6), BonusClicksEffect(Runner, -1))),
-            Alt("Gain 10 credits, the Runner gets +1 allotted click next turn", $(gain(Corp, 10), BonusClicksEffect(Runner, 1))))))
+            Alt("Gain 6 credits, the Runner gets -1 allotted click next turn", $(gain(Corp, 6), ExtraClicksEffect(Runner, -1))),
+            Alt("Gain 10 credits, the Runner gets +1 allotted click next turn", $(gain(Corp, 10), ExtraClicksEffect(Runner, 1))))))
     }
 
     object Realloc extends Startup("36033") {
@@ -568,7 +568,7 @@ object VPCards {
         override def onEncounterEnds(self : Card)(implicit g : Game) = (g.counter(self, "virus") >= 3).??($(MessageEffect(Corp, "purges virus counters and derezzes Knowledge Seeker"), DerezEffect(self), PurgeEffect))
         override def subroutines(self : Card)(implicit g : Game) = $(
             Sub("Place 1 virus counter on this ice", AddCounterEffect(self, "virus", 1)),
-            Sub("Look at the top 4 cards of R&D and arrange them in any order", ArrangeTopEffect(Corp, g.deck(Corp).take(4), $)),
+            Sub("Look at the top 4 cards of R&D and arrange them in any order", ArrangeTopEffect(Corp, Corp, 4)),
             etrSub)
     }
 
@@ -617,7 +617,7 @@ object VPCards {
                     g.log(Corp, "adds a card from the top of R&D to HQ")
                     g.moveTo(c, HandZone(Corp))
                 }
-                g.push(ArrangeTopEffect(Corp, g.deck(Corp).take(k - 2), $))
+                g.push(ArrangeTopEffect(Corp, Corp, k - 2))
                 NextAction
         }
     }
@@ -812,7 +812,7 @@ object VPCards {
             case MyoshuAction(self) =>
                 g.moveTo(self, ScoredZone(Corp))
                 g.log(Corp, "adds", self, "to the score area as an agenda worth 2 agenda points")
-                g.push(CheckWinAction())
+                g.push(CheckWinAction)
                 NextAction
         }
     }
@@ -857,7 +857,7 @@ object VPCards {
 
     object ShackletonGrid extends Startup("36065") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case CreditsSpentFromCard(c, n) if g.isRezzed(self) && g.owner(c).isRunner && runOnThisServer(self) && !g.usedThisTurn(self, "shackleton") =>
+            case CreditsSpentFrom(c, n) if g.isRezzed(self) && g.owner(c).isRunner && runOnThisServer(self) && !g.usedThisTurn(self, "shackleton") =>
                 $(OptionalEffect(Corp, "Shackleton Grid: do 4 meat damage?", $(MarkUsedEffect(self, "shackleton"), meat(4)), $))
             case _ => $
         }

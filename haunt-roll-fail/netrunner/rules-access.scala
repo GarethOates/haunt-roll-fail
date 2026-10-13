@@ -17,7 +17,7 @@ import netrunner.elem._
 case class BreachAction(server : Server) extends ForcedAction with RunStep
 case class AccessServerAction(server : Server) extends ForcedAction with RunStep
 case class HQAccessShuffledAction(n : Int, shuffled : $[Card]) extends ShuffledAction[Card] with RunStep
-case class AccessNextAction() extends ForcedAction with RunStep with Reaskable
+case object AccessNextAction extends ForcedAction with RunStep with Reaskable
 case class AccessChooseAction(self : Faction, card : Card) extends BaseAction("Access next")(g => g.accessElem(card))
 case class AccessCardAction(card : Card) extends ForcedAction with RunStep
 case class AccessDecisionAction(card : Card) extends ForcedAction with RunStep with Reaskable
@@ -26,7 +26,7 @@ case class PayTrashAction(self : Faction, card : Card) extends BaseAction(g => g
 case class AccessAbilityAction(self : Faction, source : Card, card : Card) extends BaseAction(g => g.accessGroup(card))(g => g.cardElem(source) ~ ": " ~ g.impl(source).accessAbility(source, card)(g)./(_.label).|("?"))
 case class NoAccessAction(self : Faction, card : Card) extends BaseAction(g => g.accessGroup(card))("No action")
 case class AccessDoneAction(card : Card) extends ForcedAction with RunStep
-case class BreachEndAction() extends ForcedAction with RunStep
+case object BreachEndAction extends ForcedAction with RunStep
 case class AccessAbilityCardsAction(self : Faction, source : Card, card : Card, cards : $[Card]) extends ForcedAction
 
 
@@ -48,7 +48,7 @@ trait AccessRules { game : Game =>
                 case Some(r) if !r.ended =>
                     if (r.preventAccess) {
                         log(Runner, "is prevented from breaching", s)
-                        push(RunEndsAction())
+                        push(RunEndsAction)
                         NextAction
                     }
                     else {
@@ -77,13 +77,13 @@ trait AccessRules { game : Game =>
                             if (hand(Corp).any)
                                 Shuffle[Card](hand(Corp), HQAccessShuffledAction(n, _), "HQ access")
                             else {
-                                push(AccessNextAction())
+                                push(AccessNextAction)
                                 NextAction
                             }
                         case RnD =>
                             val n = 1 + r.accessBonusFor("R&D") + r.accessBonusFor("total")
                             r.toAccess = deck(Corp).take(n) ++ upgrades
-                            push(AccessNextAction())
+                            push(AccessNextAction)
                             NextAction
                         case Archives =>
                             // all cards in Archives are turned faceup and accessed (the order is irrelevant: present them as a set)
@@ -93,12 +93,12 @@ trait AccessRules { game : Game =>
                             if (facedown.any)
                                 log(facedown.num.cards, "in Archives turned faceup:", facedown.sortBy(_.title)./(cardElem).comma)
                             r.toAccess = discard(Corp).sortBy(_.title) ++ upgrades
-                            push(AccessNextAction())
+                            push(AccessNextAction)
                             if (flipped > 0) trigger(ArchivesFlipped(flipped))
                             NextAction
                         case _ =>
                             r.toAccess = upgrades
-                            push(AccessNextAction())
+                            push(AccessNextAction)
                             NextAction
                     }
                 case _ => NextAction
@@ -108,10 +108,10 @@ trait AccessRules { game : Game =>
             run.foreach { r =>
                 r.toAccess = r.toAccess ++ l.take(n)
             }
-            push(AccessNextAction())
+            push(AccessNextAction)
             NextAction
 
-        case AccessNextAction() =>
+        case AccessNextAction =>
             run match {
                 case Some(r) if !r.ended =>
                     r.toAccess = r.toAccess.%(c => location.contains(c) && !zone(c).is[ScoredZone] && zone(c) != DiscardZone(Runner) && zone(c) != RemovedZone(Corp))
@@ -123,7 +123,7 @@ trait AccessRules { game : Game =>
                     // cards in Archives without access effects are accessed automatically
                     val trivial = candidates.%(c => zone(c) == DiscardZone(Corp) && !c.data.isAgenda && impl(c).onAccess(c).none && activeCards(Runner)./~(s => impl(s).accessAbility(s, c)).none)
                     if (r.toAccess.none) {
-                        push(BreachEndAction())
+                        push(BreachEndAction)
                         NextAction
                     }
                     else if (candidates.num == 1) {
@@ -168,7 +168,7 @@ trait AccessRules { game : Game =>
             run match {
                 case Some(r) if !r.ended && location.contains(c) && !zone(c).is[ScoredZone] =>
                     val inArchives = zone(c).is[DiscardZone]
-                    val accessAbilities = activeCards(Runner)./~(s => impl(s).accessAbility(s, c)./(a => AccessAbilityAction(Runner, s, c).!(!a.ok, a.reason).!(!canPay(Runner, a.costs, |(s)), "cannot pay")))
+                    val accessAbilities = activeCards(Runner)./~(s => impl(s).accessAbility(s, c).%(a => !inArchives || a.label.startsWith("host"))./(a => AccessAbilityAction(Runner, s, c).!(!a.ok, a.reason).!(!canPay(Runner, a.costs, |(s)), "cannot pay")))
                     if (c.data.isAgenda) {
                         val canSteal = !r.cannotStealOrTrash && !accessProtected(c)
                         val extra = stealCostOf(c)
@@ -193,7 +193,7 @@ trait AccessRules { game : Game =>
                         else
                             Ask(Runner)
                                 .add(canTrash.$(PayTrashAction(Runner, c).!(availableCredits(Runner, None, "trash-" + c.data.kind.toLowerCase) < tc.|(0), "not enough credits")))
-                                .add(accessAbilities.%(_ => !inArchives))
+                                .add(accessAbilities)
                                 .add(NoAccessAction(Runner, c))
                     }
                 case _ =>
@@ -247,10 +247,10 @@ trait AccessRules { game : Game =>
             NextAction
 
         case AccessDoneAction(c) =>
-            push(AccessNextAction())
+            push(AccessNextAction)
             NextAction
 
-        case BreachEndAction() =>
+        case BreachEndAction =>
             run match {
                 case Some(r) if r.accessOnly =>
                     run = r.outer
@@ -259,7 +259,7 @@ trait AccessRules { game : Game =>
                     run.foreach { r =>
                         r.breachServer = None
                     }
-                    push(RunEndsAction())
+                    push(RunEndsAction)
                     NextAction
             }
     }

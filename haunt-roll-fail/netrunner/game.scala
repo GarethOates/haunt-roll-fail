@@ -129,8 +129,10 @@ class CardState {
     var usedTurn : $[String] = $
     var usedRun : $[String] = $
     var extraSubtypes : $[String] = $
-    var target : |[Card] = None       // a card chosen by this card (Femme Fatale, Trieste, Kit)
+    var target : |[Card] = None       // a card chosen by / remembered by this card (Femme Fatale, Trieste, Kit, Boomerang's ice, ...)
     var choice : String = ""          // a choice remembered by this card (Chameleon subtype, Security Testing server, Test Run marker)
+    var memo : String = ""            // string remembered by the implementation (named server / card type / ...)
+    var uninstalled = false           // hosted but not installed (Paule's Cafe, Cupellation)
 
     def counter(k : String) = counters.get(k).|(0)
     def advancement = counter("advancement")
@@ -155,6 +157,8 @@ class CardState {
         extraSubtypes = $
         target = None
         choice = ""
+        memo = ""
+        uninstalled = false
     }
 }
 
@@ -199,6 +203,10 @@ class Run(var server : Server, val source : |[Card], val clickRun : Boolean) {
     var accessOnly = false            // pseudo-run used to access cards outside of a breach (Deep Dive, Virtuoso)
     var outer : |[Run] = None         // the run to restore when an accessOnly pseudo-run ends
     var disableRoot = false           // cards in the root of the attacked server lose all abilities (Light the Fire!)
+    var blockSuccess = false                               // Transport Monopoly
+    var forced : $[Card] = $                               // forced encounters in progress (innermost first)
+    var forcedPrev : $[(|[Card], RunPhase)] = $            // ice / phase to restore when a forced encounter ends
+    var atEnd : $[ForcedAction] = $                        // effects queued for when the run ends
 
     def accessBonusFor(k : String) = accessBonus.get(k).|(0)
 }
@@ -268,6 +276,7 @@ object Cost {
         case LoseClickCost(n) => "lose " + "[click]" * n
         case RemoveSelfCost => "remove from game"
         case TagCost(n) => "take " + n + " tag"
+        case TrashInstalledCost(k) => "trash an installed " + (k == "").?("card").|(k.toLowerCase)
     }.join(", ")
 }
 
@@ -283,7 +292,7 @@ case class Ability(label : String, costs : $[Cost], effects : $[ForcedAction], c
 case class Sub(label : String, effect : ForcedAction)
 
 // An icebreaker break ability: n = 0 means any number
-case class BreakAbility(costs : $[Cost], n : Int, subtypes : $[String], label : |[String] = None, after : $[ForcedAction] = $)
+case class BreakAbility(costs : $[Cost], n : Int, subtypes : $[String], label : |[String] = None, after : $[ForcedAction] = $, perSub : Boolean = false)
 
 // An icebreaker strength pump
 case class Pump(costs : $[Cost], strength : Int, duration : Duration = EncounterDuration, label : |[String] = None)
@@ -326,7 +335,8 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 // ---------------------------------------------------------------------------------------------------------------------
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
-    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules with StartupRules with SU21Rules with PHTAIRules {
+    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
+    with StartupRules with SU21Rules with PHTAIRules with RWRRules {
 
     implicit def implicitGame : Game = this
 
@@ -419,7 +429,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         case RootZone(_) => true
         case IceZone(_) => true
         case RigZone => true
-        case HostedZone(h) => isInstalled(h)
+        case HostedZone(h) => !state(c).uninstalled && isInstalled(h)
         case _ => false
     }
 
@@ -431,21 +441,21 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         case RigZone => !state(c).facedown
         case RootZone(_) => state(c).rezzed
         case IceZone(_) => state(c).rezzed
-        case HostedZone(h) => ((owner(c).isRunner && !state(c).facedown) || (owner(c).isCorp && state(c).rezzed)) && !impl(h).disablesHosted(h)
+        case HostedZone(h) => ((owner(c).isRunner && !state(c).facedown) || (owner(c).isCorp && state(c).rezzed)) && !CardImpls(h.code).disablesHosted(h)
         case PlayZone(_) => true
         case _ => false
     }
 
     def installedCards(f : Faction) : $[Card] =
         if (f.isRunner)
-            rig ++ rig./~(allHosted) ++ servers./~(s => ice(s))./~(allHosted).%(c => owner(c).isRunner)
+            (rig ++ rig./~(allHosted) ++ servers./~(s => ice(s))./~(allHosted).%(c => owner(c).isRunner)).%!(c => state(c).uninstalled)
         else
-            servers./~(s => ice(s) ++ root(s)) ++ servers./~(s => (ice(s) ++ root(s))./~(allHosted)).%(c => owner(c).isCorp)
+            (servers./~(s => ice(s) ++ root(s)) ++ servers./~(s => (ice(s) ++ root(s))./~(allHosted)).%(c => owner(c).isCorp)).%!(c => state(c).uninstalled)
 
     def allHosted(c : Card) : $[Card] = hosted(c)./~(h => h +: allHosted(h))
 
     def activeCards(f : Faction) : $[Card] =
-        identity.get(f).$ ++ scored(f).%(c => owner(c) == f || f.isRunner) ++ installedCards(f).%(isActive) ++ at(PlayZone(f))
+        identity.get(f).$ ++ scored(f).%(c => owner(c) == f || f.isRunner) ++ installedCards(f).%(isActive) ++ at(PlayZone(f)) ++ discard(f).%(c => impl(c).activeInHeap(c))
 
     def allActive : $[Card] = activeCards(active) ++ activeCards(active.opponent)
 
@@ -611,6 +621,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         case LoseClickCost(n) => clicks(f) >= n
         case RemoveSelfCost => self.any
         case TagCost(n) => f.isRunner
+        case TrashInstalledCost(k) => runnerInstalledOf(k).any
     }
 
     // credits available including hosted credits usable for the purpose (run credits)
@@ -739,7 +750,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21
+        val pf = performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR
 
         a match {
             case NextAction => nextStep

@@ -252,7 +252,7 @@ object PHCards {
 
     object TunnelVision extends PT("33081") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect())
+            case TurnBegins(Runner) => $(IdentifyMarkEffect)
             case _ => $
         }
         override def breaks(self : Card)(implicit g : Game) = g.run.exists(r => g.mark.has(r.server)).$(BreakAbility(c(2), 2, $(), |("break up to 2 subroutines on ice protecting the mark")))
@@ -297,7 +297,7 @@ object PHCards {
 
     object InfoBounty extends PT("33083") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect())
+            case TurnBegins(Runner) => $(IdentifyMarkEffect)
             case RunEnds(s, _, _) if g.mark.has(s) && !g.usedThisTurn(self, "bounty") && g.run.exists(_.didAccess) => $(MarkUsedEffect(self, "bounty"), MessageEffect(Runner, "uses Info Bounty"), gain(Runner, 2))
             case _ => $
         }

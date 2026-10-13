@@ -22,23 +22,21 @@ import netrunner.elem._
 trait SU21Purpose extends Purpose
 
 case class SabotagePurpose(n : Int) extends SU21Purpose                     // Corp chose the HQ cards to trash, rest from the top of R&D
-case class ChargePurpose() extends SU21Purpose                              // place 1 power counter on the chosen card
-case class ForfeitPurpose() extends SU21Purpose                             // forfeit the chosen agenda
-case class InstallRezPurpose() extends SU21Purpose                          // corp: install the chosen card (choosing the server) and rez it ignoring all costs
-case class BottomOfDeckPurpose(f : Faction) extends SU21Purpose             // move the chosen cards to the bottom of the deck
-case class TopOfDeckPurpose(f : Faction) extends SU21Purpose                // move the chosen cards to the top of the deck
-case class DerezPurpose() extends SU21Purpose                               // derez the chosen card
-case class HostOnPurpose(host : Card) extends SU21Purpose                   // host the chosen card on host
-case class TrashAndTagPurpose() extends SU21Purpose                         // trash the chosen corp cards and give the Runner 1 tag per card (Mutually Assured Destruction)
+case object ChargePurpose extends SU21Purpose                              // place 1 power counter on the chosen card
+case object ForfeitPurpose extends SU21Purpose                             // forfeit the chosen agenda
+case object InstallRezPurpose extends SU21Purpose                          // corp: install the chosen card (choosing the server) and rez it ignoring all costs
+// DerezPurpose, BottomOfDeckPurpose(f), TopOfDeckPurpose(f): rules-ext-rwr-df-ur.scala
+case class MoveHostedPurpose(host : Card) extends SU21Purpose              // move the chosen installed card so that it is hosted on host (Magnet)
+case object TrashAndTagPurpose extends SU21Purpose                         // trash the chosen corp cards and give the Runner 1 tag per card (Mutually Assured Destruction)
 
 // effects
 case class SabotageEffect(n : Int) extends ForcedAction                    // sabotage n: the Corp trashes n cards from HQ and/or the top of R&D
 case class ChargeEffect(f : Faction) extends ForcedAction                  // charge 1 installed card of f (only cards that already have a power counter)
-// IdentifyMarkEffect() / MarkShuffledAction: rules-ext-ph-tai.scala
+// IdentifyMarkEffect / MarkShuffledAction: rules-ext-ph-tai.scala
 case object ReplaceBreachEffect extends ForcedAction                       // "instead of breaching": the current run will not breach its server
 case class AccessCardsEffect(server : Server, cards : $[Card], noStealOrTrash : Boolean) extends ForcedAction // access cards outside of a normal breach (pseudo-run)
 case class BreachServerEffect(server : Server) extends ForcedAction        // breach a server outside of a run / after a run ended (Virtuoso)
-case class SyncPseudoRunAction() extends ForcedAction
+case object SyncPseudoRunAction extends ForcedAction
 case class InstallDiscountEffect(card : Card, discount : Int) extends ForcedAction // runner installs the card paying n less
 case class RezDiscountEffect(card : Card, discount : Int) extends ForcedAction     // corp rezzes the card paying n less
 case class RefillCreditsEffect(card : Card, n : Int) extends ForcedAction  // recurring credits: refill hosted credits to n
@@ -48,19 +46,19 @@ case class LoseAllClicksEffect(f : Faction) extends ForcedAction
 case class AddSubtypeEffect(card : Card, subtype : String) extends ForcedAction
 case class RemoveSubtypeEffect(card : Card, subtype : String) extends ForcedAction
 case class ScoreAgendaEffect(card : Card) extends ForcedAction             // score the card if it can be scored (Big Deal)
-case class AddToScoreAreaEffect(card : Card) extends ForcedAction          // add a card to the Corp score area (Backroom Machinations, Regenesis)
+// AddToScoreAreaEffect(card, f): rules-ext-rwr-df-ur.scala
 case class MoveAdvancementEffect(from : Card, to : Card, n : Int) extends ForcedAction
 case class SetChoiceEffect(card : Card, choice : String) extends ForcedAction
-case class SetTargetEffect(card : Card, target : Card) extends ForcedAction
+// SetTargetEffect(card, |[target]): rules-ext-rwr-df-ur.scala
 case class SetRunFlagEffect(key : String) extends ForcedAction             // "disable-root"
-case class ChooseForfeitEffect() extends ForcedAction                      // the Corp forfeits an agenda of its choice (ForfeitEffect(card) in rules-ext-startup.scala forfeits a given one)
+case object ChooseForfeitEffect extends ForcedAction                      // the Corp forfeits an agenda of its choice (ForfeitEffect(card) in rules-ext-startup.scala forfeits a given one)
 case class PumpBreakerAllEffect(card : Card, n : Int) extends ForcedAction
 case class MarkRunUsedEffect(card : Card, key : String) extends ForcedAction   // once per run marker
 
 
 trait SU21Rules { game : Game =>
 
-    // the Runner's mark (PHTAIRules.mark, identified with IdentifyMarkEffect())
+    // the Runner's mark (PHTAIRules.mark, identified with IdentifyMarkEffect)
     def isMark(s : Server) = mark.has(s)
 
     def chargeable(f : Faction) : $[Card] = installedCards(f).%(c => counter(c, "power") > 0)
@@ -103,48 +101,32 @@ trait SU21Rules { game : Game =>
             log(Corp, "trashes", l.num.cards, "from HQ and", rest.cards, "from the top of R&D")
             NextAction
 
-        case ChargePurpose() =>
+        case ChargePurpose =>
             l.foreach { c =>
                 log(Runner, "charges", c)
                 push(AddCounterEffect(c, "power", 1))
             }
             NextAction
 
-        case ForfeitPurpose() =>
+        case ForfeitPurpose =>
             l.foreach(c => push(ForfeitEffect(c)))
             NextAction
 
-        case InstallRezPurpose() =>
+        case InstallRezPurpose =>
             l.single.foreach { c =>
                 val ss = (c.data.isIce || c.data.isUpgrade).?(servers).|(remotes)
                 push(ChooseServerEffect(Corp, c, true, ss, true), RezEffect(c, true))
             }
             NextAction
 
-        case BottomOfDeckPurpose(ff) =>
-            l.foreach(c => moveTo(c, DeckZone(ff), false))
-            if (l.any)
-                log(ff, "adds", l.num.cards, "to the bottom of", ff.isCorp.?("R&D").|("the stack"))
-            NextAction
-
-        case TopOfDeckPurpose(ff) =>
-            l.foreach(c => moveTo(c, DeckZone(ff), true))
-            if (l.any)
-                log(ff, "adds", l.num.cards, "to the top of", ff.isCorp.?("R&D").|("the stack"))
-            NextAction
-
-        case DerezPurpose() =>
-            l.foreach(c => push(DerezEffect(c)))
-            NextAction
-
-        case HostOnPurpose(h) =>
+        case MoveHostedPurpose(h) =>
             l.foreach { c =>
                 moveTo(c, HostedZone(h))
                 log(c, "is now hosted on", h)
             }
             NextAction
 
-        case TrashAndTagPurpose() =>
+        case TrashAndTagPurpose =>
             l.foreach(c => trashCard(c, Corp, false))
             if (l.any)
                 push(TagsEffect(l.num))
@@ -164,7 +146,7 @@ trait SU21Rules { game : Game =>
                     h.foreach(c => toArchives(c, false))
                     d.foreach(c => toArchives(c, false))
                     log(Corp, "trashes all cards in HQ and R&D")
-                    push(CheckWinAction())
+                    push(CheckWinAction)
                     NextAction
                 }
                 else {
@@ -176,7 +158,7 @@ trait SU21Rules { game : Game =>
         case ChargeEffect(f) =>
             val l = chargeable(f)
             if (l.any)
-                push(ChooseCardEffect(f, l, ChargePurpose(), "Charge: choose an installed card with a power counter", false))
+                push(ChooseCardEffect(f, l, ChargePurpose, "Charge: choose an installed card with a power counter", false))
             else
                 log(f, "has no card to charge")
             NextAction
@@ -204,7 +186,7 @@ trait SU21Rules { game : Game =>
                 r.cannotStealOrTrash = noSteal
                 run = |(r)
                 lastPseudoRun = |(r)
-                push(AccessNextAction(), SyncPseudoRunAction())
+                push(AccessNextAction, SyncPseudoRunAction)
                 NextAction
             }
 
@@ -220,11 +202,11 @@ trait SU21Rules { game : Game =>
             if (s == HQ) regInc("breach-hq")
             if (s == RnD) regInc("breach-rd")
             if (s == Archives) regInc("breach-archives")
-            push(AccessServerAction(s), SyncPseudoRunAction())
+            push(AccessServerAction(s), SyncPseudoRunAction)
             trigger(BreachServer(s))
             NextAction
 
-        case SyncPseudoRunAction() =>
+        case SyncPseudoRunAction =>
             (lastPseudoRun, run) match {
                 case (Some(p), Some(r)) if p != r =>
                     r.didSteal ||= p.didSteal
@@ -321,13 +303,6 @@ trait SU21Rules { game : Game =>
                 log(Corp, "cannot score", hiddenCorpElem(c))
             NextAction
 
-        case AddToScoreAreaEffect(c) =>
-            moveTo(c, ScoredZone(Corp))
-            state(c).seen = true
-            log(Corp, "adds", c, "to the score area")
-            push(CheckWinAction())
-            NextAction
-
         case MoveAdvancementEffect(from, to, n) =>
             val m = n.atMost(advancement(from))
             if (m > 0) {
@@ -341,11 +316,6 @@ trait SU21Rules { game : Game =>
             state(c).choice = s
             NextAction
 
-        case SetTargetEffect(c, t) =>
-            state(c).target = |(t)
-            log(c, "targets", t)
-            NextAction
-
         case SetRunFlagEffect(k) =>
             run.foreach { r =>
                 k match {
@@ -356,10 +326,10 @@ trait SU21Rules { game : Game =>
             }
             NextAction
 
-        case ChooseForfeitEffect() =>
+        case ChooseForfeitEffect =>
             val l = scored(Corp).%(_.data.isAgenda)
             if (l.any)
-                push(ChooseCardEffect(Corp, l, ForfeitPurpose(), "Choose an agenda to forfeit", false))
+                push(ChooseCardEffect(Corp, l, ForfeitPurpose, "Choose an agenda to forfeit", false))
             NextAction
 
         case PumpBreakerAllEffect(c, n) =>

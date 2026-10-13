@@ -258,3 +258,55 @@ override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
 3. If the card needs a decision at resolution time, add a `CardAction`/`CardPurpose` and implement `perform`/`chosen`.
 4. Add the object to the set's `all` list; `sbt -batch compile`.
 5. Test with the JVM harness (`netrunner/host.scala`, see STATUS.md) and in the browser.
+
+## 8. Extension architecture (the card-set rules files)
+
+The engine core (`game.scala`, `rules-*.scala`) is set-agnostic. The mechanics introduced by the later card sets live in
+four `rules-ext-*.scala` files, each contributing a trait that `Game` mixes in (game.scala):
+
+| File | Trait | Base class for its cards | Card files |
+|---|---|---|---|
+| `rules-ext-startup.scala` | `StartupRules` | `Startup(code)` (`performCard` / `chosenCard`, generic loops) | `cards-elev.scala` (`ElevCards`), `cards-vp.scala` (`VPCards`) |
+| `rules-ext-su21.scala` | `SU21Rules` (`performSU21`, `su21Triggers`, `resolveSU21Purpose`) | `Ext(code)` (cards-su21.scala) | `cards-su21.scala` (`SU21Cards`), `cards-ms.scala` (`MSCards`, incl. urbp) |
+| `rules-ext-ph-tai.scala` | `PHTAIRules` (`performPHTAI`, `phTriggers`, `extImpl`) | `PT(code)` | `cards-ph.scala` (`PHCards`), `cards-tai.scala` (`TAICards`) |
+| `rules-ext-rwr-df-ur.scala` | `RWRRules` (`performRWR`, `resolveRWRPurpose`) | `NC(code)` | `cards-rwr.scala`, `cards-df.scala`, `cards-ur.scala` (`RWRCards`, `DFCards`, `URCards`) |
+
+`CardImpls.all` (abilities.scala) is the union of the seven set objects plus `SGCards`; all `CardImpl` hooks added by the
+sets have neutral defaults in `trait CardImpl`, so a card of any set may use any hook.
+
+How the pieces are chained:
+
+* **Actions.** `performInternal` tries `performPHTAI` first (it intercepts engine asks to apply generic restrictions —
+  `canRez`, `canInstall`, `allowsRun`, remote limits, `cannot-score` / `cannot-break` flags — and counts Corp actions for
+  `onActionTaken`), then the core partial functions, then `performSU21` and `performRWR` for the effects those files define.
+  `CardAction`s not handled by any of them go to `impl(card).perform`; anything else that is `SelfPerform` (the Startup
+  effects) performs itself.
+* **Triggers.** `triggerEffects(e)` = `phTriggers(e)` bookkeeping first (it snapshots the board before the cards look at it),
+  then the cards' `triggers` (active player first, disabled cards skipped), then `su21Triggers(e)` (game-level triggers not
+  tied to an active card: Subliminal Messaging in Archives, Light the Fire!, bad publicity credits...), then the ph/tai
+  expiry effects. `trigger(e)` pushes them all and reopens the paid ability windows.
+* **Card implementation wrappers.** `impl(c)` goes through `extImpl(c)`: a card with a lingering flag (`disabled`,
+  `net-subs`, `cannot-break`), a host that disables it (`disablesHost`) or sitting in the root during a Light the Fire!
+  run gets a `DisabledImpl` / `NetDamageSubsImpl` / `NoBreakImpl` wrapper (`DelegatingImpl` delegates every hook).
+  `isDisabled(c)` is the single predicate for "lost all abilities". Static hooks of a *host* (`disablesHosted`) are read
+  from the raw `CardImpls(h.code)` to avoid recursion.
+* **Purposes.** `resolvePurpose` (rules-effects.scala) dispatches `SU21Purpose`s to `resolveSU21Purpose`, `CardPurpose`s
+  to the card (`StartupPurpose`s are `CardPurpose`s handled by the `Startup` base class), and everything else to
+  `resolveRWRPurpose` (the plain generic purposes: `DerezPurpose`, `BottomOfDeckPurpose(f)`, `TopOfDeckPurpose(f)`,
+  `HostOnPurpose(host, uninstalled)`, `ForfeitPurpose` (SU21), `TrashFromHandPurpose(f)`, ...). `PHPurpose`s are
+  resolved by `performPHTAI` intercepting `CardsChosenAction`.
+* **One definition per mechanic.** Where several sets needed the same thing there is exactly one definition; the other
+  files only reference it: `SabotageEffect(n)`, `ChargeEffect(f)`, `ReplaceBreachEffect` (su21); marks (`mark`,
+  `IdentifyMarkEffect`, `SetMarkEffect`, `MarkIdentified`), `StashEffect`, flags (ph/tai); `StashZone(host)`,
+  `ForfeitEffect(card)` (+ `ChooseForfeitEffect` for "forfeit an agenda of your choice"), `RedirectRunEffect(server, ...)`
+  (change the attacked server), `threat(n)`, `lastScoredAdvancement`, events `IceBypassed` / `TagsRemoved` / `Forfeited` /
+  `CreditsGained` (startup); `ArrangeTopEffect(f, owner, n)`, `LookAtEffect`, `MoveToRootEffect`, `JackOutEffect`,
+  `MoveRunnerEffect(position, jackOut)` (move within the server), `SetTargetEffect(card, |[Card])`, `AddToScoreAreaEffect(card, f)`,
+  `ExtraClicksEffect` (allotted clicks next turn), `CreditsSpentFrom(card, n)` (rwr/df/ur). `CardState` keeps `target`,
+  `choice`, `memo` and `uninstalled`; `Run` keeps the pseudo-run fields (`accessOnly`, `outer`, `disableRoot`) and the
+  forced-encounter fields (`forced`, `forcedPrev`, `blockSuccess`, `atEnd`).
+* **Serialization rule.** User actions are written to the journal with the reflective serializer, and they embed purposes
+  and effect lists (`CardChosenAction(f, c, purpose)`, `YesAction(f, prompt, effects)`). A parameterless `case class X()`
+  does not survive the round trip (it parses back as its companion object), so every parameterless purpose or action
+  that can be embedded must be a `case object` (`DerezPurpose`, `BypassEffect`, `CheckWinAction`, `RunNextAction`, ...).
+  The JVM harness checks every offered and chosen action for this.

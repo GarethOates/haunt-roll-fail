@@ -359,7 +359,7 @@ object ElevCards {
     object FransofiaWard extends Startup("35021") {
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = card.data.isIce.?(1).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(ice) if g.credits(Corp) >= 15 => $(OptionalEffect(Runner, "Fransofia Ward: trash it to bypass the encountered ice?", $(TrashEffect(self, Runner, false), BypassEffect()), $))
+            case EncounterIce(ice) if g.credits(Corp) >= 15 => $(OptionalEffect(Runner, "Fransofia Ward: trash it to bypass the encountered ice?", $(TrashEffect(self, Runner, false), BypassEffect), $))
             case _ => $
         }
     }
@@ -571,7 +571,7 @@ object ElevCards {
             case Trashed(c, Runner, _) if inCorpScore(self) && g.owner(c).isCorp && g.inPlayZone(g.lastTrashedFrom) && g.active.isRunner && !g.usedThisTurn(self, "trendsetting") =>
                 $(MarkUsedEffect(self, "trendsetting"), ChooseOneEffect(Runner, "Aggressive Trendsetting: spend [click] to deny the Corp +1 allotted click next turn?", $(
                     Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) > 0),
-                    Alt("Do not spend a click", $(BonusClicksEffect(Corp, 1))))))
+                    Alt("Do not spend a click", $(ExtraClicksEffect(Corp, 1))))))
             case _ => $
         }
     }
@@ -967,7 +967,7 @@ object ElevCards {
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 g.log(Corp, "installs", c, "from the Runner's score area")
-                g.push(CorpInstallEffect(c, None, false), CheckWinAction())
+                g.push(CorpInstallEffect(c, None, false), CheckWinAction)
                 if (g.tagged)
                     g.push(PlaceAdvancementEffect(c, 1))
             }
@@ -1069,7 +1069,7 @@ object ElevCards {
                     g.push(PlutusDerezAction(self))
                 else
                     g.push(ChooseOneEffect(Corp, "Plutus: additional rez cost", $(
-                        Alt("Forfeit 1 agenda", $(ChooseCardEffect(Corp, agendas, ForfeitPurpose(), "Plutus: choose an agenda to forfeit", false)), agendas.any),
+                        Alt("Forfeit 1 agenda", $(ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Plutus: choose an agenda to forfeit", false)), agendas.any),
                         Alt("Reveal and trash 3 cards from HQ", $(ChooseCardsEffect(Corp, h, 3, 3, TrashFromHQPurpose(self, true), "Plutus: choose 3 cards in HQ to reveal and trash")), h.num >= 3))))
                 NextAction
             case PlutusDerezAction(self) =>
@@ -1083,7 +1083,7 @@ object ElevCards {
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && g.scored(Corp).exists(_.data.isAgenda)).?(-10).|(0)
         override def onRez(self : Card)(implicit g : Game) = {
             val agendas = g.scored(Corp).%(_.data.isAgenda)
-            agendas.any.$(ChooseCardEffect(Corp, agendas, ForfeitPurpose(), "Biawak: choose an agenda to forfeit (paid 10 credits of the rez cost)", false))
+            agendas.any.$(ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Biawak: choose an agenda to forfeit (paid 10 credits of the rez cost)", false))
         }
         override def subroutines(self : Card)(implicit g : Game) = {
             val programs = g.installedCards(Runner).%(_.data.isProgram)
