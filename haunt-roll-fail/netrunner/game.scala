@@ -326,7 +326,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 // ---------------------------------------------------------------------------------------------------------------------
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
-    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules with StartupRules with SU21Rules {
+    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules with StartupRules with SU21Rules with PHTAIRules {
 
     implicit def implicitGame : Game = this
 
@@ -386,7 +386,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     // -----------------------------------------------------------------------------------------------------------------
 
     def data(c : Card) = c.data
-    def impl(c : Card) : CardImpl = CardImpls(c.code)
+    def impl(c : Card) : CardImpl = extImpl(c)
 
     def state(c : Card) : CardState = cs.get(c).|{ val s = new CardState ; cs += c -> s ; s }
 
@@ -663,10 +663,12 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
                 IdleAction
     }
 
-    // collect the triggered abilities for an event (active player's cards first)
+    // collect the triggered abilities for an event (active player's cards first), followed by the game-level
+    // triggers of the extension rules (the ph/tai bookkeeping runs first: it snapshots the board before the cards look at it)
     def triggerEffects(e : Event) : $[ForcedAction] = {
+        val ext = phTriggers(e)
         val order = $(active, active.opponent)
-        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e)
+        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e) ++ ext
     }
 
     // trigger an event: collect triggered abilities and push them to the queue (active player first); true if any
@@ -737,7 +739,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21
+        val pf = performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21
 
         a match {
             case NextAction => nextStep

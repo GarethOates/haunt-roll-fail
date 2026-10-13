@@ -99,6 +99,13 @@ trait CardImpl {
     // ---- card specific actions and choices --------------------------------------------------------------------------
     def perform(a : CardAction)(implicit g : Game) : Continue = throw new Error("unhandled card action " + a)
     def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) : Continue = throw new Error("unhandled card purpose " + p)
+
+    // ---- extension hooks (rules-ext-ph-tai.scala) ------------------------------------------------------------------
+    def canInstall(self : Card)(implicit g : Game) : Boolean = true                                 // "install only if ..."
+    def allowsRun(self : Card, server : Server)(implicit g : Game) : Boolean = true                 // run restrictions imposed on servers
+    def remoteLimit(self : Card)(implicit g : Game) : Int = 99                                       // "limit N remote servers"
+    def disablesHost(self : Card)(implicit g : Game) : Boolean = false                              // host card loses its abilities (Hush)
+    def onActionTaken(self : Card, key : String, n : Int)(implicit g : Game) : $[ForcedAction] = $  // after the Corp finished an action of kind key for the n-th time this turn
 }
 
 object GenericImpl extends CardImpl {
@@ -106,7 +113,7 @@ object GenericImpl extends CardImpl {
 }
 
 object CardImpls {
-    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all ++ SU21Cards.all ++ MSCards.all)./(i => i.code -> i).toMap
+    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all ++ SU21Cards.all ++ MSCards.all ++ PHCards.all ++ TAICards.all)./(i => i.code -> i).toMap
 
     def apply(code : String) : CardImpl = all.get(code).|(GenericImpl)
 

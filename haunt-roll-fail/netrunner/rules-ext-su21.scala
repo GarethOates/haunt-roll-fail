@@ -34,8 +34,7 @@ case class TrashAndTagPurpose() extends SU21Purpose                         // t
 // effects
 case class SabotageEffect(n : Int) extends ForcedAction                    // sabotage n: the Corp trashes n cards from HQ and/or the top of R&D
 case class ChargeEffect(f : Faction) extends ForcedAction                  // charge 1 installed card of f (only cards that already have a power counter)
-case object IdentifyMarkEffect extends ForcedAction                        // identify the Runner's mark (random central server if none yet this turn)
-case class MarkShuffledAction(shuffled : $[Server]) extends ShuffledAction[Server]
+// IdentifyMarkEffect() / MarkShuffledAction: rules-ext-ph-tai.scala
 case object ReplaceBreachEffect extends ForcedAction                       // "instead of breaching": the current run will not breach its server
 case class AccessCardsEffect(server : Server, cards : $[Card], noStealOrTrash : Boolean) extends ForcedAction // access cards outside of a normal breach (pseudo-run)
 case class BreachServerEffect(server : Server) extends ForcedAction        // breach a server outside of a run / after a run ended (Virtuoso)
@@ -61,18 +60,8 @@ case class MarkRunUsedEffect(card : Card, key : String) extends ForcedAction   /
 
 trait SU21Rules { game : Game =>
 
-    // ---- mark (register "mark": 1 = HQ, 2 = R&D, 3 = Archives; the register is cleared every turn) -----------------
-    def mark : |[Server] = reg("mark") match {
-        case 1 => |(HQ)
-        case 2 => |(RnD)
-        case 3 => |(Archives)
-        case _ => None
-    }
-
+    // the Runner's mark (PHTAIRules.mark, identified with IdentifyMarkEffect())
     def isMark(s : Server) = mark.has(s)
-
-    // cards in the root of the attacked server lose all abilities (Light the Fire!)
-    def isDisabled(c : Card) : Boolean = run.exists(r => r.disableRoot && !r.ended && zone(c) == RootZone(r.server))
 
     def chargeable(f : Faction) : $[Card] = installedCards(f).%(c => counter(c, "power") > 0)
 
@@ -190,18 +179,6 @@ trait SU21Rules { game : Game =>
                 push(ChooseCardEffect(f, l, ChargePurpose(), "Charge: choose an installed card with a power counter", false))
             else
                 log(f, "has no card to charge")
-            NextAction
-
-        case IdentifyMarkEffect =>
-            if (mark.any)
-                NextAction
-            else
-                Shuffle[Server](Server.centrals, MarkShuffledAction(_), "Mark")
-
-        case MarkShuffledAction(l) =>
-            val s = l.head
-            register += "mark" -> (s match { case HQ => 1 ; case RnD => 2 ; case _ => 3 })
-            log(Runner, "identifies", s, "as the mark")
             NextAction
 
         case ReplaceBreachEffect =>

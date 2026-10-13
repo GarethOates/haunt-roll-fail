@@ -131,7 +131,7 @@ object MSCards {
 
     object Sable extends Ext("33011") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect)
+            case TurnBegins(Runner) => $(IdentifyMarkEffect())
             case SuccessfulRun(s) if g.isMark(s) && !g.usedThisTurn(self, "sable") => $(MarkUsedEffect(self, "sable"), MessageEffect(Runner, "uses Sable"), GainClicksEffect(Runner, 1))
             case _ => $
         }
@@ -139,7 +139,7 @@ object MSCards {
 
     object CarpeDiem extends Ext("33012") {
         override def makesRun(self : Card)(implicit g : Game) = true
-        override def onPlay(self : Card)(implicit g : Game) = $(IdentifyMarkEffect, gain(Runner, 4), CarpeDiemAction(self))
+        override def onPlay(self : Card)(implicit g : Game) = $(IdentifyMarkEffect(), gain(Runner, 4), CarpeDiemAction(self))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case CarpeDiemAction(self) =>
                 g.mark.foreach(m => g.push(OptionalEffect(Runner, "Carpe Diem: run " + m.name + " (your mark)?", $(RunEffect(m, |(self))), $)))
@@ -180,7 +180,7 @@ object MSCards {
     object Virtuoso extends Ext("33015") {
         override def memory(self : Card)(implicit g : Game) = 1
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect)
+            case TurnBegins(Runner) => $(IdentifyMarkEffect())
             case SuccessfulRun(s) if g.isMark(s) && !g.usedThisTurn(self, "virtuoso") =>
                 $(MarkUsedEffect(self, "virtuoso")) ++ ((s == HQ).?($(AccessBonusEffect(HQ, 1))).|($(MessageEffect(Runner, "will breach HQ when the run ends (Virtuoso)"), SetChoiceEffect(self, "breach-hq"))))
             case RunEnds(_, _, _) if g.state(self).choice == "breach-hq" => $(SetChoiceEffect(self, ""), BreachServerEffect(HQ))
@@ -213,7 +213,7 @@ object MSCards {
 
     object Backstitching extends Ext("33019") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(IdentifyMarkEffect)
+            case TurnBegins(Runner) => $(IdentifyMarkEffect())
             case EncounterIce(ice) if g.run.exists(r => g.isMark(r.server)) =>
                 $(OptionalEffect(Runner, "Backstitching: trash it to bypass " + g.asciiTitle(ice) + "?", $(TrashEffect(self, Runner, false), BypassEffect()), $))
             case _ => $
