@@ -104,7 +104,7 @@ trait AbilityRules { game : Game =>
 
     // paid abilities available to f in context ctx
     def abilityOptions(f : Faction, ctx : String, allowClick : Boolean) : $[UserAction] = {
-        activeCards(f)./~ { c =>
+        (activeCards(f) ++ hand(f).%(c => impl(c).activeInHand(c)))./~ { c =>
             impl(c).abilities(c).indexed./~ { (a, i) =>
                 if (a.click && !allowClick)
                     None
@@ -137,6 +137,9 @@ trait AbilityRules { game : Game =>
         else
             push(reask(ctx))
         pushAll(a.effects)
+        trigger(AbilityUsed(f, c, a.click))
+        if (a.click)
+            trigger(ActionTaken(f, "ability-" + c.code))
         NextAction
     }
 }

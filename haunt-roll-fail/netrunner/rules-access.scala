@@ -148,10 +148,10 @@ trait AccessRules { game : Game =>
             run match {
                 case Some(r) if !r.ended && location.contains(c) && !zone(c).is[ScoredZone] =>
                     val inArchives = zone(c).is[DiscardZone]
-                    val accessAbilities = activeCards(Runner)./~(s => impl(s).accessAbility(s, c)./(a => AccessAbilityAction(Runner, s, c).!(!a.ok, a.reason).!(!canPay(Runner, a.costs, |(s)), "cannot pay")))
+                    val accessAbilities = activeCards(Runner)./~(s => impl(s).accessAbility(s, c).%(a => !inArchives || a.label.startsWith("host"))./(a => AccessAbilityAction(Runner, s, c).!(!a.ok, a.reason).!(!canPay(Runner, a.costs, |(s)), "cannot pay")))
                     if (c.data.isAgenda) {
                         val canSteal = !r.cannotStealOrTrash
-                        val extra = impl(c).accessCostPaidByRunner(c)
+                        val extra = impl(c).accessCostPaidByRunner(c) ++ allActive./~(x => impl(x).stealCostMod(x, c))
                         if (canSteal && extra.none && accessAbilities.none) {
                             stealAgenda(c)
                             push(AccessDoneAction(c))
@@ -173,7 +173,7 @@ trait AccessRules { game : Game =>
                         else
                             Ask(Runner)
                                 .add(canTrash.$(PayTrashAction(Runner, c).!(availableCredits(Runner, None) < tc.|(0), "not enough credits")))
-                                .add(accessAbilities.%(_ => !inArchives))
+                                .add(accessAbilities)
                                 .add(NoAccessAction(Runner, c))
                     }
                 case _ =>
@@ -182,7 +182,7 @@ trait AccessRules { game : Game =>
             }
 
         case StealAction(f, c) =>
-            val extra = impl(c).accessCostPaidByRunner(c)
+            val extra = impl(c).accessCostPaidByRunner(c) ++ allActive./~(x => impl(x).stealCostMod(x, c))
             payCosts(Runner, extra, None)
             stealAgenda(c)
             push(AccessDoneAction(c))

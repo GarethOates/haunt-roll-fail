@@ -173,7 +173,7 @@ object Decks {
             "30029" -> 2, // Overclock
             "30020" -> 2, // Creative Commission
         )),
-    )
+    ) ++ ExtDecks.presets
 
     def validate(f : Faction, codes : $[String]) : DeckCheck = {
         val unknown = codes.%(c => Cards.get(c).none)

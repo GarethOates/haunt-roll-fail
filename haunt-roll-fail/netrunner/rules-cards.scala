@@ -32,6 +32,7 @@ trait CardRules { game : Game =>
             if (location.get(c).exists(inPlayZone))
                 NextAction
             else {
+                lastInstallFrom = zone(c)
                 val s : Server = so.|(newRemote())
                 val cost = ignoreCost.?(0).|(installCost(c, |(s)))
                 if (cost > 0) {
@@ -95,10 +96,18 @@ trait CardRules { game : Game =>
             if (zone(c).is[PlayZone]) {
                 if (run.exists(r => r.source.has(c) && !r.ended))
                     enqueue(PlayCleanupAction(c))
-                else if (owner(c).isCorp)
-                    toArchives(c, true)
-                else
-                    moveTo(c, DiscardZone(Runner))
+                else {
+                    trigger(PlayResolved(owner(c), c))
+                    if (impl(c).staysInPlay(c))
+                        ()
+                    else {
+                        if (owner(c).isCorp)
+                            toArchives(c, true)
+                        else
+                            moveTo(c, DiscardZone(Runner))
+                        trigger(Trashed(c, owner(c), false))
+                    }
+                }
             }
             NextAction
 

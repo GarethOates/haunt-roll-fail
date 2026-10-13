@@ -86,6 +86,8 @@ case class PreventUseAction(self : Faction, card : Card, idx : Int, kind : Strin
 case class CheckWinAction() extends ForcedAction
 case class ShuffleFromArchivesEffect(n : Int) extends ForcedAction
 case class InstallChooseServerPurpose(ignoreCost : Boolean) extends Purpose
+case class DrawNowEffect(f : Faction, n : Int) extends ForcedAction      // draw without "before draw" interrupts
+case object EndRunNowEffect extends ForcedAction                          // end the run without the prevention window
 
 // purposes for generic card choices
 case class TrashPurpose(by : Faction) extends Purpose
@@ -114,9 +116,20 @@ trait EffectRules { game : Game =>
             val m = n.atMost(credits(f))
             credits += f -> (credits(f) - m)
             log(f, "loses", m.credits)
+            if (m > 0)
+                trigger(CreditsLost(f, m))
             NextAction
 
         case DrawEffect(f, n) =>
+            val pre = activeCards(f)./~(c => impl(c).beforeDraw(c, f, n))
+            if (pre.any) {
+                pushAll(pre :+ DrawNowEffect(f, n))
+                NextAction
+            }
+            else
+                performEffects(DrawNowEffect(f, n))
+
+        case DrawNowEffect(f, n) =>
             val d = deck(f)
             if (f.isCorp && d.num < n) {
                 log(Corp, "cannot draw from an empty R&D")
@@ -148,13 +161,17 @@ trait EffectRules { game : Game =>
             if (n <= 0)
                 NextAction
             else {
+                corpPreventPassed = false
                 push(PreventWindowAction(kind, n))
                 NextAction
             }
 
         case PreventWindowAction(kind, n) =>
+            val lc = corpPreventPassed.not.??(activeCards(Corp)./~(c => impl(c).preventions(c, kind, n).indexed./((a, i) => (c, i, a))).%(_._3.ok))
             val l = activeCards(Runner)./~(c => impl(c).preventions(c, kind, n).indexed./((a, i) => (c, i, a)))
-            if (l.none) {
+            if (lc.any)
+                Ask(Corp).add(lc./{ case (c, i, a) => PreventUseAction(Corp, c, i, kind, n).!(!canPay(Corp, a.costs, |(c)), "cannot pay") }).add(PreventPassAction(Corp, kind, n))
+            else if (l.none) {
                 push(DamageApplyEffect(kind, n))
                 NextAction
             }
@@ -162,13 +179,26 @@ trait EffectRules { game : Game =>
                 Ask(Runner).add(l./{ case (c, i, a) => PreventUseAction(Runner, c, i, kind, n).!(!a.ok || !canPay(Runner, a.costs, |(c)), a.reason) }).add(PreventPassAction(Runner, kind, n))
 
         case PreventPassAction(f, kind, n) =>
-            push(DamageApplyEffect(kind, n))
-            NextAction
+            if (f.isCorp) {
+                corpPreventPassed = true
+                PreventWindowAction(kind, n)
+            }
+            else {
+                kind match {
+                    case "tag" => push(TagsApplyEffect(n))
+                    case "trace" => push(TraceCorpBoostAction(traceBase, traceSuccess, traceFail))
+                    case "end-run" => push(EndRunNowEffect)
+                    case _ => push(DamageApplyEffect(kind, n))
+                }
+                NextAction
+            }
 
         case PreventUseAction(f, c, i, kind, n) =>
             val a = impl(c).preventions(c, kind, n).apply(i)
             payCosts(f, a.costs, |(c))
-            log(f, "uses", c, "to prevent", kind, "damage")
+            if (f.isCorp)
+                corpPreventPassed = true
+            log(f, "uses", c, "to", a.label)
             pushAll(a.effects)
             NextAction
 
@@ -221,6 +251,8 @@ trait EffectRules { game : Game =>
             val m = n.atMost(tags)
             tags -= m
             log(Runner, "removes", m.tags)
+            if (m > 0)
+                trigger(TagsRemoved(m))
             NextAction
 
         case BadPubEffect(n) =>
@@ -229,6 +261,13 @@ trait EffectRules { game : Game =>
             NextAction
 
         case EndRunEffect =>
+            val l = run.exists(r => !r.ended && !r.jackedOut).??(activeCards(Runner)./~(c => impl(c).preventions(c, "end-run", 0).indexed./((a, i) => (c, i, a))).%(_._3.ok))
+            if (l.any)
+                Ask(Runner).add(l./{ case (c, i, a) => PreventUseAction(Runner, c, i, "end-run", 0).!(!canPay(Runner, a.costs, |(c)), "cannot pay") }).add(PreventPassAction(Runner, "end-run", 0))
+            else
+                performEffects(EndRunNowEffect)
+
+        case EndRunNowEffect =>
             run.foreach { r =>
                 if (!r.ended) {
                     r.ended = true
@@ -441,6 +480,8 @@ trait EffectRules { game : Game =>
         case RevealEffect(f, c) =>
             log(f, "reveals", c)
             state(c).seen = true
+            regInc("revealed-" + f.name)
+            trigger(Revealed(f, $(c)))
             NextAction
 
         case SwapIceEffect(a, b) =>
@@ -477,6 +518,7 @@ trait EffectRules { game : Game =>
                 credits += f -> (credits(f) + m)
                 log(f, "takes", m.credits, "from", c)
                 trigger(CounterAdded(c, "credit"))
+                trigger(CreditsSpentFrom(c, m))
             }
             NextAction
 
@@ -492,7 +534,11 @@ trait EffectRules { game : Game =>
             traceSuccess = success
             traceFail = fail
             log(Corp, "initiates a trace with base strength", base.hl)
-            TraceCorpBoostAction(base, success, fail)
+            val l = activeCards(Runner)./~(c => impl(c).preventions(c, "trace", base).indexed./((a, i) => (c, i, a))).%(_._3.ok)
+            if (l.any)
+                Ask(Runner).add(l./{ case (c, i, a) => PreventUseAction(Runner, c, i, "trace", base).!(!canPay(Runner, a.costs, |(c)), "cannot pay") }).add(PreventPassAction(Runner, "trace", base))
+            else
+                TraceCorpBoostAction(base, success, fail)
 
         case TraceCorpBoostAction(base, success, fail) =>
             Ask(Corp).group("Trace strength " ~ base.hl ~ ", boost by paying credits").add(0.to(credits(Corp)).$./(n => TraceCorpAction(Corp, n)))
@@ -682,7 +728,7 @@ trait EffectRules { game : Game =>
             impl(p.card).chosen(p, l)
 
         case p =>
-            throw new Error("unknown purpose " + p)
+            resolveExtPurpose(f, l, p).|(throw new Error("unknown purpose " + p))
     }
 
     def payCosts(f : Faction, costs : $[Cost], self : |[Card]) {
@@ -696,6 +742,7 @@ trait EffectRules { game : Game =>
             case TrashFromHandCost(n) =>
             case RemoveSelfCost => self.foreach(c => moveTo(c, RemovedZone(f)))
             case TagCost(n) => tags += n
+            case TrashInstalledCost(k) => push(ChooseCardEffect(Runner, runnerInstalledOf(k), TrashPurpose(Runner), "Choose an installed " + (k == "").?("card").|(k.toLowerCase) + " to trash", false))
         }
     }
 
@@ -710,6 +757,7 @@ trait EffectRules { game : Game =>
                     left -= m
                     log(Runner, "spends", m.credits, "from", c)
                     trigger(CounterAdded(c, "credit"))
+                    trigger(CreditsSpentFrom(c, m))
                 }
             }
         }
