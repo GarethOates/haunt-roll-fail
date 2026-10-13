@@ -70,13 +70,17 @@ trait TurnRules { game : Game =>
             log(DoubleLine)
             log("Turn", turn.hl, f, "(" ~ credits(f).credits ~ ", " ~ hand(f).num.cards ~ ")")
 
-            pending = $(TurnBeginsAction(f)) ++ f.isCorp.$(MandatoryDrawAction(f)) ++ $(ActionPhaseAction(f)) ++ pending
+            pending = $(PaidWindowAction("turn-start"), TurnBeginsAction(f)) ++ f.isCorp.$(MandatoryDrawAction(f)) ++ $(ActionPhaseAction(f)) ++ pending
 
             Milestone(NextAction)
 
         case TurnBeginsAction(f) =>
-            push(PaidWindowAction("turn-begins"))
-            trigger(TurnBegins(f))
+            // "when your turn begins" abilities, followed by a second paid ability window if anything happened
+            val l = triggerEffects(TurnBegins(f))
+            if (l.any) {
+                push(PaidWindowAction("turn-begins"))
+                pushAll(l)
+            }
             NextAction
 
         case MandatoryDrawAction(f) =>
@@ -92,7 +96,7 @@ trait TurnRules { game : Game =>
                 phase = "action"
                 val n = clicks(f)
 
-                if (n <= 0)
+                val own = if (n <= 0)
                     Ask(f)
                         .group("No clicks remaining")
                         .add(f.isCorp.??(scoreOptions(f)))
@@ -116,16 +120,22 @@ trait TurnRules { game : Game =>
                         .add(f.isRunner.$(RemoveTagAction(f).!(tags == 0 || credits(f) < 2, "not tagged")))
                         .add(abilityOptions(f, "action", true))
                         .add(ConcedeAction(f))
+
+                // paid ability window for the opponent between actions (non-blocking: the active player may act meanwhile)
+                windowAsk(f.opponent, "action", takeActed()) match {
+                    case Some(ask) => MultiAsk($(own, ask))
+                    case None => own
+                }
             }
 
         case ClickCreditAction(f) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             credits += f -> (credits(f) + 1)
             log(f, "clicks for", 1.credits)
             ActionPhaseAction(f)
 
         case ClickDrawAction(f) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             regInc("click-draw")
             log(f, "clicks to draw")
             val n = 1 + clickDrawBonus
@@ -138,7 +148,7 @@ trait TurnRules { game : Game =>
             Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(credits(f) < playCost(c), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
 
         case PlayCardAction(f, c) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             payCredits(f, playCost(c), None)
             moveTo(c, PlayZone(f))
             state(c).seen = true
@@ -175,21 +185,21 @@ trait TurnRules { game : Game =>
             }
 
         case CorpInstallAction(f, c, s) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             push(CorpInstallEffect(c, s, false), ActionPhaseAction(f))
             NextAction
 
         case RunnerInstallAction(f, c, h, t) =>
-            clicks += f -> (clicks(f) - 1)
-            t.foreach(p => trashCard(p, f, false))
+            spendClick(f)
             push(RunnerInstallEffect(c, h, false), ActionPhaseAction(f))
+            t.foreach(p => trashCard(p, f, false))
             NextAction
 
         case AdvanceMenuAction(f) =>
             Ask(f).add(advanceableCards./(c => AdvanceAction(f, c))).cancel
 
         case AdvanceAction(f, c) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             credits += f -> (credits(f) - 1)
             addCounter(c, "advancement", 1)
             log(f, "advances", hiddenCorpElem(c))
@@ -202,23 +212,25 @@ trait TurnRules { game : Game =>
             Ask(f).add(scorableAgendas./(c => ScoreAction(f, c))).cancel
 
         case ScoreAction(f, c) =>
+            windowPassed = $
+            actedInWindow = |(f)
+            push(reask(ctxOf(current)))
             scoreAgenda(c)
-            push(ActionPhaseAction(f))
             NextAction
 
         case TrashResourceMenuAction(f) =>
             Ask(f).add(installedCards(Runner).%(_.data.isResource)./(c => TrashResourceAction(f, c))).cancel
 
         case TrashResourceAction(f, c) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             credits += f -> (credits(f) - 2)
             log(f, "pays", 2.credits, "to trash a resource")
-            trashCard(c, f, false)
             push(ActionPhaseAction(f))
+            trashCard(c, f, false)
             NextAction
 
         case PurgeAction(f) =>
-            clicks += f -> (clicks(f) - 3)
+            spendClick(f, 3)
             push(PurgeEffect, ActionPhaseAction(f))
             NextAction
 
@@ -226,12 +238,12 @@ trait TurnRules { game : Game =>
             Ask(f).add(servers.%(canRunOn)./(s => RunAction(f, s))).cancel
 
         case RunAction(f, s) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             push(ActionPhaseAction(f))
             startRun(s, None, true)
 
         case RemoveTagAction(f) =>
-            clicks += f -> (clicks(f) - 1)
+            spendClick(f)
             credits += f -> (credits(f) - 2)
             tags -= 1
             log(f, "pays", 2.credits, "to remove a tag")
@@ -241,12 +253,14 @@ trait TurnRules { game : Game =>
             Ask(f).add(rezOptions(f, "action", None)).cancel
 
         case RezAction(f, c, ctx) =>
-            rezCard(c, false)
+            windowPassed = $
+            actedInWindow = |(f)
             push(reask(ctx))
+            rezCard(c, false)
             NextAction
 
         case EndTurnClickAction(f) =>
-            push(DiscardPhaseAction(f), EndTurnAction(f))
+            push(DiscardPhaseAction(f), PaidWindowAction("discard"), EndTurnAction(f))
             NextAction
 
         case ConcedeAction(f) =>
@@ -267,7 +281,7 @@ trait TurnRules { game : Game =>
                     NextAction
                 else
                     XXSelectObjectsAction(f, hand(f))
-                        .withGroup("Discard down to " ~ max.atLeast(0).cards)
+                        .withGroup("Discard phase: " ~ hand(f).num.cards ~ " in hand, maximum " ~ max.atLeast(0).hl ~ " - choose " ~ n.cards ~ " to discard")
                         .withRule(_.num(n))
                         .withThenElem(DiscardCardsAction(f, _))("Discard".hl)
             }
@@ -313,39 +327,60 @@ trait TurnRules { game : Game =>
 
     def scoreOptions(f : Faction) : $[UserAction] = scorableAgendas./(c => ScoreAction(f, c))
 
+    // the Corp may score agendas only in the paid ability windows of its own turn outside runs
+    def canScoreNow(kind : String) : Boolean = active.isCorp && run.none && (kind == "action" || kind == "turn-start" || kind == "turn-begins")
+
     def rezOptions(f : Faction, ctx : String, approached : |[Card]) : $[UserAction] =
         (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isIce && !c.data.isAgenda) ++ approached.$)./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits"))
 
     def reask(ctx : String) : ForcedAction = ctx match {
         case "action" => ActionPhaseAction(active)
+        case "window:action" => ActionPhaseAction(active)
         case "encounter" => run./~(_.ice)./(EncounterAction(_)).|(NextAction)
+        case "window:encounter" => run./~(_.ice)./(EncounterAction(_)).|(NextAction)
         case s if s.startsWith("window:") => PaidWindowAction(s.drop(7))
         case _ => current
     }
 
+    def ctxOf(a : ForcedAction) : String = a match {
+        case ActionPhaseAction(_) => "action"
+        case EncounterAction(_) => "encounter"
+        case PaidWindowAction(k) => "window:" + k
+        case _ => "current"
+    }
+
+    // scoring: the agenda moves to the score area, the win condition is checked at once, then "when scored" abilities resolve
     def scoreAgenda(c : Card) {
         val points = c.data.agendaPoints.|(0)
         lastScoredFrom = serverOf(c)
+        val hostedTrashed = leavePlay(c)
         moveTo(c, ScoredZone(Corp))
         state(c).seen = true
+        hostedTrashed.foreach(h => log("Hosted card", cardElem(h), "is trashed"))
+        cleanupRemotes()
         scoredPointsThisTurn += points
         regInc("scored-points", points)
+        regInc("scored")
         log(Corp, "scores", c, "and gains", points.hl, "agenda point" + (points != 1).??("s"))
-        push(CheckWinAction())
-        trigger(AgendaScored(c))
         pushAll(impl(c).onScore(c))
+        trigger(AgendaScored(c))
+        push(CheckWinAction())
     }
 
     def stealAgenda(c : Card) {
         val points = c.data.agendaPoints.|(0)
+        val hostedTrashed = isInstalled(c).??(leavePlay(c))
         moveTo(c, ScoredZone(Runner))
         state(c).seen = true
+        hostedTrashed.foreach(h => log("Hosted card", cardElem(h), "is trashed"))
+        cleanupRemotes()
         log(Runner, "steals", c, "and gains", points.hl, "agenda point" + (points != 1).??("s"))
         regInc("stolen-points", points)
+        regInc("stolen")
         run.foreach(_.didSteal = true)
-        push(CheckWinAction())
-        trigger(AgendaStolen(c))
         pushAll(impl(c).onSteal(c))
+        trigger(AgendaStolen(c))
+        push(CheckWinAction())
     }
 }
 

@@ -21,16 +21,19 @@ case class AccessNextAction() extends ForcedAction with RunStep with Reaskable
 case class AccessChooseAction(self : Faction, card : Card) extends BaseAction("Access next")(g => g.accessElem(card))
 case class AccessCardAction(card : Card) extends ForcedAction with RunStep
 case class AccessDecisionAction(card : Card) extends ForcedAction with RunStep with Reaskable
-case class StealAction(self : Faction, card : Card) extends BaseAction(g => "Accessing " ~ g.cardElem(card))("Steal".hl)
-case class PayTrashAction(self : Faction, card : Card) extends BaseAction(g => "Accessing " ~ g.cardElem(card))(g => "Pay " ~ g.trashCost(card).|(0).hl ~ "[c] to trash")
-case class AccessAbilityAction(self : Faction, source : Card, card : Card) extends BaseAction(g => "Accessing " ~ g.cardElem(card))(g => g.cardElem(source) ~ ": " ~ g.impl(source).accessAbility(source, card)(g)./(_.label).|("?"))
-case class NoAccessAction(self : Faction, card : Card) extends BaseAction(g => "Accessing " ~ g.cardElem(card))("No action")
+case class StealAction(self : Faction, card : Card) extends BaseAction(g => g.accessGroup(card))("Steal".hl)
+case class PayTrashAction(self : Faction, card : Card) extends BaseAction(g => g.accessGroup(card))(g => "Pay " ~ g.trashCost(card).|(0).hl ~ "[c] to trash")
+case class AccessAbilityAction(self : Faction, source : Card, card : Card) extends BaseAction(g => g.accessGroup(card))(g => g.cardElem(source) ~ ": " ~ g.impl(source).accessAbility(source, card)(g)./(_.label).|("?"))
+case class NoAccessAction(self : Faction, card : Card) extends BaseAction(g => g.accessGroup(card))("No action")
 case class AccessDoneAction(card : Card) extends ForcedAction with RunStep
 case class BreachEndAction() extends ForcedAction with RunStep
 case class AccessAbilityCardsAction(self : Faction, source : Card, card : Card, cards : $[Card]) extends ForcedAction
 
 
 trait AccessRules { game : Game =>
+
+    // the accessed card shown with its image in the access prompt
+    def accessGroup(c : Card) : Elem = Div(Image(c.code, netrunner.elem.styles.card), netrunner.elem.styles.viewcard) ~ Div("Accessing " ~ cardElem(c) ~ trashCost(c)./(t => " (trash cost " ~ t.hl ~ ")").|(Empty))
 
     def accessElem(c : Card) : Elem = zone(c) match {
         case HandZone(Corp) => "a card from HQ".hl
@@ -83,8 +86,12 @@ trait AccessRules { game : Game =>
                             push(AccessNextAction())
                             NextAction
                         case Archives =>
+                            // all cards in Archives are turned faceup and accessed (the order is irrelevant: present them as a set)
+                            val facedown = discard(Corp).%(c => !state(c).seen)
                             discard(Corp).foreach(c => state(c).seen = true)
-                            r.toAccess = discard(Corp) ++ upgrades
+                            if (facedown.any)
+                                log(facedown.num.cards, "in Archives turned faceup:", facedown.sortBy(_.title)./(cardElem).comma)
+                            r.toAccess = discard(Corp).sortBy(_.title) ++ upgrades
                             push(AccessNextAction())
                             NextAction
                         case _ =>
@@ -105,17 +112,27 @@ trait AccessRules { game : Game =>
         case AccessNextAction() =>
             run match {
                 case Some(r) if !r.ended =>
-                    r.toAccess = r.toAccess.%(c => location.contains(c) && !zone(c).is[ScoredZone] && zone(c) != DiscardZone(Runner))
+                    r.toAccess = r.toAccess.%(c => location.contains(c) && !zone(c).is[ScoredZone] && zone(c) != DiscardZone(Runner) && zone(c) != RemovedZone(Corp))
+                    // cards from R&D must be accessed in order (top first); root cards can be accessed before, between or after them
+                    val rd = r.toAccess.%(c => zone(c) == DeckZone(Corp))
+                    val others = r.toAccess.%(c => zone(c) != DeckZone(Corp))
+                    val candidates = rd.take(1) ++ others
+                    // cards in Archives without access effects are accessed automatically
+                    val trivial = candidates.%(c => zone(c) == DiscardZone(Corp) && !c.data.isAgenda && impl(c).onAccess(c).none && activeCards(Runner)./~(s => impl(s).accessAbility(s, c)).none)
                     if (r.toAccess.none) {
                         push(BreachEndAction())
                         NextAction
                     }
-                    else if (r.toAccess.num == 1 || r.server == RnD) {
-                        push(AccessCardAction(r.toAccess.head))
+                    else if (candidates.num == 1) {
+                        push(AccessCardAction(candidates.head))
+                        NextAction
+                    }
+                    else if (trivial.any) {
+                        push(AccessCardAction(trivial.head))
                         NextAction
                     }
                     else
-                        Ask(Runner).group("Choose the next card to access").add(r.toAccess./(c => AccessChooseAction(Runner, c)))
+                        Ask(Runner).group("Breaching " ~ r.server.elem ~ ": choose the next card to access").add(candidates./(c => AccessChooseAction(Runner, c)))
                 case _ => NextAction
             }
 
@@ -153,8 +170,8 @@ trait AccessRules { game : Game =>
                         val canSteal = !r.cannotStealOrTrash
                         val extra = impl(c).accessCostPaidByRunner(c)
                         if (canSteal && extra.none && accessAbilities.none) {
-                            stealAgenda(c)
                             push(AccessDoneAction(c))
+                            stealAgenda(c)
                             NextAction
                         }
                         else
@@ -184,16 +201,16 @@ trait AccessRules { game : Game =>
         case StealAction(f, c) =>
             val extra = impl(c).accessCostPaidByRunner(c)
             payCosts(Runner, extra, None)
-            stealAgenda(c)
             push(AccessDoneAction(c))
+            stealAgenda(c)
             NextAction
 
         case PayTrashAction(f, c) =>
             val tc = trashCost(c).|(0)
             payCredits(Runner, tc, None)
             log(Runner, "pays", tc.credits, "to trash", c)
-            trashCard(c, Runner, true)
             push(AccessDoneAction(c))
+            trashCard(c, Runner, true)
             NextAction
 
         case AccessAbilityAction(f, s, c) =>

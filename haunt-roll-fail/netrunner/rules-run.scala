@@ -137,12 +137,17 @@ trait RunRules { game : Game =>
                             PumpAction(Runner, b, pi).!(!canPay(Runner, p.costs, |(b)), "cannot pay")
                         }
                     }
-                    Ask(Runner)
+                    val runnerAsk = Ask(Runner)
                         .group("Encountering " ~ cardElem(c) ~ " (strength " ~ str.hl ~ ")" ~ Break ~ subs.indexed./((s, i) => (unbroken.has(i).?(("[sub] " + s.label).hl).|(("[sub] " + s.label).styled(styles.subBroken)))).join(Break))
                         .add(breakOptions)
                         .add(pumpOptions)
                         .add(abilityOptions(Runner, "encounter", false))
                         .add(ContinueEncounterAction(Runner, c))
+                    // the Corp may use paid abilities and rez non-ice cards during the encounter
+                    windowAsk(Corp, "encounter", takeActed()) match {
+                        case Some(ask) => MultiAsk($(runnerAsk, ask))
+                        case None => runnerAsk
+                    }
                 case Some(r) if !r.ended =>
                     push(EncounterEndsAction(c))
                     NextAction
@@ -151,6 +156,7 @@ trait RunRules { game : Game =>
 
         case BreakSubAction(f, b, bi, c, i) =>
             val br = impl(b).breaks(b).apply(bi)
+            windowPassed = $
             payCosts(f, br.costs, |(b))
             state(c).brokenSubs :+= i
             log(Runner, "uses", b, "to break", impl(c).subroutines(c).apply(i).label.hl, "on", c)
@@ -161,6 +167,7 @@ trait RunRules { game : Game =>
 
         case BreakSubsAction(f, b, bi, c, l) =>
             val br = impl(b).breaks(b).apply(bi)
+            windowPassed = $
             payCosts(f, br.costs, |(b))
             state(c).brokenSubs ++= l
             log(Runner, "uses", b, "to break", l.num.hl, "subroutines on", c)
@@ -171,6 +178,7 @@ trait RunRules { game : Game =>
 
         case PumpAction(f, b, pi) =>
             val p = impl(b).pumps(b).apply(pi)
+            windowPassed = $
             payCosts(f, p.costs, |(b))
             val s = state(b)
             p.duration match {
@@ -182,6 +190,7 @@ trait RunRules { game : Game =>
             run./~(_.ice)./(EncounterAction(_)).|(NextAction)
 
         case ContinueEncounterAction(f, c) =>
+            windowPassed = $
             push(ResolveSubroutinesAction(c))
             NextAction
 
@@ -276,6 +285,8 @@ trait RunRules { game : Game =>
                         r.unsuccessful = true
                         regInc("unsuccessful-run")
                     }
+                    else
+                        log("The run on", r.server, "ends")
                     push(RunCleanupAction())
                     if (r.unsuccessful)
                         trigger(UnsuccessfulRun(r.server))

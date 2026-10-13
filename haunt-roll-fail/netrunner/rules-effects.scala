@@ -106,6 +106,7 @@ trait EffectRules { game : Game =>
         case GainCreditsEffect(f, n) =>
             if (n > 0) {
                 credits += f -> (credits(f) + n)
+                reopenWindows()
                 log(f, "gains", n.credits)
             }
             NextAction
@@ -299,6 +300,9 @@ trait EffectRules { game : Game =>
                 trigger(Derezzed(c))
             }
             NextAction
+
+        case CheckWinAction() =>
+            checkWin()
 
         case ChooseCardEffect(f, l, p, prompt, optional) =>
             val ll = l.%(c => location.contains(c))
@@ -543,9 +547,6 @@ trait EffectRules { game : Game =>
             if (c == r) pushAll(equal) else pushAll(differ)
             NextAction
 
-        case CheckWinAction() =>
-            checkWin()
-
         case ShuffleFromArchivesEffect(n) =>
             if (discard(Corp).any)
                 push(ChooseCardsEffect(Corp, discard(Corp), 0, n, ShuffleIntoDeckPurpose(Corp), "Choose up to " + n + " cards in Archives to shuffle into R&D"))
@@ -576,15 +577,23 @@ trait EffectRules { game : Game =>
 
     def trashCard(c : Card, by : Faction, accessed : Boolean) {
         val wasInstalled = isInstalled(c)
+        val hostedInstalledCards = wasInstalled.??(hostedInstalled(c))
         val hostedTrashed = wasInstalled.??(leavePlay(c))
         val from = zone(c)
+        val wasRezzed = isRezzed(c)
         if (owner(c).isCorp)
             toArchives(c, true)
         else
             moveTo(c, DiscardZone(Runner))
         if (hostedTrashed.any)
             log("Hosted cards trashed:", hostedTrashed./(cardElem).comma)
-        log(by, "trashes", cardElem(c))
+        log(by, "trashes", cardElem(c), from match {
+            case HandZone(Corp) => "from HQ".txt
+            case DeckZone(Corp) => "from R&D".txt
+            case HandZone(Runner) => "from the grip".txt
+            case DeckZone(Runner) => "from the stack".txt
+            case _ => Empty
+        })
         cleanupRemotes()
         if (by.isRunner) {
             regInc("runner-trash")
@@ -594,6 +603,10 @@ trait EffectRules { game : Game =>
         }
         if (wasInstalled || from.is[HandZone] || from.is[DeckZone])
             pushAll(impl(c).onTrash(c, by))
+        // the Runner must keep memory use within the available MU
+        if (owner(c).isRunner && wasInstalled)
+            push(CheckMemoryAction())
+        hostedInstalledCards.foreach(h => trigger(Trashed(h, by, false)))
         trigger(Trashed(c, by, accessed))
     }
 
@@ -606,6 +619,12 @@ trait EffectRules { game : Game =>
             state(c).seen = true
             impl(c).initialCounters(c).foreach { case (k, n) => addCounter(c, k, n) }
             log(Corp, "rezzes", c, ignoreCost.?("ignoring all costs").|("paying " ~ cost.credits))
+            // uniqueness: other rezzed copies of a unique card are trashed
+            if (c.data.unique)
+                installedCards(Corp).%(x => x.title == c.title && x != c && isRezzed(x)).foreach { x =>
+                    log(Corp, "trashes", x, "(unique)")
+                    trashCard(x, Corp, false)
+                }
             pushAll(impl(c).onRez(c))
             trigger(Rezzed(c))
         }

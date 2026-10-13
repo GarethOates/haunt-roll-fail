@@ -30,13 +30,35 @@ definitions (`/Users/gareth/Developer/HRF/netrunner-src/src/clj/game/cards/*.clj
   "The first time each turn X" is tested as `g.reg("x") == 1` inside `triggers` (the register is incremented
   before the event is triggered). `successfulRunsThisTurn`, `successfulRunsLastTurn`, `runsThisTurn` are lists of
   servers. Per-card once-per-turn keys: `usedThisTurn(card, key)` / `markUsed` (or `Ability.once`).
-* **Paid ability windows** (`PaidWindowAction(kind)`): kinds `turn-begins`, `run-initiated`, `approach-ice`,
-  `movement` (after passing ice: jack out / continue), `approach-server`. Both players get a `MultiAsk` with their
-  non-click abilities (and rez options for the Corp; the approached ice can only be rezzed in `approach-ice`).
-  The encounter has its own ask (`EncounterAction`) with break / pump / ability / continue options.
+* **Paid ability windows** (`PaidWindowAction(kind)`, rules-abilities.scala) follow the NSG timing structure:
+  `turn-start` (after clicks are gained, before "when your turn begins"), `turn-begins` (after those triggers, only
+  if any fired), `action` (between actions: the opponent's window is a non-blocking `MultiAsk` next to the active
+  player's action prompt, see `ActionPhaseAction`), `discard` (after discarding, before the turn ends),
+  `run-initiated`, `approach-ice` (the approached ice can be rezzed here), `encounter` (the Corp's side of
+  `EncounterAction`), `movement` (after passing ice: jack out / continue), `approach-server`.
+  `windowOptions(f, kind)` lists what `f` can do: rez non-ice cards (Corp), score agendas (Corp, `canScoreNow`:
+  only the windows of its own turn outside runs), non-click paid abilities, jack out. A window is skipped for a
+  player with no options; a player who passed is not asked again while their options are unchanged
+  (`passedSig`, `windowSig`), and after using a window action they are not re-asked until their options change.
+  Anything that "happens" (`spendClick`, triggered effects, credit gains, breaking, rezzing) reopens the windows
+  (`reopenWindows()`). Basic actions spend clicks through `spendClick(f, n)` (counts `reg("actions")` and reopens
+  the windows); click abilities pay their `ClickCost` through `payCosts` and `useAbility` reopens the windows.
+  The encounter ask (`EncounterAction`) offers break / pump / ability / continue to the Runner and, in the same
+  `MultiAsk`, rez / abilities / done to the Corp.
 * Every `Ask` produced by a `Reaskable` action automatically gets a `ManualAction` entry (manual adjustments).
   After a manual change the engine re-performs the stored `current` action to regenerate the ask, so Reaskable
   actions must be pure (no state change when performed again).
+* **Ordering rule for user actions with hooks**: push the follow-up ask *before* calling the hook so that the
+  hook's effects resolve first: `push(ActionPhaseAction(f)); trashCard(c, ...)` / `push(reask(ctx)); rezCard(c)` /
+  `push(AccessDoneAction(c)); stealAgenda(c)`. Scoring and stealing move the agenda, then queue `onScore`/`onSteal`,
+  the `AgendaScored`/`AgendaStolen` triggers and finally `CheckWinAction` at the very front (the win is checked
+  before any "when scored" ability resolves).
+* **Trashing** (`trashCard`): hosted cards leave play with their host (and get their own `Trashed` events), a
+  `CheckMemoryAction` is queued when a Runner card leaves play (the Runner must trash programs while MU is
+  exceeded), unique Corp cards trash other rezzed copies when rezzed (`rezCard`), unique Runner cards on install.
+* **Access** (rules-access.scala): cards from R&D are accessed in order (top first), root cards may be accessed
+  before, between or after them; HQ accesses are drawn at random when the breach starts; breaching Archives turns
+  every card faceup (logged as a sorted set) and accesses all of them (cards without access effects automatically).
 
 ## 2. CardImpl API (abilities.scala)
 

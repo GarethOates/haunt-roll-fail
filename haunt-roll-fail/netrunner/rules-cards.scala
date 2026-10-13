@@ -44,7 +44,6 @@ trait CardRules { game : Game =>
                 else {
                     if (c.data.isAgenda || c.data.isAsset) {
                         root(s).%(x => x.data.isAgenda || x.data.isAsset).foreach { x =>
-                            log(Corp, "trashes", hiddenCorpElem(x), "from", s)
                             trashCard(x, Corp, false)
                         }
                     }

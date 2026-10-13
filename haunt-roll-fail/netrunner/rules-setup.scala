@@ -15,7 +15,7 @@ import netrunner.elem._
 
 
 case object ChooseDecksAction extends ForcedAction
-case class ChoosePresetDeckAction(self : Faction, index : Int) extends BaseAction("Choose a deck")(Decks.presets(index).name.hl ~ " (" ~ Decks.presets(index).identityTitle ~ ")")
+case class ChoosePresetDeckAction(self : Faction, index : Int) extends BaseAction("Choose a deck")(Image(Decks.presets(index).identity, netrunner.elem.styles.cardTiny) ~ " " ~ Decks.presets(index).name.hl ~ " (" ~ Decks.presets(index).identityTitle ~ ")")
 case class ImportDeckMarker(self : Faction) extends HiddenChoice with SelfValidate {
     def validate(a : Action) = a @@ {
         case ImportDeckAction(f, codes) => f == self && Decks.validate(f, codes).ok

@@ -34,6 +34,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     overlayPane.invis()
 
+    // the latest ask of the viewer: used to tie clicks on the board to actions
     var lastThen : UserAction => Unit = null
     var lastActions : $[UserAction] = $
 
@@ -47,6 +48,9 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     def canSee(c : Card) : Boolean = {
         val g = game
+        // cards accessed during the current run are revealed
+        if (g.run.exists(r => !r.ended && r.accessed.has(c)))
+            return true
         viewer match {
             case None => true
             case Some(v) =>
@@ -56,7 +60,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     case DiscardZone(Corp) => v.isCorp || g.state(c).seen
                     case DiscardZone(Runner) => true
                     case RootZone(_) | IceZone(_) => v.isCorp || g.isRezzed(c) || g.state(c).seen
-                    case HostedZone(h) => g.owner(c) == v || (g.owner(c).isCorp && g.isRezzed(c)) || (g.owner(c).isRunner && !g.state(c).facedown)
+                    case HostedZone(h) => g.owner(c) == v || (g.owner(c).isCorp && (g.isRezzed(c) || g.state(c).seen)) || (g.owner(c).isRunner && !g.state(c).facedown)
                     case RigZone => v.isRunner || !g.state(c).facedown
                     case _ => true
                 }
@@ -65,142 +69,355 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     def back(c : Card) = game.owner(c).isCorp.?("corp-back").|("runner-back")
 
-    def cardImage(c : Card, style : Style) : Elem = {
-        val img = canSee(c).?(Image(c.code, style)).|(Image(back(c), style))
-        img.pointer.onClick.param(c)
+    // ---------------------------------------------------------------------------------------------------------------
+    // Cards on the board
+    // ---------------------------------------------------------------------------------------------------------------
+
+    def clickable(e : Elem, p : Any) : Elem = Parameter(p, OnOverOut(OnClick(e)))
+
+    def cardImage(c : Card, style : Style, extra : $[Style] = $) : Elem = {
+        val g = game
+        val visible = canSee(c)
+        val inPlay = g.inPlayZone(g.zone(c))
+        val unrezzed = inPlay && g.owner(c).isCorp && !g.isRezzed(c)
+        val facedown = inPlay && g.owner(c).isRunner && g.state(c).facedown
+        val img = visible.?(Image(c.code, style)).|(Image(back(c), style))
+        val styled = img.copy(styles = img.styles ++ extra ++ (visible && unrezzed).$(styles.unrezzed) ++ (visible && facedown).$(styles.facedown) :+ styles.actionable)
+        clickable(styled, c)
     }
 
-    def countersElem(c : Card) : Elem = {
+    def badges(c : Card) : Elem = {
         val g = game
         val s = g.state(c)
+        val visible = canSee(c)
         val l =
-            (s.advancement > 0).$(("adv " + s.advancement).spn(styles.counter)(styles.counterAdv)) ++
-            (s.virus > 0).$(("virus " + s.virus).spn(styles.counter)(styles.counterVirus)) ++
-            (s.credits > 0).$((s.credits + "c").spn(styles.counter)(styles.counterCredit)) ++
-            (s.power > 0).$(("power " + s.power).spn(styles.counter)(styles.counterPower)) ++
-            (c.data.isIce && g.isRezzed(c) && g.iceStrength(c) != c.data.strength.|(0)).$(("str " + g.iceStrength(c)).spn(styles.counter)) ++
-            (c.data.isIcebreaker && g.breakerStrength(c) != c.data.strength.|(0)).$(("str " + g.breakerStrength(c)).spn(styles.counter))
-        l.any.?(Div(l.merge)).|(Empty)
+            (s.advancement > 0).$((s.advancement + " adv").spn(styles.badge)(styles.badgeAdv)) ++
+            (s.virus > 0).$((s.virus + " virus").spn(styles.badge)(styles.badgeVirus)) ++
+            (s.credits > 0).$((s.credits + "c").spn(styles.badge)(styles.badgeCredit)) ++
+            (s.power > 0).$((s.power + " power").spn(styles.badge)(styles.badgePower)) ++
+            (visible && c.data.isIce && g.isRezzed(c) && g.iceStrength(c) != c.data.strength.|(0)).$(("str " + g.iceStrength(c)).spn(styles.badge)(styles.badgeStr)) ++
+            (visible && c.data.isIcebreaker && g.breakerStrength(c) != c.data.strength.|(0)).$(("str " + g.breakerStrength(c)).spn(styles.badge)(styles.badgeStr))
+        l.any.?(Div(l.merge, styles.badges)).|(Empty)
+    }
+
+    def tagLabel(c : Card) : Elem = {
+        val g = game
+        val inPlay = g.inPlayZone(g.zone(c))
+        if (inPlay && g.owner(c).isCorp && !g.isRezzed(c) && canSee(c))
+            "unrezzed".spn(styles.tag)
+        else if (inPlay && g.owner(c).isRunner && g.state(c).facedown && canSee(c))
+            "facedown".spn(styles.tag)
+        else
+            Empty
+    }
+
+    def highlightOf(c : Card) : $[Style] = {
+        val g = game
+        val encountered = g.run.exists(r => !r.ended && r.ice.has(c) && (r.phase == EncounterPhase || r.phase == ApproachIcePhase))
+        encountered.$(styles.encountered) ++ (hasActions(c) && !encountered).$(styles.highlighted)
     }
 
     def slot(c : Card, style : Style = styles.card) : Elem = {
         val g = game
-        val hostedElems = g.hosted(c)./(h => slot(h, styles.cardSmall))
-        Div(cardImage(c, style) ~ countersElem(c) ~ hostedElems.merge, styles.slot)
+        val hostedElems = g.hosted(c)./(h => slot(h, styles.cardTiny))
+        Div(cardImage(c, style, highlightOf(c)) ~ tagLabel(c) ~ badges(c) ~ hostedElems.some./(l => Div(l.merge, styles.hostedRow)).|(Empty), styles.slot)
     }
 
     def iceSlot(c : Card) : Elem = {
         val g = game
-        val running = g.run.exists(r => r.ice.has(c))
         val hostedElems = g.hosted(c)./(h => slot(h, styles.cardTiny))
-        Div(cardImage(c, styles.cardIce) ~ countersElem(c) ~ hostedElems.merge, styles.iceSlot)(running.?(styles.selected).|(styles.slot))
+        Div(Div(cardImage(c, styles.cardIceImg, highlightOf(c)) ~ tagLabel(c), styles.iceBox) ~ badges(c) ~ hostedElems.some./(l => Div(l.merge, styles.hostedRow)).|(Empty), styles.slot)
     }
+
+    def pileImage(id : String, count : Int, label : String, p : Any) : Elem =
+        Div(clickable(Image(id, styles.cardSmall)(styles.actionable), p) ~ (count + " " + label).spn(styles.serverCount), styles.slot)
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Servers
+    // ---------------------------------------------------------------------------------------------------------------
 
     def serverElem(s : Server) : Elem = {
         val g = game
-        val running = g.run.exists(r => r.server == s && !r.ended)
-        val iceElems = g.ice(s).reverse./(iceSlot)
+        val r = g.run.%(r => r.server == s && !r.ended)
+        val iceList = g.ice(s)
+        val position = r./(_.position).|(-1)
+        val approachingServer = r.exists(x => x.position == 0 || x.phase == ApproachServerPhase || x.phase == AccessPhase || x.phase == SuccessPhase)
+        val iceElems = iceList.indexed.reverse./ { (c, i) =>
+            val here = r.any && position == i + 1 && !approachingServer
+            here.?(Div("Runner".spn(styles.marker)) ~ iceSlot(c)).|(iceSlot(c))
+        }
         val rootElems = g.root(s)./(c => slot(c, styles.cardSmall))
         val central = s match {
-            case HQ => Div(Image("corp-back", styles.cardSmall)) ~ (g.hand(Corp).num + " cards").spn(styles.serverName)
-            case RnD => Div(Image("corp-back", styles.cardSmall)) ~ (g.deck(Corp).num + " cards").spn(styles.serverName)
+            case HQ => pileImage("corp-back", g.hand(Corp).num, "cards", "hq")
+            case RnD => pileImage("corp-back", g.deck(Corp).num, "cards", "rnd")
             case Archives =>
                 val l = g.discard(Corp)
-                val faceup = l.%(c => g.state(c).seen || viewer.exists(_.isCorp) || viewer.none)
-                Div((l.any.?(Image(l.last.use(c => (g.state(c).seen || viewer.forall(_.isCorp)).?(c.code).|("corp-back")), styles.cardSmall).pointer.onClick.param("archives")).|(Empty))) ~ (l.num + " cards").spn(styles.serverName)
+                val faceup = l.%(c => g.state(c).seen)
+                val top = l.lastOption./(c => (g.state(c).seen || viewer.forall(_.isCorp)).?(c.code).|("corp-back")).|("corp-back")
+                Div(clickable(Image(top, styles.cardSmall)(styles.actionable)(l.none.?(styles.unrezzed)), "archives") ~ (l.num + " cards" + (l.num > faceup.num).??(" (" + (l.num - faceup.num) + " facedown)")).spn(styles.serverCount), styles.slot)
             case _ => Empty
         }
+        val marker = approachingServer.?(Div("Runner".spn(styles.marker))).|(Empty)
+        val name = clickable(s.name.spn(styles.serverName)(hasServerActions(s).$(styles.highlighted))(styles.actionable), s)
         Div(
-            s.name.spn(styles.serverName).div ~
-            Div(iceElems.merge, styles.row) ~
-            Div(central ~ rootElems.merge, styles.row),
+            name ~
+            Div(iceElems.merge, styles.iceColumn) ~
+            marker ~
+            Div(central ~ rootElems.merge, styles.rootRow),
             styles.server
-        )(running.?(styles.serverRun).|(styles.server))
+        )(r.any.$(styles.serverRun))
     }
 
-    def statLine(l : $[Elem]) : Elem = Div(l./(e => e.spn(styles.stat)).merge, styles.statLine)
+    // ---------------------------------------------------------------------------------------------------------------
+    // Boards
+    // ---------------------------------------------------------------------------------------------------------------
+
+    def stat(value : Any, label : String, style : Style) : Elem = Span(value.toString.spn(styles.statValue) ~ " " ~ label, styles.stat, style)
+
+    def playerName(f : Faction) : Elem = f.name.styled(f)(styles.name) ~ resources.getName(f)./(n => n.spn(styles.dim)(styles.headerItem)).|(Empty)
+
+    def activeMark(f : Faction) : Elem = {
+        val g = game
+        (g.active == f && g.turnStarted).?(("turn " + g.turn + (g.run.exists(!_.ended) && f.isRunner).??(" - running")).spn(styles.active)).|(Empty)
+    }
 
     def corpBoard : Elem = {
         val g = game
         val id = g.identity.get(Corp)
-        val header = statLine($(
-            Corp.name.styled(Corp)(styles.name) ~ " " ~ resources.getName(Corp)./(n => (" " + n).spn(styles.dim)).|(Empty),
-            id./(c => g.cardElem(c)).|("no identity".spn(styles.dim)),
-            g.credits(Corp).hl ~ " credits",
-            g.clicks(Corp).hl ~ " clicks",
-            g.badPublicity.hl ~ " bad pub",
-            g.agendaPoints(Corp).hl ~ " agenda points",
-        ))
-        val idImg = id./(c => Div(Image(c.code, styles.cardSmall).pointer.onClick.param(c), styles.slot)).|(Empty)
+        val header = Div(
+            playerName(Corp) ~
+            id./(c => c.title.styled(NRFaction.of(c.data.faction))(styles.headerItem)).|(Empty) ~
+            activeMark(Corp) ~
+            stat(g.credits(Corp), "credits", styles.statCredit) ~
+            stat(g.clicks(Corp), "clicks", styles.statClick) ~
+            stat(g.agendaPoints(Corp), "agenda points", styles.statPoints) ~
+            (g.badPublicity > 0).?(stat(g.badPublicity, "bad publicity", styles.statBadPub)).|(Empty) ~
+            stat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.statHand),
+            styles.header)
+        if (g.phase == "setup")
+            return header ~ deckSelection(Corp)
+        val idImg = id./(c => Div(clickable(Image(c.code, styles.cardSmall)(styles.actionable), c), styles.slot)).|(Empty)
         val scored = g.scored(Corp)./(c => slot(c, styles.cardTiny))
-        val servers = g.servers./(serverElem)
+        val scoredSection = scored.any.?(Div("scored".spn(styles.sectionTitle) ~ Div(scored.merge, styles.row), styles.section)).|(Empty)
+        val servers = Div(g.servers./(serverElem).merge, styles.serversRow)
         val hand = handElem(Corp)
-        val active = (g.active == Corp && g.turnStarted).?(" (active)".spn(styles.dim)).|(Empty)
 
-        header ~ active ~ Div(idImg ~ Div(scored.merge, styles.row) ~ servers.merge, styles.row) ~ hand
+        header ~ Div(Div(idImg ~ scoredSection, styles.section) ~ servers, styles.row) ~ hand
     }
 
     def runnerBoard : Elem = {
         val g = game
         val id = g.identity.get(Runner)
-        val header = statLine($(
-            Runner.name.styled(Runner)(styles.name) ~ " " ~ resources.getName(Runner)./(n => (" " + n).spn(styles.dim)).|(Empty),
-            id./(c => g.cardElem(c)).|("no identity".spn(styles.dim)),
-            g.credits(Runner).hl ~ " credits",
-            g.clicks(Runner).hl ~ " clicks",
-            g.tags.hl ~ " tags",
-            g.link.hl ~ " link",
-            g.memoryUsed.hl ~ "/" ~ g.memoryTotal.hl ~ " MU",
-            g.agendaPoints(Runner).hl ~ " agenda points",
-            (g.coreDamage > 0).?(g.coreDamage.hl ~ " core damage").|(Empty),
-        ))
-        val idImg = id./(c => Div(Image(c.code, styles.cardSmall).pointer.onClick.param(c), styles.slot)).|(Empty)
+        val header = Div(
+            playerName(Runner) ~
+            id./(c => c.title.styled(NRFaction.of(c.data.faction))(styles.headerItem)).|(Empty) ~
+            activeMark(Runner) ~
+            stat(g.credits(Runner), "credits", styles.statCredit) ~
+            stat(g.clicks(Runner), "clicks", styles.statClick) ~
+            stat(g.agendaPoints(Runner), "agenda points", styles.statPoints) ~
+            stat(g.tags, (g.tags == 1).?("tag").|("tags"), styles.statTag) ~
+            stat(g.link, "link", styles.statLink) ~
+            stat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.statMU) ~
+            stat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.statHand) ~
+            (g.coreDamage > 0).?(stat(g.coreDamage, "core damage", styles.statTag)).|(Empty),
+            styles.header)
+        if (g.phase == "setup")
+            return header ~ deckSelection(Runner)
+        val idImg = id./(c => Div(clickable(Image(c.code, styles.cardSmall)(styles.actionable), c), styles.slot)).|(Empty)
         val scored = g.scored(Runner)./(c => slot(c, styles.cardTiny))
-        val programs = g.rig.%(_.data.isProgram)./(slot(_))
-        val hardware = g.rig.%(_.data.isHardware)./(slot(_))
-        val resourcesL = g.rig.%(_.data.isResource)./(slot(_))
+        val scoredSection = scored.any.?(Div("stolen".spn(styles.sectionTitle) ~ Div(scored.merge, styles.row), styles.section)).|(Empty)
+        val programs = g.rig.%(_.data.isProgram)./(slot(_, styles.cardSmall))
+        val hardware = g.rig.%(_.data.isHardware)./(slot(_, styles.cardSmall))
+        val resourcesL = g.rig.%(_.data.isResource)./(slot(_, styles.cardSmall))
         val heap = g.discard(Runner)
         val piles = Div(
-            Div(Div(Image("runner-back", styles.cardSmall)) ~ (g.deck(Runner).num + " stack").spn(styles.serverName), styles.slot) ~
-            Div(heap.any.?(Image(heap.last.code, styles.cardSmall).pointer.onClick.param("heap")).|(Div(Empty, styles.cardSmall)) ~ (heap.num + " heap").spn(styles.serverName), styles.slot),
+            Div(Image("runner-back", styles.cardSmall)(g.deck(Runner).none.?(styles.unrezzed)) ~ (g.deck(Runner).num + " stack").spn(styles.serverCount), styles.slot) ~
+            Div(heap.any.?(clickable(Image(heap.last.code, styles.cardSmall)(styles.actionable), "heap")).|(Image("runner-back", styles.cardSmall)(styles.unrezzed)) ~ (heap.num + " heap").spn(styles.serverCount), styles.slot),
             styles.row)
-        val runLine = g.run./(r => runStatus(r)).|(Empty)
+        def section(title : String, l : $[Elem]) = l.any.?(Div(title.spn(styles.sectionTitle) ~ Div(l.merge, styles.row), styles.section)).|(Empty)
+        val runLine = g.run.%(!_.ended)./(r => runStatus(r)).|(Empty)
         val hand = handElem(Runner)
-        val active = (g.active == Runner && g.turnStarted).?(" (active)".spn(styles.dim)).|(Empty)
 
-        header ~ active ~ runLine ~ Div(idImg ~ Div(scored.merge, styles.row) ~ piles ~ Div(programs.merge, styles.row) ~ Div(hardware.merge, styles.row) ~ Div(resourcesL.merge, styles.row), styles.row) ~ hand
+        header ~ runLine ~ Div(Div(idImg ~ scoredSection, styles.section) ~ Div(piles, styles.section) ~ section("programs", programs) ~ section("hardware", hardware) ~ section("resources", resourcesL), styles.row) ~ hand
     }
 
     def runStatus(r : Run) : Elem = {
         val g = game
         val ph = r.phase match {
-            case InitiationPhase => "initiating"
-            case ApproachIcePhase => "approaching ice"
-            case EncounterPhase => "encountering " + r.ice./(_.title).|("")
-            case MovementPhase => "moving"
-            case ApproachServerPhase => "approaching server"
-            case SuccessPhase => "successful"
-            case AccessPhase => "accessing"
-            case EndedPhase => "ended"
+            case InitiationPhase => "initiated".txt
+            case ApproachIcePhase => "approaching " ~ r.ice./(c => (g.isRezzed(c) || viewer.forall(_.isCorp)).?(g.cardElem(c)).|("unrezzed ice".hl)).|(Empty)
+            case EncounterPhase => "encountering " ~ r.ice./(g.cardElem).|(Empty)
+            case MovementPhase => "passed ice, moving on".txt
+            case ApproachServerPhase => "approaching the server".txt
+            case SuccessPhase => "successful".txt
+            case AccessPhase => "breaching".txt
+            case EndedPhase => "ended".txt
         }
-        Div(("Run on " ~ r.server.elem ~ ": " ~ ph ~ " (" ~ r.position.toString ~ " ice to pass)").spn(styles.dim))
+        val n = r.position
+        val accessed = (r.phase == AccessPhase).??(r.accessed.%(c => g.location.contains(c)))
+        val accessedElems = accessed./(c => Div(cardImage(c, styles.cardSmall), styles.slot))
+        Div("Run on " ~ r.server.elem ~ ": " ~ ph ~ ((n > 0 && r.phase != AccessPhase).?(" (" + n + " ice " + ((n == 1).?("piece").|("pieces")) + " to pass)").|("")), styles.runLine) ~
+        accessed.any.?(Div("accessed".spn(styles.sectionTitle) ~ Div(accessedElems.merge, styles.row), styles.section)).|(Empty)
     }
 
     def handElem(f : Faction) : Elem = {
         val g = game
         val l = g.hand(f)
         val visible = viewer.forall(_ == f)
+        val title = f.isCorp.?("HQ").|("Grip")
         if (l.none)
-            Div((f.isCorp.?("HQ").|("Grip") + ": empty").spn(styles.dim))
+            Div((title + ": empty").spn(styles.dim))
         else if (visible)
-            Div(l./(c => Div(cardImage(c, styles.card), styles.slot)).merge, styles.hand)
+            Div(l./(c => Div(cardImage(c, styles.card, highlightOf(c)) ~ badges(c), styles.slotHand)).merge, styles.hand)
         else
-            Div(l./(c => Div(Image(back(c), styles.cardSmall), styles.slot)).merge, styles.hand)
+            Div(l./(c => Div(Image(back(c), styles.cardSmall), styles.slotHand)).merge, styles.hand)
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Deck selection
+    // ---------------------------------------------------------------------------------------------------------------
+
+    def deckSelection(f : Faction) : Elem = {
+        val g = game
+        val mine = viewer.forall(_ == f)
+        g.decks.get(f) match {
+            case Some(codes) =>
+                val id = codes./(Cards.get)./~(x => x).%(_.isIdentity).starting
+                Div(id./(c => Div(Image(c.code, styles.card), styles.slot)).|(Empty) ~ Div(("Deck chosen: " ~ id./(_.title).|("?").hl ~ " (" ~ (codes.num - 1).toString ~ " cards)").spn), styles.row)
+            case None if mine && lastActions.exists(_.is[ChoosePresetDeckAction]) =>
+                val presets = lastActions.of[ChoosePresetDeckAction].%(_.self == f)
+                val items = presets./ { a =>
+                    val d = Decks.presets(a.index)
+                    val idc = Cards.get(d.identity)
+                    val check = Decks.validate(f, d.codes)
+                    Parameter(("deck", a), OnClick(Div(
+                        idc./(c => Image(c.code, styles.card)).|(Empty) ~
+                        d.name.spn(styles.galleryName) ~
+                        (d.identityTitle + " - " + check.message).spn(styles.galleryInfo),
+                        styles.galleryItem)))
+                }
+                val importItem = Parameter("import", OnClick(Div(Image(f.isCorp.?("corp-back").|("runner-back"), styles.card) ~ "Import a decklist".spn(styles.galleryName) ~ "paste a NetrunnerDB export".spn(styles.galleryInfo), styles.galleryItem)))
+                Div("Choose a deck".spn(styles.menuTitle)) ~ Div((items :+ importItem).merge, styles.gallery)
+            case None =>
+                Div("choosing a deck...".spn(styles.dim))
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Board actions: clicking a card performs the matching action or opens a menu
+    // ---------------------------------------------------------------------------------------------------------------
+
+    def leafActions : $[UserAction] = {
+        if (lastThen == null || lastActions.none)
+            return $
+        val l = try { game.explode(lastActions, true, None) } catch { case e : Throwable => lastActions }
+        l.%(a => !a.is[Info] || a.is[Unavailable]).%!(_.is[Hidden]).%!(_.is[Cancel]).%!(_.is[Back]).%!(_.is[NotForBots]).%(a => !a.isSoft || a.is[NoExplode])
+    }
+
+    def refersTo(a : UserAction, o : Any) : Boolean = {
+        val inner = a @@ {
+            case u : Unavailable => u.action
+            case a => a
+        }
+        inner.productIterator.exists(x => x == o || x == Some(o))
+    }
+
+    def actionsFor(o : Any) : $[UserAction] = leafActions.%(a => refersTo(a, o))
+
+    def hasActions(c : Card) : Boolean = lastThen != null && actionsFor(c).exists(a => !a.is[Unavailable])
+
+    def hasServerActions(s : Server) : Boolean = lastThen != null && actionsFor(s).exists(a => !a.is[Unavailable])
+
+    def boardClick(o : Any, c : |[Card]) {
+        val acts = actionsFor(o)
+        val avail = acts.%!(_.is[Unavailable])
+        if (acts.num == 1 && avail.num == 1) {
+            val a = avail.only
+            hideOverlay()
+            lastThen(a)
+        }
+        else if (acts.any)
+            showMenu(o, c, acts)
+        else
+            c.foreach(c => showOverlay(overlayScrollX(cardOverlay(c)), onClick))
+    }
+
+    def showMenu(o : Any, c : |[Card], acts : $[UserAction]) {
+        val g = game
+        val title = c./(c => canSee(c).?(g.cardElem(c)).|("a card".hl)).|(o match { case s : Server => s.elem ; case _ => Empty })
+        val items = acts./ { a =>
+            val q = a.question(g)
+            val reason = a @@ { case UnavailableReasonAction(_, r) => r ; case _ => "" }
+            val o = a.option(g) ~ reason.some./(r => (" (" + r + ")").spn(xstyles.smaller85)).|(Empty)
+            if (a.is[Unavailable])
+                Div((q != Empty).?(Div(q, styles.menuQ)).|(Empty) ~ o, styles.menuItemOff)
+            else
+                Parameter(("menu", a), OnClick(Div((q != Empty).?(Div(q, styles.menuQ)).|(Empty) ~ o, styles.menuItem)))
+        }
+        val view = c./(c => Parameter(("zoom", c), OnClick(Div("View card", styles.menuItem)))).|(Empty)
+        val close = Parameter(Nil, OnClick(Div("Cancel", styles.menuItem)))
+        val img = c.%(canSee)./(c => Div(Image(c.code, styles.card), styles.slot)).|(Empty)
+        showOverlay(overlayScrollX(Div(img ~ Div(title, styles.menuTitle) ~ items.merge ~ view ~ close, xlo.column)), onClick)
     }
 
     def updateStatus() {
-        corpPane.replace(corpBoard, resources, onClick)
-        runnerPane.replace(runnerBoard, resources, onClick)
+        corpPane.replace(corpBoard, resources, onClick, onOver, onOut)
+        runnerPane.replace(runnerBoard, resources, onClick, onOver, onOut)
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Hover zoom
+    // ---------------------------------------------------------------------------------------------------------------
+
+    val zoomNode = dom.document.createElement("div").asInstanceOf[dom.html.Div]
+    zoomNode.style.position = "fixed"
+    zoomNode.style.zIndex = "2000"
+    zoomNode.style.display = "none"
+    zoomNode.style.pointerEvents = "none"
+    zoomNode.style.top = "4vh"
+    zoomNode.style.maxHeight = "92vh"
+    zoomNode.style.backgroundColor = "#111111f0"
+    zoomNode.style.border = "1px solid #555555"
+    zoomNode.style.borderRadius = "1.2ex"
+    zoomNode.style.padding = "0.6ex"
+    zoomNode.style.overflow = "hidden"
+    dom.document.body.appendChild(zoomNode)
+
+    var mouseX = 0.0
+    var mouseY = 0.0
+
+    dom.document.addEventListener("mousemove", (e : dom.MouseEvent) => {
+        mouseX = e.clientX
+        mouseY = e.clientY
+        if (zoomNode.style.display != "none")
+            placeZoom()
+    })
+
+    def placeZoom() {
+        val w = dom.window.innerWidth
+        if (mouseX < w / 2) {
+            zoomNode.style.left = (mouseX + 28) + "px"
+            zoomNode.style.right = ""
+        }
+        else {
+            zoomNode.style.right = (w - mouseX + 28) + "px"
+            zoomNode.style.left = ""
+        }
+    }
+
+    def onOver(a : Any) : Unit = a @@ {
+        case c : Card if canSee(c) =>
+            val d = c.data
+            val e = Div(Div(Image(c.code, styles.zoomImg), styles.slot) ~ Div(d.title.hlb ~ Break ~ cardStats(c).join(" | ") ~ Break ~ Break ~ cardText(c) ~ stateText(c), styles.zoomText), xlo.flexhcenter)(xlo.flexnowrap)
+            new ElementAttachmentPoint(zoomNode).clear()
+            new ElementAttachmentPoint(zoomNode).append(e, resources)
+            placeZoom()
+            zoomNode.style.display = "block"
+        case _ =>
+    }
+
+    def onOut(a : Any) : Unit = {
+        zoomNode.style.display = "none"
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -214,17 +431,38 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             .replace("<strong>", "").replace("</strong>", "")
             .replace("<em>", "").replace("</em>", "")
             .replace("<i>", "").replace("</i>", "")
-            .replace("[credit]", "[c]").replace("[click]", "[click]").replace("[mu]", "MU").replace("[subroutine]", "[sub]")
-            .replace("[trash]", "[trash]").replace("[recurring-credit]", "[recurring c]").replace("[link]", "[link]")
+            .replace("[credit]", "[c]").replace("[mu]", "MU").replace("[subroutine]", "[sub]")
+            .replace("[recurring-credit]", "[recurring c]")
             .replace("&amp;", "&")
+    }
+
+    def cardStats(c : Card) : $[String] = {
+        val d = c.data
+        $(d.kind) ++ d.subtypes.some./(_.join(" - ")).$ ++ d.cost./("Cost " + _).$ ++ d.strength./("Strength " + _).$ ++ d.advancementCost./("Advancement " + _).$ ++ d.agendaPoints./("Points " + _).$ ++ d.memory./("MU " + _).$ ++ d.trashCost./("Trash " + _).$ ++ d.influence./("Influence " + _).$
+    }
+
+    def stateText(c : Card) : String = {
+        val g = game
+        val s = g.state(c)
+        val inPlay = g.inPlayZone(g.zone(c))
+        val l =
+            (inPlay && g.owner(c).isCorp).$(g.isRezzed(c).?("rezzed").|("unrezzed")) ++
+            (s.advancement > 0).$(s.advancement + " advancement") ++
+            (s.virus > 0).$(s.virus + " virus") ++
+            (s.credits > 0).$(s.credits + " credits") ++
+            (s.power > 0).$(s.power + " power") ++
+            (inPlay && c.data.isIce && g.isRezzed(c)).$("strength " + g.iceStrength(c)) ++
+            (inPlay && c.data.isIcebreaker).$("strength " + g.breakerStrength(c)) ++
+            s.host./(h => "hosted on " + h.title).$ ++
+            (inPlay && c.data.isIce).$(g.serverOf(c)./(s => "protecting " + s.name).|("")) ++
+            (CardImpls.has(c.code)).?($()).|($("no automation: use the Manual menu"))
+        l.any.?("\n\n" + l.join(", ")).|("")
     }
 
     def cardOverlay(c : Card) : Elem = {
         val g = game
-        val d = c.data
-        val stats = $(d.kind) ++ d.subtypes.some./(_.join(" - ")).$ ++ d.cost./("Cost " + _).$ ++ d.strength./("Strength " + _).$ ++ d.advancementCost./("Advancement " + _).$ ++ d.agendaPoints./("Points " + _).$ ++ d.memory./("MU " + _).$ ++ d.trashCost./("Trash " + _).$ ++ d.influence./("Influence " + _).$
         if (canSee(c))
-            Div(Image(c.code, styles.artwork), styles.slot) ~ Div(d.title.hlb ~ Break ~ stats.join(" | ") ~ Break ~ Break ~ cardText(c) ~ Break ~ (CardImpls.has(c.code).?("").|("(no automation: use the Manual menu)")), styles.cardText)
+            Div(Image(c.code, styles.artwork), styles.slot) ~ Div(c.title.hlb ~ Break ~ cardStats(c).join(" | ") ~ Break ~ Break ~ cardText(c) ~ stateText(c), styles.cardText)
         else
             Div(Image(back(c), styles.artwork), styles.slot)
     }
@@ -233,28 +471,52 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def overlayFitX(e : Elem) = overlayFit(e)(xstyles.seeThrough).onClick
 
     def showOverlay(e : Elem, onClick : Any => Unit) {
+        onOut(Nil)
         overlayPane.vis()
-        overlayPane.replace(e, resources, onClick, _ => {}, _ => {})
+        overlayPane.replace(e, resources, onClick, onOver, onOut)
     }
 
     def hideOverlay() {
+        onOut(Nil)
         overlayPane.clear()
         overlayPane.invis()
     }
 
-    def pileOverlay(l : $[Card]) : Elem = {
-        Div(l.reverse./(c => Div(cardImage(c, styles.card), styles.slot)).merge, styles.row)
+    def pileOverlay(title : String, l : $[Card], sorted : Boolean) : Elem = {
+        val ll = sorted.?(l.sortBy(_.title)).|(l.reverse)
+        Div(title.spn(styles.pileTitle) ~ (ll.none.?("empty".spn(styles.dim)).|(Empty)) ~ Div(ll./(c => Div(cardImage(c, styles.card), styles.slot)).merge, styles.row), xlo.column)
     }
 
     override def onClick(a : Any) : Unit = a @@ {
         case c : Card =>
+            boardClick(c, |(c))
+
+        case s : Server =>
+            boardClick(s, None)
+
+        case ("menu", a : UserAction) =>
+            hideOverlay()
+            if (lastThen != null)
+                lastThen(a)
+
+        case ("deck", a : UserAction) =>
+            if (lastThen != null)
+                lastThen(a)
+
+        case ("zoom", c : Card) =>
             showOverlay(overlayScrollX(cardOverlay(c)), onClick)
 
         case "archives" =>
-            showOverlay(overlayScrollX(pileOverlay(game.discard(Corp))), onClick)
+            val g = game
+            val l = g.discard(Corp).%(canSee)
+            val hidden = g.discard(Corp).num - l.num
+            showOverlay(overlayScrollX(pileOverlay("Archives" + (hidden > 0).??(" (" + hidden + " facedown)"), l, true)), onClick)
 
         case "heap" =>
-            showOverlay(overlayScrollX(pileOverlay(game.discard(Runner))), onClick)
+            showOverlay(overlayScrollX(pileOverlay("Heap", game.discard(Runner), false)), onClick)
+
+        case "hq" | "rnd" =>
+            hideOverlay()
 
         case "import" =>
             showImport()
@@ -271,12 +533,12 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         overlayPane.vis()
         overlayPane.clear()
 
-        val root = overlayPane.attach.appendContainer(Div(Div(Div("Paste a NetrunnerDB decklist".hlb ~ Break ~ Content, xstyles.middleScrollIn), xstyles.middleScrollOut), xstyles.unselectable, xstyles.inner, xstyles.pane.action), resources)
+        val root = overlayPane.attach.appendContainer(Div(Div(Div("Paste a NetrunnerDB decklist".hlb ~ Break ~ ("for the " ~ self.name.styled(self) ~ " side: lines like 3x Card Name, 2 Card Name or Card Name x3; the identity on its own line").spn(xstyles.smaller85) ~ Break ~ Content, xstyles.middleScrollIn), xstyles.middleScrollOut), xstyles.unselectable, xstyles.inner, xstyles.pane.action), resources)
 
         val parent = root.attach.parent
         val ta = dom.document.createElement("textarea").asInstanceOf[dom.html.TextArea]
         ta.id = "nr-import"
-        ta.rows = 24
+        ta.rows = 22
         ta.cols = 60
         ta.spellcheck = false
         ta.style.display = "block"
@@ -287,12 +549,17 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         parent.appendChild(ta)
 
         val msg = dom.document.createElement("div").asInstanceOf[dom.html.Div]
+        msg.id = "nr-import-message"
         msg.style.color = "#ffa500"
         msg.style.minHeight = "3ex"
+        msg.style.maxWidth = "70ex"
+        msg.style.margin = "0 auto"
+        msg.style.whiteSpace = "pre-wrap"
         parent.appendChild(msg)
 
-        def button(label : String, f : () => Unit) = {
+        def button(label : String, id : String, f : () => Unit) = {
             val b = dom.document.createElement("div").asInstanceOf[dom.html.Div]
+            b.id = id
             b.textContent = label
             b.style.cursor = "pointer"
             b.style.display = "inline-block"
@@ -304,23 +571,38 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             parent.appendChild(b)
         }
 
-        button("Import", () => {
-            val (codes, errors) = Decks.parse(ta.value)
-            if (errors.any)
-                msg.textContent = errors.join("; ")
-            else {
-                val v = Decks.validate(self, codes)
-                if (!v.ok)
-                    msg.textContent = v.message
-                else {
-                    hideOverlay()
-                    if (lastThen != null)
-                        lastThen(ImportDeckAction(self, codes))
-                }
+        def check() : |[$[String]] = {
+            val text = ta.value
+            if (text.trim.isEmpty) {
+                msg.textContent = "The decklist is empty"
+                return None
+            }
+            val (codes, errors) = Decks.parse(text)
+            if (errors.any) {
+                msg.textContent = "Could not read " + errors.num + " line" + (errors.num != 1).??("s") + ":\n" + errors.take(12).join("\n") + (errors.num > 12).??("\n...")
+                return None
+            }
+            val v = Decks.validate(self, codes)
+            if (!v.ok) {
+                msg.textContent = "Invalid deck: " + v.message
+                return None
+            }
+            val id = codes./(Cards.get)./~(x => x).%(_.isIdentity).starting./(_.title).|("?")
+            msg.textContent = "Valid: " + id + ", " + v.message
+            Some(codes)
+        }
+
+        button("Check", "nr-import-check", () => { check() })
+
+        button("Import", "nr-import-ok", () => {
+            check().foreach { codes =>
+                hideOverlay()
+                if (lastThen != null)
+                    lastThen(ImportDeckAction(self, codes))
             }
         })
 
-        button("Cancel", () => hideOverlay())
+        button("Cancel", "nr-import-cancel", () => hideOverlay())
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -330,22 +612,34 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     val zoom = 0.72
 
     val layouts = $(
+        // boards stacked on the left, log and actions on the right
         Layout("base",
             $(
-                BasicPane("corp", 50, 17, Priorities(top = 1, left = 1, grow = 3)),
-                BasicPane("runner", 50, 17, Priorities(bottom = 1, left = 1, grow = 3)),
-                BasicPane("log", 20, 10, Priorities(grow = 2, maxYscale = 4)),
-                BasicPane("action", 23, 36, Priorities(bottom = 1, right = 1, grow = 2, maxXscale = 2.5, maxYscale = 2.5))
+                BasicPane("corp", 56, 25, Priorities(top = 1, left = 1, grow = 3, maxYscale = 1.5)),
+                BasicPane("runner", 56, 25, Priorities(bottom = 1, left = 1, grow = 3, maxYscale = 1.5)),
+                BasicPane("log", 24, 16, Priorities(top = 1, right = 1, grow = 1, maxYscale = 2.5)),
+                BasicPane("action", 24, 34, Priorities(bottom = 1, right = 1, grow = 2, maxXscale = 1.6, maxYscale = 2.0))
             )./(p => p.copy(kX = p.kX * zoom, kY = p.kY * zoom))
         ),
+        // wider boards with a narrower side column
+        Layout("wide",
+            $(
+                BasicPane("corp", 68, 24, Priorities(top = 1, left = 1, grow = 3, maxYscale = 1.5)),
+                BasicPane("runner", 68, 24, Priorities(bottom = 1, left = 1, grow = 3, maxYscale = 1.5)),
+                BasicPane("log", 20, 16, Priorities(top = 1, right = 1, grow = 1, maxYscale = 2.5)),
+                BasicPane("action", 20, 32, Priorities(bottom = 1, right = 1, grow = 2, maxXscale = 1.6, maxYscale = 2.0))
+            )./(p => p.copy(kX = p.kX * zoom, kY = p.kY * zoom)),
+            0.97
+        ),
+        // everything in one column (portrait / narrow windows)
         Layout("narrow",
             $(
-                BasicPane("corp", 40, 16, Priorities(top = 1, grow = 3)),
-                BasicPane("runner", 40, 16, Priorities(grow = 3)),
-                BasicPane("log", 40, 6, Priorities(grow = 1, maxYscale = 3)),
-                BasicPane("action", 40, 20, Priorities(bottom = 1, grow = 2, maxYscale = 3))
+                BasicPane("corp", 42, 17, Priorities(top = 1, grow = 3)),
+                BasicPane("runner", 42, 17, Priorities(grow = 3)),
+                BasicPane("action", 42, 18, Priorities(grow = 2, maxYscale = 2)),
+                BasicPane("log", 42, 7, Priorities(bottom = 1, grow = 1, maxYscale = 3))
             )./(p => p.copy(kX = p.kX * zoom, kY = p.kY * zoom)),
-            0.9
+            0.85
         )
     )
 
@@ -359,7 +653,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     val settingsKey = Meta.settingsKey
 
-    val layoutKey = "v" + 1
+    val layoutKey = "v" + 3
 
     override def ask(faction : |[Faction], actions : $[UserAction], then : UserAction => Unit) {
         lastThen = then
@@ -369,6 +663,8 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     }
 
     override def wait(self : $[Faction], factions : $[Faction], message : Elem) {
+        lastThen = null
+        lastActions = $
         super.wait(self, factions, message)
         updateStatus()
     }
@@ -396,11 +692,18 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     }
 
     override def styleAction(faction : Option[Faction], actions : List[UserAction], a : UserAction, unavailable : Boolean, view : Option[Any]) = {
+        val img = view @@ {
+            case Some(_ : Card) => true
+            case _ => false
+        }
+
         a @@ {
+            case _ if unavailable && img => $(xstyles.unavailableCard)
             case _ if unavailable => $(xstyles.unavailableText)
             case _ => Nil
         } ++
         a @@ {
+            case _ if img => Nil
             case _ : Info => $(xstyles.info, xstyles.xx, xstyles.thu)
             case _ => $(xstyles.choice, xstyles.xx, xstyles.thu, xstyles.thumargin)
         } ++
@@ -411,7 +714,10 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             case _ : OnClickInfo => $(xlo.pointer)
             case _ => Nil
         } ++
-        $(xlo.fullwidth) ++
+        a @@ {
+            case _ if img => $(styles.viewcard)
+            case _ => $(xlo.fullwidth)
+        } ++
         faction @@ {
             case Some(f) => $(elem.borders.get(f))
             case _ => Nil

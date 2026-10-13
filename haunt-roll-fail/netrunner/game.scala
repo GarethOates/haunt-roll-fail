@@ -503,6 +503,9 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         trashedHosted
     }
 
+    // all cards hosted (transitively) on c that are installed
+    def hostedInstalled(c : Card) : $[Card] = allHosted(c).%(isInstalled)
+
     def moveTo(c : Card, z : Zone, top : Boolean = false) {
         if (inPlayZone(zone(c)) && !inPlayZone(z))
             leavePlay(c)
@@ -644,18 +647,44 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
                 IdleAction
     }
 
-    // trigger an event: collect triggered abilities and push them to the queue (active player first)
-    def trigger(e : Event) {
+    // collect the triggered abilities for an event (active player's cards first)
+    def triggerEffects(e : Event) : $[ForcedAction] = {
         val order = $(active, active.opponent)
-        val effects = order./~(f => activeCards(f)./~(c => impl(c).triggers(c, e)))
+        order./~(f => activeCards(f)./~(c => impl(c).triggers(c, e)))
+    }
+
+    // trigger an event: collect triggered abilities and push them to the queue (active player first); true if any
+    def trigger(e : Event) : Boolean = {
+        val effects = triggerEffects(e)
         pushAll(effects)
+        if (effects.any)
+            reopenWindows()
+        effects.any
+    }
+
+    // spend clicks for a basic action or a click ability: counts actions taken this turn and reopens the paid ability window
+    def spendClick(f : Faction, n : Int = 1) {
+        clicks += f -> (clicks(f) - n)
+        regInc("actions")
+        reopenWindows()
     }
 
     // -----------------------------------------------------------------------------------------------------------------
     // Logging helpers
     // -----------------------------------------------------------------------------------------------------------------
 
-    implicit def descCard(g : Game, c : Card) : Elem = cardElem(c)
+    // cards in selection prompts: image when the card is public or belongs to the hand/rig of the chooser's side, else the title
+    implicit def descCard(g : Game, c : Card) : Elem = {
+        val showImage = zone(c) match {
+            case HandZone(_) => true
+            case RigZone | HostedZone(_) => owner(c).isRunner.?(!state(c).facedown).|(isRezzed(c) || state(c).seen)
+            case RootZone(_) | IceZone(_) => isRezzed(c) || state(c).seen
+            case DiscardZone(Runner) | ScoredZone(_) | PlayZone(_) | IdentityZone(_) => true
+            case DiscardZone(Corp) => state(c).seen
+            case _ => false
+        }
+        showImage.?(Div(Image(c.code, netrunner.elem.styles.card) ~ Div(cardElem(c)), netrunner.elem.styles.viewcard)).|(cardElem(c))
+    }
 
     def loggedPerform(action : Action, soft : Void) : Continue = {
         val c = performInternal(action, soft)

@@ -44,7 +44,7 @@ class BasicBot(f : Faction) extends EvalBot {
             else s./(_ => 25).|(5)
         case RunnerInstallAction(_, c, _, t) => t.any.?(5).|(c.data.isIcebreaker.?(55).|(c.data.isProgram.?(40).|(c.data.isHardware.?(40).|(35))))
         case AdvanceAction(_, c) => c.data.isAgenda.?(60).|(20)
-        case RezAction(_, c, ctx) => c.data.isIce.?(80).|((ctx == "window:turn-begins" || ctx == "action").?(40).|(15))
+        case RezAction(_, c, ctx) => c.data.isIce.?(80).|((ctx == "window:turn-start" || ctx == "window:turn-begins" || ctx == "action").?(40).|(10))
         case RunAction(_, s) =>
             val ice = g.ice(s)
             val breakers = g.installedCards(Runner).%(g.isIcebreaker)
@@ -60,7 +60,9 @@ class BasicBot(f : Faction) extends EvalBot {
         case PurgeAction(_) => 5
         case EndTurnClickAction(_) => 5
         case WindowPassAction(_, "movement") => 40
+        case WindowPassAction(_, "action") => 60
         case WindowPassAction(_, _) => 20
+        case TrashProgramForMemoryAction(_, c) => 30 - c.data.cost.|(0)
         case JackOutAction(_) => (g.credits(Runner) < 2).?(50).|(5)
         case StealAction(_, _) => 100
         case PayTrashAction(_, c) => (g.credits(Runner) > g.trashCost(c).|(0) + 3).?(50).|(10)

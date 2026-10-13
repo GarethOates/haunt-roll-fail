@@ -16,6 +16,15 @@
   prevention window hook), tags, bad publicity, traces (corp boosts then runner boosts), psi games (sequential
   blind bids, hidden only by the UI), hosting, purge, counters, win conditions (7 points, flatline, R&D empty,
   hand size below zero, concede), manual adjustment menu on every re-askable prompt.
+* Timing structure: paid ability windows at turn start (before and after "when your turn begins" triggers, the
+  latter only if any fired), between actions for both players (non-blocking `MultiAsk` for the opponent), after the
+  discard phase, at run initiation, approach ice (rez), encounter (Corp side), movement (jack out), approach server;
+  windows auto-skip when a player has nothing usable or already declined the same options; scoring is allowed in
+  the Corp's own turn windows only. Accessed cards are revealed; R&D accesses in order with root cards accessible
+  at any point; Archives is turned faceup as a set and accessed completely; steal/score move the agenda, check the
+  win, then resolve "when scored/stolen" abilities; trashing a host trashes hosted cards with their own events;
+  memory is re-checked when Runner cards leave play (forced program trashing); unique Corp cards trash other
+  rezzed copies on rez; hand size enforced with a discard prompt (Runner flatlined below zero).
 * Ability framework (`abilities.scala`, documented in `ENGINE.md`).
 * All 77 System Gateway cards (`cards-sg.scala`), including the beginner identities (The Catalyst, The Syndicate
   have no abilities).
@@ -23,26 +32,39 @@
   all System Gateway only and legal; decklist parser (`3x Title`, `3 Title`, `Title x3`, identity line, section
   headers, influence dots, summary lines; unicode/diacritic-insensitive title matching) and validator
   (side, one identity, min size, deck limits, influence, agenda points).
-* UI (`ui.scala`): Corp and Runner board panes (identity, stats, servers with ice (rotated) and root, HQ/R&D/Archives
-  piles, score areas, rig by type, counters, run status, viewer's hand as images / opponent's as backs), click on a
-  card for a zoom overlay with the printed text, decklist import overlay (textarea), standard action/log/undo/settings panes.
-  Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown, unrezzed/facedown cards as backs.
+* UI (`ui.scala`, `styles.scala`): Corp and Runner board panes with stat badges (credits, clicks, agenda points,
+  tags, bad publicity, link, MU, hand size), servers as boxes with the ice stack (rotated, outermost on top) above
+  the root, a "Runner" marker and orange outline showing the attacked server and the current ice position,
+  unrezzed cards dimmed with an "unrezzed" tag for the Corp (backs for the Runner), facedown Archives counted,
+  counters as badges (adv/virus/credit/power/strength), hosted cards under their host, rig grouped by type,
+  scored/stolen agendas, accessed cards shown during a breach, the viewer's hand as images. Clicking a card or a
+  server performs the single matching action of the current prompt, or opens a menu of the matching actions
+  (install destinations, break/pump, rez, advance, score, select toggles...), or opens the zoom overlay; cards with
+  available actions are outlined. Hovering a card shows a large preview with its text and state. Deck selection
+  is a gallery of presets with identity images on the board plus a decklist import overlay with Check/Import and
+  readable error messages. Three layouts (boards left + log/actions right, wide, single column) for common
+  resolutions. Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown, unrezzed/facedown
+  cards as backs, opponent's hand as backs.
 * Bots: `Random` (uniform over non-manual choices) and `Basic` (weighted heuristics: scores, steals, breaks, economy).
 * JVM harness `host.scala` (excluded from the JS build): bot-vs-bot games with log dumps.
 
 ## Simplifications / known gaps
 
-* No paid-ability window between the opponent's actions (the Corp can rez non-ice only in run windows and at the
-  start of its own turn, not after each Runner click); windows exist at turn begin, run initiation, approach ice,
-  after passing ice (movement), approach server, plus the encounter prompt.
-* Access order in a remote/Archives is chosen by the Runner; HQ root upgrades are accessed before the random HQ cards.
-* Archives are not pseudo-shuffled when turned faceup.
+* Paid ability windows follow the NSG structure (see ENGINE.md): start of turn (before and after "when your turn
+  begins"), between actions (the opponent's window is non-blocking and shown next to the active player's prompt),
+  after discarding, run initiation, approach ice, encounter (Corp side), after passing ice (movement), approach
+  server. Players who have nothing usable are skipped; a player who declined a set of options is not asked again
+  for the same options until something happens. In a hotseat (both humans in one browser) only the active
+  player's prompt is visible, so the off-turn window is effectively unavailable there (use online play).
 * AMAZE Amusements only fires while installed and rezzed (not the "trashed during the run" case).
 * Brân 1.0 installs the chosen ice directly inside itself (jinteki installs at Brân's index).
 * Tāo's ice swap keeps the run position by index.
 * Traces/psi games are implemented but no System Gateway card uses them (untested in play).
 * The prevention window exists (`CardImpl.preventions`) but no System Gateway card prevents damage/tags.
-* Bot play is weak; bots never use the manual menu or concede.
+* Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
+* Hidden information is hidden by the UI only; the Manual menu lets the Corp move the top cards of R&D.
+* The framework logs `NetworkError` exceptions in headless Chrome for every game (also Coup): they come from the
+  shell (font loading), not from the plugin.
 * `cards-data*.scala` and `webp2/netrunner/images` are produced by the asset agent; `question-mark.png`,
   `external-link.png` and the `webp2/root/...` images used by the HRF shell are placeholders created for local
   testing only (webp2 is git-ignored).
@@ -62,19 +84,30 @@
 
 ## Tested
 
-* Browser (headless Chrome, human Runner vs Basic Corp bot): deck import from a NetrunnerDB list, mulligan,
-  install, run R&D with access, Zahya trigger, run HQ with rez, encounter (pump offered, no break for wrong
-  subtype), subroutines (net damage with random discard, corp gains), pass ice, movement window, approach, HQ
-  random access, end of turn, Corp bot turn (install, advance, Built to Last trigger), steal from a remote.
-* Browser (human Corp vs Basic Runner bot): manual credit adjustment, install agenda in a new remote, advance (Built to
-  Last trigger), install ice protecting the remote, rez window when the bot approaches (Palisade rezzed, strength shown
-  as 4 in a remote, ETR fires), manual advancement counters via the card menu, scoring (3 points, on-score hook).
-* Browser bot-vs-bot game (`?speed=20`, Haas-Bioroid vs Criminal) played to completion (Corp flatlined the Runner on
-  turn 4) with no console exceptions.
-* JVM harness: hundreds of bot-vs-bot games without errors covering scoring, stealing, trashing on access, tags,
-  purge, breaking, pumping, jacking out, flatline, deck-out, Funhouse, Manegarm, Ping, AMAZE, Clearinghouse,
-  Carnivore, Botulus, Cookbook, Wildcat Strike, Ansel/Brân bioroid breaks, Sprint, Nico Campaign, Tranquilizer derez,
-  Tāo swaps, identities.
+* Online play by URL sharing (good-game server on port 7070, headless Chrome driven through the DevTools protocol,
+  two player tabs): `http://localhost:7070/play/netrunner` > Play Online > New Online Game > Corp + Runner > Start
+  Setup > player names > Start; the Corp link and the Runner link opened in separate tabs, each asked for a name
+  (no account); deck selection (presets from the board gallery and from the action pane, decklist import with
+  error messages for unknown cards / too few cards and a valid Tao decklist), mulligan and keep, Corp turn (install
+  ice by clicking the hand card and choosing the server from the menu, install assets/agendas, click credit, rez an
+  asset in the "no clicks" window, use Regolith's click ability by clicking the card, play operations, Hansei
+  Review's trash prompt, Spin Doctor's remove-from-game ability with the select prompt), Runner turn (install
+  programs/hardware/trojans hosted on ice by clicking the hand card, Sure Gamble, Jailbreak with the server
+  choice, runs by clicking the server name), paid ability windows (run initiated, approach ice with rez, encounter,
+  movement with jack out, approach server, end-of-turn discard window, turn-start window with scoring, the
+  non-blocking between-actions window in which the Corp rezzed Urtica Cipher during the Runner's turn), breaking
+  Whitespace with Unity, Tithe subroutines (net damage with random discard, Corp gains), Whitespace ending the run,
+  HQ/R&D/Archives/remote accesses (random HQ card, R&D in order, Archives turned faceup and accessed as a set,
+  pay-to-trash Spin Doctor and Regolith, agenda steals with Zahya's and Tao's triggers), scoring Offworld Office
+  from the turn-start window (gain 7), Restoring Humanity's end-of-turn credit, Tranquilizer derezzing Whitespace,
+  Funhouse encounter tag with Reality Plus, discard phase (9 cards, choose 4 by clicking the hand), manual
+  adjustments (advancement counters, tags, core damage), remove tag, undo of a run ("Undo to here" + Confirm,
+  reflected on both tabs), concede with the game-over screen on both tabs, reloading a player link to replay the
+  journal. No plugin exceptions in either console.
+* Hover zoom, board menus, card outlines and layouts checked at 1440x900, 1280x720, 1920x1080 and 1024x768.
+* Browser bot-vs-bot local games on the final build (`?speed=20`, Basic vs Basic and Basic vs Random) played to
+  completion (flatline on turn 7; 8 stolen points) with the new windows and no console exceptions.
+* Earlier (previous iteration): JVM harness with hundreds of bot-vs-bot games (see host.scala).
 
 ## Known bugs
 
