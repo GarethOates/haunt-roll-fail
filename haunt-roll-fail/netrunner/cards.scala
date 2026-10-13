@@ -75,7 +75,7 @@ object Cards {
 
     lazy val byCode : Map[String, CardData] = all./(c => c.code -> c).toMap
 
-    lazy val byTitle : Map[String, CardData] = all.groupBy(_.title)./((t, l) => t -> l.maxBy(_.code))
+    lazy val byTitle : Map[String, CardData] = all.groupBy(_.title).toList./((t, l) => t -> l.maxBy(_.code)).toMap
 
     def apply(code : String) : CardData = byCode.get(code).|(throw new Error("unknown card " + code))
 

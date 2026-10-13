@@ -106,6 +106,7 @@ object HRF {
         sehi.Meta -> sehi.UI,
         suok.Meta -> suok.UI,
         yarg.Meta -> yarg.UI,
+        netrunner.Meta -> netrunner.UI,
     )
 
     val metas = metaUIs.lefts
