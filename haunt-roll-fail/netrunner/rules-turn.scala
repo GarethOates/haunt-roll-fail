@@ -135,11 +135,11 @@ trait TurnRules { game : Game =>
             NextAction
 
         case PlayMenuAction(f) =>
-            Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(credits(f) < playCost(c), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
+            Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(availableCredits(f, None, "play-" + c.data.kind.toLowerCase) < playCost(c), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
 
         case PlayCardAction(f, c) =>
             clicks += f -> (clicks(f) - 1)
-            payCredits(f, playCost(c), None)
+            payCredits(f, playCost(c), None, "play-" + c.data.kind.toLowerCase)
             moveTo(c, PlayZone(f))
             state(c).seen = true
             impl(c).initialCounters(c).foreach { case (k, n) => addCounter(c, k, n) }
@@ -181,8 +181,8 @@ trait TurnRules { game : Game =>
 
         case RunnerInstallAction(f, c, h, t) =>
             clicks += f -> (clicks(f) - 1)
-            t.foreach(p => trashCard(p, f, false))
             push(RunnerInstallEffect(c, h, false), ActionPhaseAction(f))
+            t.foreach(p => trashCard(p, f, false))
             NextAction
 
         case AdvanceMenuAction(f) =>
@@ -202,8 +202,8 @@ trait TurnRules { game : Game =>
             Ask(f).add(scorableAgendas./(c => ScoreAction(f, c))).cancel
 
         case ScoreAction(f, c) =>
-            scoreAgenda(c)
             push(ActionPhaseAction(f))
+            scoreAgenda(c)
             NextAction
 
         case TrashResourceMenuAction(f) =>
@@ -213,8 +213,8 @@ trait TurnRules { game : Game =>
             clicks += f -> (clicks(f) - 1)
             credits += f -> (credits(f) - 2)
             log(f, "pays", 2.credits, "to trash a resource")
-            trashCard(c, f, false)
             push(ActionPhaseAction(f))
+            trashCard(c, f, false)
             NextAction
 
         case PurgeAction(f) =>
@@ -241,8 +241,8 @@ trait TurnRules { game : Game =>
             Ask(f).add(rezOptions(f, "action", None)).cancel
 
         case RezAction(f, c, ctx) =>
-            rezCard(c, false)
             push(reask(ctx))
+            rezCard(c, false)
             NextAction
 
         case EndTurnClickAction(f) =>
@@ -262,7 +262,7 @@ trait TurnRules { game : Game =>
             if (f.isRunner && max < 0)
                 GameOverAction(|(Corp), "Runner is flatlined (hand size below zero)")
             else {
-                val n = hand(f).num - max.atLeast(0)
+                val n = (reg("skip-discard") > 0).?(0).|(hand(f).num - max.atLeast(0))
                 if (n <= 0)
                     NextAction
                 else
@@ -309,12 +309,12 @@ trait TurnRules { game : Game =>
 
     def isAdvanceable(c : Card) : Boolean = c.data.isAgenda || impl(c).advanceable(c) || (isRezzed(c) && impl(c).advanceable(c))
 
-    def scorableAgendas : $[Card] = installedCards(Corp).%(_.data.isAgenda).%(c => advancement(c) >= advancementRequirement(c)).%(_ => !cannotScoreThisTurn)
+    def scorableAgendas : $[Card] = installedCards(Corp).%(_.data.isAgenda).%(c => advancement(c) >= advancementRequirement(c)).%(_ => !cannotScoreThisTurn).%(c => !usedThisTurn(c, "cannot-score") && !allActive.exists(x => impl(x).preventsScoring(x, c)))
 
     def scoreOptions(f : Faction) : $[UserAction] = scorableAgendas./(c => ScoreAction(f, c))
 
     def rezOptions(f : Faction, ctx : String, approached : |[Card]) : $[UserAction] =
-        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isIce && !c.data.isAgenda) ++ approached.$)./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits"))
+        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isIce && !c.data.isAgenda) ++ approached.$)./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits").!(!impl(c).canRez(c), "cannot rez").!(usedThisTurn(c, "cannot-rez"), "cannot rez this turn"))
 
     def reask(ctx : String) : ForcedAction = ctx match {
         case "action" => ActionPhaseAction(active)
@@ -323,9 +323,12 @@ trait TurnRules { game : Game =>
         case _ => current
     }
 
+    var lastScoredAdvancement = 0
+
     def scoreAgenda(c : Card) {
         val points = c.data.agendaPoints.|(0)
         lastScoredFrom = serverOf(c)
+        lastScoredAdvancement = advancement(c)
         moveTo(c, ScoredZone(Corp))
         state(c).seen = true
         scoredPointsThisTurn += points

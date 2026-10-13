@@ -129,6 +129,8 @@ class CardState {
     var usedTurn : $[String] = $
     var usedRun : $[String] = $
     var extraSubtypes : $[String] = $
+    var target : |[Card] = None       // a card chosen by this card (Femme Fatale, Trieste, Kit)
+    var choice : String = ""          // a choice remembered by this card (Chameleon subtype, Security Testing server, Test Run marker)
 
     def counter(k : String) = counters.get(k).|(0)
     def advancement = counter("advancement")
@@ -151,6 +153,8 @@ class CardState {
         usedTurn = $
         usedRun = $
         extraSubtypes = $
+        target = None
+        choice = ""
     }
 }
 
@@ -169,7 +173,7 @@ case object SuccessPhase extends RunPhase
 case object AccessPhase extends RunPhase
 case object EndedPhase extends RunPhase
 
-class Run(val server : Server, val source : |[Card], val clickRun : Boolean) {
+class Run(var server : Server, val source : |[Card], val clickRun : Boolean) {
     var position : Int = 0
     var phase : RunPhase = InitiationPhase
     var ice : |[Card] = None
@@ -192,6 +196,9 @@ class Run(val server : Server, val source : |[Card], val clickRun : Boolean) {
     var accessCount = 0
     var window : $[Faction] = $
     var breachServer : |[Server] = None
+    var accessOnly = false            // pseudo-run used to access cards outside of a breach (Deep Dive, Virtuoso)
+    var outer : |[Run] = None         // the run to restore when an accessOnly pseudo-run ends
+    var disableRoot = false           // cards in the root of the attacked server lose all abilities (Light the Fire!)
 
     def accessBonusFor(k : String) = accessBonus.get(k).|(0)
 }
@@ -230,6 +237,8 @@ case class Accessed(card : Card) extends Event
 case class DamageDone(kind : String, n : Int) extends Event
 case class SubsBroken(ice : Card, subs : $[Int], breaker : Card) extends Event
 case class Purged(n : Int) extends Event
+case class CardsDrawn(f : Faction, cards : $[Card]) extends Event
+case class ServerCreated(server : Server) extends Event
 
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -317,7 +326,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 // ---------------------------------------------------------------------------------------------------------------------
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
-    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules {
+    with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules with ExtRules {
 
     implicit def implicitGame : Game = this
 
@@ -422,7 +431,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         case RigZone => !state(c).facedown
         case RootZone(_) => state(c).rezzed
         case IceZone(_) => state(c).rezzed
-        case HostedZone(h) => (owner(c).isRunner && !state(c).facedown) || (owner(c).isCorp && state(c).rezzed)
+        case HostedZone(h) => ((owner(c).isRunner && !state(c).facedown) || (owner(c).isCorp && state(c).rezzed)) && !impl(h).disablesHosted(h)
         case PlayZone(_) => true
         case _ => false
     }
@@ -514,12 +523,15 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def toArchives(c : Card, faceup : Boolean) {
         moveTo(c, DiscardZone(Corp))
         state(c).seen = faceup
+        regInc("to-archives")
     }
 
     def newRemote() : Remote = {
         val r = Remote(nextRemote)
         nextRemote += 1
         remotes :+= r
+        regInc("remote-created")
+        trigger(ServerCreated(r))
         r
     }
 
@@ -558,11 +570,12 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def handSize(f : Faction) : Int = 5 + allActive./(c => impl(c).handSize(c, f)).sum - f.isRunner.??(coreDamage)
 
-    def advancementRequirement(c : Card) : Int = (c.data.advancementCost.|(0) + allActive./(x => impl(x).advancementRequirementMod(x, c)).sum).atLeast(0)
+    def advancementRequirement(c : Card) : Int = (c.data.advancementCost.|(0) + allActive./(x => impl(x).advancementRequirementMod(x, c)).sum + (!isActive(c)).??(impl(c).advancementRequirementMod(c, c))).atLeast(0)
 
     def iceStrength(c : Card) : Int = {
         val s = state(c)
-        (c.data.strength.|(0) + impl(c).strength(c) + allActive./(x => impl(x).iceStrengthMod(x, c)).sum + s.strengthEncounter + s.strengthRun + s.strengthTurn)
+        val mods = impl(c).strength(c) + allActive./(x => impl(x).iceStrengthMod(x, c)).sum + s.strengthEncounter + s.strengthRun + s.strengthTurn
+        c.data.strength.|(0) + impl(c).cannotLowerStrength(c).?(mods.atLeast(0)).|(mods)
     }
 
     def breakerStrength(c : Card) : Int = {
@@ -572,11 +585,11 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def strength(c : Card) : Int = c.data.isIce.?(iceStrength(c)).|(breakerStrength(c))
 
-    def rezCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).rezCostMod(x, c)).sum).atLeast(0)
+    def rezCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).rezCostMod(x, c)).sum + (!isActive(c)).??(impl(c).rezCostMod(c, c))).atLeast(0)
 
     def installCost(c : Card, server : |[Server]) : Int = {
         val base = owner(c).isCorp.?(c.data.isIce.?(server./(ice(_).num).|(0)).|(0)).|(c.data.cost.|(0))
-        (base + allActive./(x => impl(x).installCostMod(x, c)).sum).atLeast(0)
+        (base + allActive./(x => impl(x).installCostMod(x, c)).sum + (!isActive(c)).??(impl(c).installCostMod(c, c))).atLeast(0)
     }
 
     def playCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).playCostMod(x, c)).sum).atLeast(0)
@@ -598,9 +611,12 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     }
 
     // credits available including hosted credits usable for the purpose (run credits)
-    def availableCredits(f : Faction, self : |[Card]) : Int = credits(f) + (f.isRunner && run.any).??(creditSources(f)./(c => counter(c, "credit")).sum)
+    def availableCredits(f : Faction, self : |[Card], purpose : String = "") : Int = credits(f) + creditSourcesFor(f, purpose)./(c => counter(c, "credit")).sum
 
     def creditSources(f : Faction) : $[Card] = activeCards(f).%(c => impl(c).creditsUsableForRun(c))
+
+    // hosted credits usable for a purpose: run credits during a run, plus purpose specific ones (recurring credits)
+    def creditSourcesFor(f : Faction, purpose : String) : $[Card] = activeCards(f).%(c => (f.isRunner && run.any && impl(c).creditsUsableForRun(c)) || (purpose != "" && impl(c).creditsUsableFor(c, purpose)))
 
     def paidAbilitiesUsedThisTurn(c : Card, key : String) = state(c).usedTurn.has(key)
 
@@ -647,7 +663,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     // trigger an event: collect triggered abilities and push them to the queue (active player first)
     def trigger(e : Event) {
         val order = $(active, active.opponent)
-        val effects = order./~(f => activeCards(f)./~(c => impl(c).triggers(c, e)))
+        val effects = order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ extTriggers(e)
         pushAll(effects)
     }
 
@@ -692,7 +708,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities
+        val pf = performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performExt
 
         a match {
             case NextAction => nextStep

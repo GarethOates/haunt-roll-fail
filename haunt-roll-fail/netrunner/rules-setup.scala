@@ -95,7 +95,7 @@ trait SetupRules { game : Game =>
             clicks = Map(Corp -> 0, Runner -> 0)
             phase = "mulligan"
 
-            pending = $(ShuffleDeckEffect(Corp), ShuffleDeckEffect(Runner), DrawEffect(Corp, 5), DrawEffect(Runner, 5), MulliganAskAction(Corp), MulliganAskAction(Runner), StartTurnAction(Corp))
+            pending = $(ShuffleDeckEffect(Corp), ShuffleDeckEffect(Runner)) ++ setup./~(f => identity.get(f).$./~(c => impl(c).onSetup(c))) ++ $(DrawEffect(Corp, 5), DrawEffect(Runner, 5), MulliganAskAction(Corp), MulliganAskAction(Runner), StartTurnAction(Corp))
 
             NextAction
 

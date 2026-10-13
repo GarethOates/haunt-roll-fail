@@ -73,6 +73,17 @@ trait CardImpl {
     def onTrash(self : Card, by : Faction)(implicit g : Game) : $[ForcedAction] = $
     def onEncounterEnds(self : Card)(implicit g : Game) : $[ForcedAction] = $
 
+    // ---- extension hooks (added for su21/ms; all have neutral defaults) ---------------------------------------------
+    def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) : Boolean = false   // recurring credits: "trash-asset", "play-event", ...
+    def canRez(self : Card)(implicit g : Game) : Boolean = true                                 // additional rez requirements (forfeit an agenda)
+    def preventsScoring(self : Card, agenda : Card)(implicit g : Game) : Boolean = false        // Clot
+    def preventsBreak(self : Card, ice : Card, breaker : Card)(implicit g : Game) : Boolean = false // Swordsman / Hortum / Trieste
+    def cannotLowerStrength(self : Card)(implicit g : Game) : Boolean = false                   // Lotus Field
+    def preventsSuccessfulRun(self : Card, server : Server)(implicit g : Game) : Boolean = false // Crisium Grid
+    def disablesHosted(self : Card)(implicit g : Game) : Boolean = false                        // Magnet
+    def drawBonus(self : Card, f : Faction)(implicit g : Game) : Int = 0                        // Daily Business Show
+    def onSetup(self : Card)(implicit g : Game) : $[ForcedAction] = $                           // identity setup before the starting hand (Ayla)
+
     // ---- card specific actions and choices --------------------------------------------------------------------------
     def perform(a : CardAction)(implicit g : Game) : Continue = throw new Error("unhandled card action " + a)
     def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) : Continue = throw new Error("unhandled card purpose " + p)
@@ -83,7 +94,7 @@ object GenericImpl extends CardImpl {
 }
 
 object CardImpls {
-    lazy val all : Map[String, CardImpl] = (SGCards.all)./(i => i.code -> i).toMap
+    lazy val all : Map[String, CardImpl] = (SGCards.all ++ SU21Cards.all ++ MSCards.all)./(i => i.code -> i).toMap
 
     def apply(code : String) : CardImpl = all.get(code).|(GenericImpl)
 
