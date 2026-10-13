@@ -119,7 +119,7 @@ trait AbilityRules { game : Game =>
             impl(ice).runnerAbilities(ice).indexed./ { (a, i) =>
                 UseRunnerAbilityAction(f, ice, i, ctx).!(!a.ok, a.reason).!(!canPay(f, a.costs, |(ice)), "cannot pay")
             }
-        })
+        }) ++ extraAbilityOptions(f, ctx, allowClick)
     }
 
     def useAbility(f : Faction, c : Card, a : Ability, ctx : String, costCards : $[Card]) : Continue = {

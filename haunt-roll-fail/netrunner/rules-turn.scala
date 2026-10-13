@@ -66,6 +66,7 @@ trait TurnRules { game : Game =>
             runnerDamageThisTurn = 0
             (cs.values).foreach { s => s.usedTurn = $ ; s.strengthTurn = 0 }
             clicks += f -> (f.isCorp.?(3).|(4))
+            clicks += f -> (clicks(f) + bonusClicks.get(f).|(0)).atLeast(0) ; bonusClicks -= f
 
             log(DoubleLine)
             log("Turn", turn.hl, f, "(" ~ credits(f).credits ~ ", " ~ hand(f).num.cards ~ ")")
@@ -171,7 +172,7 @@ trait TurnRules { game : Game =>
                 else if (c.data.isProgram && memoryFree < mu)
                     Ask(f).add(trashOptions./(p => RunnerInstallAction(f, c, None, |(p)).!(credits(f) < cost, "not enough credits"))).cancel
                 else
-                    Ask(f).add(RunnerInstallAction(f, c, None, None).!(credits(f) < cost, "not enough credits")).cancel
+                    Ask(f).add(RunnerInstallAction(f, c, None, None).!(credits(f) < cost, "not enough credits")).add(installedCards(Runner).%(h => isActive(h) && impl(h).canHost(h, c))./(h => RunnerInstallAction(f, c, |(h), None).!(credits(f) < cost, "not enough credits"))).cancel
             }
 
         case CorpInstallAction(f, c, s) =>
@@ -202,8 +203,8 @@ trait TurnRules { game : Game =>
             Ask(f).add(scorableAgendas./(c => ScoreAction(f, c))).cancel
 
         case ScoreAction(f, c) =>
-            scoreAgenda(c)
             push(ActionPhaseAction(f))
+            scoreAgenda(c)
             NextAction
 
         case TrashResourceMenuAction(f) =>
@@ -213,8 +214,8 @@ trait TurnRules { game : Game =>
             clicks += f -> (clicks(f) - 1)
             credits += f -> (credits(f) - 2)
             log(f, "pays", 2.credits, "to trash a resource")
-            trashCard(c, f, false)
             push(ActionPhaseAction(f))
+            trashCard(c, f, false)
             NextAction
 
         case PurgeAction(f) =>
@@ -235,18 +236,21 @@ trait TurnRules { game : Game =>
             credits += f -> (credits(f) - 2)
             tags -= 1
             log(f, "pays", 2.credits, "to remove a tag")
-            ActionPhaseAction(f)
+            push(ActionPhaseAction(f))
+            trigger(TagsRemoved(1))
+            NextAction
 
         case RezMenuAction(f) =>
             Ask(f).add(rezOptions(f, "action", None)).cancel
 
         case RezAction(f, c, ctx) =>
-            rezCard(c, false)
             push(reask(ctx))
+            rezCard(c, false)
             NextAction
 
         case EndTurnClickAction(f) =>
             push(DiscardPhaseAction(f), EndTurnAction(f))
+            trigger(ActionPhaseEnds(f))
             NextAction
 
         case ConcedeAction(f) =>
@@ -277,6 +281,7 @@ trait TurnRules { game : Game =>
                 if (f.isCorp) toArchives(c, false) else moveTo(c, DiscardZone(f))
             }
             log(f, "discards", l.num.cards)
+            trigger(DiscardedToHandSize(f, l))
             NextAction
 
         case EndTurnAction(f) =>
@@ -326,6 +331,7 @@ trait TurnRules { game : Game =>
     def scoreAgenda(c : Card) {
         val points = c.data.agendaPoints.|(0)
         lastScoredFrom = serverOf(c)
+        lastScoredAdvancement = advancement(c) ; lastScoredInstalledTurn = state(c).installedTurn ; scoringAgenda = |(c)
         moveTo(c, ScoredZone(Corp))
         state(c).seen = true
         scoredPointsThisTurn += points
@@ -338,6 +344,7 @@ trait TurnRules { game : Game =>
 
     def stealAgenda(c : Card) {
         val points = c.data.agendaPoints.|(0)
+        lastStolenFrom = zoneServer(zone(c))
         moveTo(c, ScoredZone(Runner))
         state(c).seen = true
         log(Runner, "steals", c, "and gains", points.hl, "agenda point" + (points != 1).??("s"))
