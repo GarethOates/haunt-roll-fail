@@ -128,12 +128,7 @@ trait RotEventRules { game : Game =>
         case RunEffect(s, _) if runBlocked(s) =>
             log(Runner, "cannot run", s, "this turn")
             NextAction
-        // Hacktivist Meeting: rezzing a non-ice card trashes a random card from HQ
-        case a @ RezAction(f, c, ctx) if !c.data.isIce && currentActive("08021") && hand(Corp).any =>
-            val r = performTurn(a)
-            push(RandomTrashFromHandEffect(Corp, 1))
-            log(Corp, "trashes a random card from HQ (Hacktivist Meeting)")
-            r
+        // Hacktivist Meeting: the random trash from HQ is charged by every rez (RestrictionRules.rezCard)
         // Security Leak: advancing costs 1 more
         case a : AdvanceAction if currentActive("14009") =>
             credits += Corp -> (credits(Corp) - 1)
@@ -243,7 +238,7 @@ trait RotEventRules { game : Game =>
             NextAction
 
         case RemoveAdvancementEffect(c, n) =>
-            val m = n.atMost(advancement(c))
+            val m = n.atMost(state(c).advancement)
             if (m > 0) {
                 addCounter(c, "advancement", -m)
                 log(m.hl, "advancement counter" + (m != 1).??("s"), "removed from", hiddenCorpElem(c))

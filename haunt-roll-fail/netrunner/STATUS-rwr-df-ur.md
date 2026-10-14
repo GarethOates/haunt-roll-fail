@@ -51,7 +51,7 @@ Quest, Tiered Subscription, Congratulations!, Loot Box, Focus Group, Game Over, 
 Trust, SDS Drone Deployment, Roughneck Repair Squad, Afshar, Sandstone, Trebuchet, Secure and Protect, Reduced
 Service, Vulnerability Audit, CSR Campaign, Rime.
 
-### ur — Uprising (58/58 implemented, 6 partial)
+### ur — Uprising (58/58 implemented, 4 partial)
 
 Runner: Hoshiko Shiro (flip implemented with a "flipped" counter on the identity; gains Digital / +1 link),
 Moshing, Devil Charm, Gachapon, Keiko, Odore, Paladin Poemu (partial: hosted credits are taken with a "take 1
@@ -61,13 +61,11 @@ Makler, Penumbral Toolkit, The Back, Harmony AR Therapy, Aniccam, Simulchip, Cor
 the recurring credit is a hosted credit usable during runs), Penrose (stealth restriction not enforced),
 Self-modifying Code, Paule's Cafe, Buffer Drive, Daily Casts, DreamNet.
 
-Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricator (partial: the "not in the
-root of this server" restriction of the on-trash install is not enforced), Drafter, Tyr, NEXT Activation Command,
-Scapenet, Tranquility Home Grid ("remote server only" not enforced on install), Flower Sermon, Prana Condenser
+Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricator, Drafter, Tyr, NEXT Activation Command,
+Scapenet, Tranquility Home Grid, Flower Sermon, Prana Condenser
 (prevents net damage from any source; one use per damage instance), Engram Flush, Konjin, Hyoubu Precog
 Manifold, Kakurenbo, GameNET (partial: triggers on any credit loss / payment by the Runner during a run, the
-"Corp card ability" source is not tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station
-(partial: "limit 1 remote server" not enforced), Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
+"Corp card ability" source is not tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station, Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
 Argus Crackdown, Cyberdex Sandbox, False Lead, NAPD Cordon.
 
 Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26096, 26112, 26117, 26127.

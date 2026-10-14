@@ -82,8 +82,8 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   Patchwork is a once-per-turn ability (trash 1 grip card: the next play/install this turn costs 2 less), not an interrupt.
 * **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3).
   Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size, but the limit is only
-  re-checked when a Runner card leaves play. Apex's facedown programs are offset as well.
-* **Apex.** Only the basic install action is blocked for non-virtual resources (installs from card effects are not). Facedown cards
+  re-checked when a Runner card leaves play. Facedown programs use no MU (engine-wide).
+* **Apex.** Non-virtual resources cannot be installed by any path (facedown installs excepted) (see `STATUS-fix-restrictions.md`). Facedown cards
   can't be turned faceup by any card implemented so far.
 * **Adam.** The 3 directives (of the 4 Directive resources in the database) are installed as extra copies `Card(code, 100+i)`
   outside the deck. Their own abilities depend on their implementations (resources, other sets).
@@ -99,10 +99,12 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   the zone the trashed program left. Respirocytes checks for an empty grip on every event.
 * Cyber Bureau's and NEXT Design's "before your first turn" happens when the Corp's first turn begins (before the mandatory draw).
   Jinteki Biotech's choice is made then as well.
-* **Deck building** (no per-identity hook in `Decks.validate`; not enforced): The Professor (first copy of each program free),
-  Custom Biotics (no Jinteki cards), Apex (no non-virtual resources), Adam / Sunny Lebeau / Apex mini-faction rules, The Shadow
-  (agendas of all factions), draft-only identities, "Limit 6 per deck" cards are enforced (`deckLimit`). Minimum deck size and
-  influence limits come from the card data and are enforced. The generated presets only use cards that pass the existing validator.
+* **Deck building** is validated per identity by `DeckRules` (`Decks.validate`) (see `STATUS-fix-restrictions.md`): The Professor (first copy of
+  each program free), Custom Biotics (no Jinteki cards), agendas of the identity's faction or neutral (any faction for the draft
+  identities and Nova Initiumia / Ampere), draft identities (no copy limit, no influence limit), Nova Initiumia / Ampere (1 copy
+  of each card, Ampere at most 2 different agendas per faction), alliance cards at 0 influence when their condition holds.
+  Adam's directives are installed at setup outside the deck. Mini-faction cards (Apex, Adam, Sunny Lebeau) are splashable with
+  influence like any other faction, as in the printed rules.
 
 ## Testing
 

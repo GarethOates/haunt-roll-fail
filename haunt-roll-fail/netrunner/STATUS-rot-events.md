@@ -61,9 +61,9 @@ tests only.
 * Prey: only rezzed ice can be trashed.
 * Forked / Knifed / Spooned: "fully broken" is checked on the engine's `SubsBroken` event, which bioroid click-breaking does
   not emit.
-* The ask-level restrictions (Interdiction, Hacktivist Meeting, Security Leak, Unscheduled Maintenance, The Price of Freedom,
-  Blackmail, Cyber Threat) apply to the basic actions and paid-ability windows; rezzes/advances/installs performed by other card
-  effects are not restricted. A Corp window whose only option is greyed out by them still shows its "pass" button.
+* The restrictions of Interdiction, Hacktivist Meeting, Unscheduled Maintenance, Blackmail and Cyber Threat apply to every rez /
+  install path, card effects included (see `STATUS-fix-restrictions.md`); Security Leak and The Price of Freedom restrict the basic advance
+  action (no card effect "advances" a card). A Corp window whose only option is greyed out by them still shows its "pass" button.
 * Leverage / The Noble Path: damage prevention is offered as a free prevention ability (not applied automatically).
 * Watch the World Burn: later accesses remove copies with the same card code (other printings of the title are not matched).
 * Rebirth: the candidates are all format-legal Runner identities of the same faction (not restricted to the deck's format).

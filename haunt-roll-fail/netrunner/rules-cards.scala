@@ -67,12 +67,12 @@ trait CardRules { game : Game =>
                 payCredits(Runner, cost, None)
                 // uniqueness
                 if (c.data.unique)
-                    installedCards(Runner).%(x => x.title == c.title && x != c).foreach { x =>
+                    installedCards(Runner).%(x => x.title == c.title && x != c && !state(x).facedown).foreach { x =>
                         log(Runner, "trashes", x, "(unique)")
                         trashCard(x, Runner, false)
                     }
                 if (has(c, "Console"))
-                    installedCards(Runner).%(x => has(x, "Console") && x != c).foreach { x =>
+                    installedCards(Runner).%(x => has(x, "Console") && x != c && !state(x).facedown).foreach { x =>
                         log(Runner, "trashes", x, "(console limit)")
                         trashCard(x, Runner, false)
                     }

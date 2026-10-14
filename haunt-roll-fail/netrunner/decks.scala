@@ -175,32 +175,32 @@ object Decks {
         )),
         // System Update 2021 / Midnight Sun decks (used by the bot stress test)
         Deck("HB Architects of Tomorrow", Corp, "31040", $(
-            "31041" -> 3, "27004" -> 3, "33031" -> 3, "33032" -> 3, "31062" -> 1,
+            "31041" -> 3, "27004" -> 3, "33031" -> 3, "33032" -> 3, "30067" -> 1,
             "31042" -> 2, "33033" -> 2, "31043" -> 3, "31044" -> 2, "31045" -> 2, "31046" -> 2, "31047" -> 1, "31048" -> 2, "31049" -> 1,
             "33034" -> 1, "33035" -> 2, "33036" -> 2, "33037" -> 2, "33038" -> 1, "31080" -> 2, "31081" -> 2, "30075" -> 3,
         )),
         Deck("Jinteki Personal Evolution", Corp, "31050", $(
-            "31051" -> 3, "31052" -> 3, "33039" -> 2, "33040" -> 3, "33031" -> 2, "31041" -> 1,
+            "31051" -> 3, "31052" -> 3, "33039" -> 3, "33040" -> 3, "30070" -> 2,
             "31053" -> 2, "31054" -> 3, "31055" -> 3, "31056" -> 2, "31057" -> 2, "31058" -> 2, "31059" -> 2, "27005" -> 2,
             "33041" -> 2, "33042" -> 1, "33043" -> 3, "33044" -> 2, "33045" -> 2, "33046" -> 1, "33047" -> 2,
         )),
         Deck("NBN Near-Earth Hub", Corp, "31060", $(
-            "31061" -> 3, "31062" -> 3, "33049" -> 3, "27004" -> 3, "31071" -> 2,
+            "31061" -> 3, "31062" -> 3, "33049" -> 3, "30070" -> 3, "33113" -> 2,
             "31063" -> 3, "31064" -> 2, "31065" -> 3, "31066" -> 2, "31067" -> 3, "31068" -> 1, "31069" -> 2, "27006" -> 2,
             "33050" -> 2, "33052" -> 2, "33053" -> 2, "33054" -> 3, "33055" -> 1, "33056" -> 1, "30075" -> 2,
         )),
         Deck("NBN Pravdivost Consulting", Corp, "33048", $(
-            "33049" -> 3, "31062" -> 2, "31061" -> 3, "27004" -> 2, "31072" -> 1, "31073" -> 1, "31071" -> 1,
+            "33049" -> 3, "31062" -> 3, "31061" -> 3, "30070" -> 3, "30067" -> 1,
             "33050" -> 3, "33051" -> 2, "33052" -> 3, "33053" -> 3, "33054" -> 3, "33055" -> 2, "33056" -> 2,
             "31063" -> 2, "31065" -> 2, "31067" -> 2, "31068" -> 2, "31080" -> 3, "31081" -> 2, "31082" -> 1,
         )),
         Deck("Weyland Building a Better World", Corp, "31070", $(
-            "31071" -> 3, "31072" -> 3, "31073" -> 3, "33058" -> 2, "27004" -> 1,
+            "31071" -> 3, "31072" -> 3, "31073" -> 3, "33058" -> 2, "30070" -> 1,
             "31074" -> 2, "31075" -> 2, "31076" -> 3, "31077" -> 3, "31078" -> 2, "31079" -> 2, "27007" -> 2,
             "33059" -> 2, "33060" -> 2, "33061" -> 3, "33062" -> 2, "33063" -> 2, "33064" -> 1, "33065" -> 1, "30075" -> 3, "31082" -> 1,
         )),
         Deck("Weyland Ob Superheavy Logistics", Corp, "33057", $(
-            "33058" -> 3, "31073" -> 3, "31072" -> 2, "31071" -> 3, "27004" -> 1,
+            "33058" -> 3, "31073" -> 3, "31072" -> 2, "31071" -> 3, "30070" -> 1,
             "33059" -> 3, "33060" -> 3, "33061" -> 3, "33062" -> 3, "33063" -> 3, "33064" -> 2, "33065" -> 2,
             "31077" -> 3, "31076" -> 2, "31075" -> 1, "31079" -> 1, "31080" -> 3, "31081" -> 2, "30075" -> 2,
         )),
@@ -279,12 +279,14 @@ object Decks {
         if (n < min)
             return DeckCheck(false, "Deck has " + n + " cards, minimum is " + min)
 
-        val over = rest.groupBy(_.title).toList.%((t, l) => l.num > l.head.deckLimit)
+        val over = DeckRules.overLimit(id, rest)
         if (over.any)
-            return DeckCheck(false, "Too many copies: " + over./((t, l) => t).join(", "))
+            return DeckCheck(false, "Too many copies: " + over.join(", "))
 
-        val influence = rest.%(c => c.faction != id.faction)./(_.influence.|(0)).sum
-        val limit = id.influenceLimit.|(15)
+        DeckRules.check(id, rest).foreach(m => return DeckCheck(false, m))
+
+        val influence = DeckRules.influence(id, rest)
+        val limit = DeckRules.influenceLimit(id)
         if (influence > limit)
             return DeckCheck(false, "Influence " + influence + " exceeds " + limit)
 
@@ -296,7 +298,7 @@ object Decks {
                 return DeckCheck(false, "Agenda points " + points + " (need " + minPoints + "-" + maxPoints + " for " + n + " cards)")
         }
 
-        DeckCheck(true, n + " cards, " + influence + "/" + limit + " influence")
+        DeckCheck(true, n + " cards, " + influence + "/" + (limit == Int.MaxValue).?("unlimited").|("" + limit) + " influence")
     }
 
     def normalize(s : String) : String = {

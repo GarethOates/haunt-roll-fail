@@ -49,10 +49,8 @@ Tyrant, Veritas, Watchtower, Wendigo (partial), Woodcutter, Wormhole.
 
 ## Simplifications
 
-- **Vikram 1.0, Wendigo**: "the Runner cannot use programs / a chosen program" is only logged. jinteki does
-  not implement it either.
-- **Jua**: the encounter ability "the Runner cannot install cards this turn" is only logged. No global
-  install-restriction hook exists, and adding one would mean editing the shared install paths.
+- (Vikram 1.0, Wendigo and Jua are now exact: run-scoped "cannot use programs" / "cannot use the chosen program" flags and a
+  turn-scoped Runner install lock (see `STATUS-fix-restrictions.md`).)
 - **Interrupt 0**: approximated. While the run lasts, an icebreaker may break only if the Runner has 1[c] more
   than its cheapest break ability costs, and the extra 1[c] is taken right after each break (through
   `breakAllowed` and a `SubsBroken` trigger). The effect stops early if Interrupt 0 is derezzed or trashed

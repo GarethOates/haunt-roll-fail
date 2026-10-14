@@ -248,7 +248,7 @@ object RotUpgradeCards {
         }
     }
 
-    object SatelliteGrid extends RAg("07023")
+    object SatelliteGrid extends RAg("07023")       // +1 advancement token on the ice protecting its server: RestrictionRules.advancementBonus
 
     object TheTwins extends RAg("07024") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {

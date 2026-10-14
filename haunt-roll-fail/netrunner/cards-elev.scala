@@ -953,11 +953,11 @@ object ElevCards {
     }
 
     object IpEnforcement extends Startup("35066") {
-        override def canPlay(self : Card)(implicit g : Game) = g.scored(Runner).exists(c => c.data.isAgenda && c.data.agendaPoints.|(0) <= g.tags)
+        override def canPlay(self : Card)(implicit g : Game) = g.scored(Runner).exists(c => c.data.isAgenda && g.agendaValue(c) <= g.tags)
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseNumberEffect(Corp, self, 0, g.tags, "ip", "IP Enforcement: remove how many tags (X)?"))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case NumberPickedAction(self, x, "ip") =>
-                val l = g.scored(Runner).%(c => c.data.isAgenda && c.data.agendaPoints.|(0) == x)
+                val l = g.scored(Runner).%(c => c.data.isAgenda && g.agendaValue(c) == x)
                 if (l.any)
                     g.push(RemoveTagsEffect(x), ChooseCardEffect(Corp, l, IpPurpose(self), "IP Enforcement: choose an agenda in the Runner's score area to install", false))
                 else

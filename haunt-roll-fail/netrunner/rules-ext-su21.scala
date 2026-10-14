@@ -304,7 +304,7 @@ trait SU21Rules { game : Game =>
             NextAction
 
         case MoveAdvancementEffect(from, to, n) =>
-            val m = n.atMost(advancement(from))
+            val m = n.atMost(state(from).advancement)
             if (m > 0) {
                 addCounter(from, "advancement", -m)
                 addCounter(to, "advancement", m)

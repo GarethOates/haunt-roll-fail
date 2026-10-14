@@ -62,7 +62,8 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
 * Yusuf / Musaazi "any virus counter": the break spends a counter of any installed card (the Runner chooses when several
   cards have counters); the pump is a normal `Pump` while the breaker hosts a counter, otherwise an ability that spends a
   counter of another card.
-* Harbinger: when trashed from play it is installed facedown from the heap; the facedown card still counts its 1 MU.
+* Harbinger: when trashed from play it is installed facedown from the heap (facedown programs use no MU; Blacklist does not
+  stop it, since the card never really reaches the heap).
 * LLDS Energy Regulator: there is no trash-prevention window; when the Corp trashes installed hardware, LLDS offers to pay 3
   or trash itself and the hardware is reinstalled (its "when trashed" effects have already been queued).
 * Net Shield: usable once per turn (instead of "only on the first net damage of the turn").

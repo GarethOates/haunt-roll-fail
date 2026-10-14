@@ -103,8 +103,8 @@ If another worktree also overrides one of these, both compose as long as each ca
   click cost); double operations count 1.
 * Sundew: "the first time the Runner spends [click]" = first click action (or click-played event) of the Runner's turn; the
   2-credit payment applies when the first run of the turn on its server starts during that first action.
-* Genetics Pavilion caps draws at 2 per Runner turn ignoring draw bonuses; Blacklist blocks the generic effects/purposes only (a
-  card-specific `moveTo` out of the heap is not intercepted). The News Now Hour greys current events in the play menu only.
+* Genetics Pavilion caps draws at 2 per Runner turn ignoring draw bonuses. (Blacklist now locks the heap for every move and The
+  News Now Hour blocks current events on every play path (see `STATUS-fix-restrictions.md`).)
 * Warden Fatuma, Lt. Todachine 2 (−1 access on HQ/R&D only while tagged, never below 1), Ibrahim Salem (forfeit as an on-rez
   effect; still asked when rezzed ignoring costs), Lakshmi Smartfabrics (protection lasts while Lakshmi is active this turn),
   IT Department (strength bonus fixed at use time), Full Immersion RecStudio (trash cost bonus only while rezzed), Bioroid Work

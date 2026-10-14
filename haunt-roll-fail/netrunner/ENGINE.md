@@ -349,7 +349,7 @@ not collide with another file of the package.
     class Game ... with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
         with StartupRules with SU21Rules with PHTAIRules with RWRRules
         with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules
-        with RotAssetRules with RotAgendaRules
+        with RotAssetRules with RotAgendaRules with RestrictionRules
 
 Only `RotAssetRules` and `RotAgendaRules` override engine methods. They extend the core traits they refine (assets:
 `EffectRules, TurnRules, CardRules, RunRules, PHTAIRules, RWRRules`; agendas: `TurnRules, CardRules, AccessRules,
@@ -366,7 +366,7 @@ nothing below it sees that action. Every call through `performEffects` / `perfor
 
 **`performInternal` chain**:
 
-    performRotHardware orElse performRotEvents orElse performPHTAI orElse
+    performRestrictions orElse performRotHardware orElse performRotEvents orElse performPHTAI orElse
     performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse
     performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
     performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse
@@ -414,3 +414,30 @@ The bookkeeping registers of the events, operations and assets ports are counted
 * secret spending (`SecretSpendEffect`, events), damage choice and tag avoidance (`RH.damageChoice` / `RH.avoidTags`,
   hardware), and trace-margin measuring (`MarginTraceEffect` in operations, `RememberCreditsEffect` / `TraceKickerEffect` in
   ice) each exist only once.
+
+### 8.2 Restrictions (`rules-ext-restrictions.scala`)
+
+`RestrictionRules` is mixed in last (`... with RotAgendaRules with RestrictionRules`) and holds one legality check per kind of
+action, used by every path: `corpInstallBlock(card, server)` / `runnerInstallBlock(card, host)` (install locks, Unscheduled
+Maintenance, remote limits from `CardImpl.remoteLimit`, printed server restrictions parsed from the card text by
+`InstallRules.serverRule`, `RAg.installOnly`, `canInstall`, Apex, the locked heap), `rezBlock(card, ignoreCost)` (`canRez` --
+skipped when all costs are ignored unless the text says "Rez only" --, "cannot-rez" markers, `rhRezBlocked`, Blackmail / Cyber
+Threat, Interdiction, Hacktivist Meeting), `playBlock(card)` (The News Now Hour, the locked heap) and `programUseBlocked(program)`
+(run flags `no-program-use` / `cannot-use`). New restrictions belong there (or in a card hook they read), not in a menu.
+
+* `performRestrictions` is first in the `performInternal` chain and is defined only for the cases it refuses or rewrites:
+  `CorpInstallEffect` / `RunnerInstallEffect` and the effects that pay before installing or rezzing (paying / discounted installs,
+  install-and-rez, `DiscountRezEffect`, `RezDiscountEffect`) refuse illegal targets before any payment; region / asset / agenda
+  overinstalls trash the previous card and keep the server; plays of a blocked card are refused.
+* `restrictContinue` post-processes the result of every `performInternal` call: offered options that are illegal are greyed out
+  with the reason (`restrictOption`), an Ask left without a usable option gets `RestrictedSkipAction` ("Continue"), Always Be
+  Running's first-click rule is applied, and a Corp win other than by flatline is cancelled while The Black File is active.
+* `rezCard` is overridden (stackable, runs before `RotAssetRules.rezCard`): the universal rez sink refuses illegal rezzes and
+  charges Hacktivist Meeting's random trash.
+* `Game.advancement(c)` adds `advancementBonus(c)` (Satellite Grid); effects that remove or move counters read
+  `state(c).advancement`. `Game.agendaPoints` sums `agendaValue(c)` (printed + own + hosted `agendaPointsBonus`); use
+  `agendaValue` whenever a card refers to the agenda points of an agenda in a score area. `Game.moveTo` ignores moves out of a
+  heap locked by Blacklist (`heapLocked`).
+* `DeckRules` (object) is the per-identity part of `Decks.validate` and of the deck preview: copy limits (draft / singleton
+  identities), allowed cards (agenda factions, Custom Biotics), influence (The Professor, alliance cards, unlimited when the
+  identity has no influence limit).

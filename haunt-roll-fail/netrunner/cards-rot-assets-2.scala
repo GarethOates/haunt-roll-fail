@@ -497,7 +497,7 @@ object RotAssetCardsB {
     }
 
     object InezDelgadoA extends RA("14004") {
-        def candidates(implicit g : Game) = g.scored(Runner).%(c => c.data.isAgenda && c.data.agendaPoints.|(0) >= 1)
+        def candidates(implicit g : Game) = g.scored(Runner).%(c => c.data.isAgenda && g.agendaValue(c) >= 1)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaScored(c) if candidates.any => $(RAInezAction(self, c))
             case _ => $
