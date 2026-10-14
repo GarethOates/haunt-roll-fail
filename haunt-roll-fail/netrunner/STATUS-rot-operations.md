@@ -95,8 +95,8 @@ Accounts, 25119 SEA Source, 25136 Beanstalk Royalties, 25137 Oversight AI, 25147
   **Hunter Seeker / Observe and Destroy / Hellion Beta Test / Best Defense / Self-Growth Program** target Runner cards only.
   **Load Testing** is -1 allotted click for the Runner's next turn. **Riot Suppression**'s core damage is not preventable (cost).
   **Accelerated Diagnostics** ignores Double/Triple `canPlay` click checks and drops leading click costs of other sets' operations.
-* Alliance influence reductions (Heritage Committee, Product Recall, Salem's Hospitality, Consulting Visit) are not modelled by the
-  deck validator. "Name a card" (Targeted Marketing, Salem's Hospitality) lists every Runner card title (~1000 options).
+* "Name a card" (Targeted Marketing, Salem's Hospitality) lists every Runner card title (~1000 options). (Alliance influence
+  reductions are applied by the deck validator (see `STATUS-fix-restrictions.md`).)
 * `CreditsGained.source` is the first card in the Corp's play area, so a lingering current can be reported as the source of a
   credit gain (affects only The Zwicky Group).
 

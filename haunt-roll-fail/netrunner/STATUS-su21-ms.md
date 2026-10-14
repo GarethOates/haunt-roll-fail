@@ -72,7 +72,6 @@ Partially implemented / simplified:
 ### urbp (7/7 implemented)
 
 Mystic Maemi, Swift, Cybertrooper Talut, Megaprix Qualifier, La Costa Grid, Digital Rights Management, Cayambe Grid.
-* **La Costa Grid** — the "remote server only" install restriction is not enforced (the ability only works in a remote).
 * **Cayambe Grid** — the Runner is asked to pay 2 x advanced ice or end the run on approach; paying 0 is offered when no ice is
   advanced (jinteki does the same).
 * **Megaprix Qualifier** — the extra point is granted whenever it has an agenda counter (counters are only placed on score).
@@ -162,7 +161,5 @@ Mystic Maemi, Swift, Cybertrooper Talut, Megaprix Qualifier, La Costa Grid, Digi
 ## Not done / ideas
 
 * Hosted cards on identities (Ayla) are not rendered in the UI.
-
-* "Remote server only" (La Costa Grid) install restriction, "Limit 1 region per server" are not enforced (same as SG).
 * The Twinning's power counter was not observed in the bot logs (needs a run credit source and a card spending from it in the
   same game); the logic follows the `spent-from-card` register.

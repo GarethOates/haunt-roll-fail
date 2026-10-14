@@ -49,11 +49,8 @@ Tyrant, Veritas, Watchtower, Wendigo (partial), Woodcutter, Wormhole.
 
 ## Simplifications
 
-- **Vikram 1.0, Wendigo**: "the Runner cannot use programs / a chosen program" is only logged. jinteki does
-  not implement it either.
-- **Jua**: the encounter ability "the Runner cannot install cards this turn" is only logged. No global
-  install-restriction hook exists, and adding one would mean editing the shared install paths.
-
+- (Vikram 1.0, Wendigo and Jua are now exact: run-scoped "cannot use programs" / "cannot use the chosen program" flags and a
+  turn-scoped Runner install lock (see `STATUS-fix-restrictions.md`).)
 - **Tithonium**: the alternative rez cost (forfeit an agenda) is not offered. Only the normal rez cost is used.
 
 - **Mind Game**: the extra jack-out cost (add an installed card to the bottom of the stack) only applies to

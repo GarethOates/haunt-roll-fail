@@ -338,7 +338,8 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
     with StartupRules with SU21Rules with PHTAIRules with RWRRules
-    with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules with CreditRules {
+    with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules
+    with CreditRules with RestrictionRules {
 
     implicit def implicitGame : Game = this
 
@@ -528,6 +529,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def hostedInstalled(c : Card) : $[Card] = allHosted(c).%(isInstalled)
 
     def moveTo(c : Card, z : Zone, top : Boolean = false) {
+        if (heapLocked(c, z)) return
         if (inPlayZone(zone(c)) && !inPlayZone(z))
             leavePlay(c)
         place(c, z, top)
@@ -565,14 +567,14 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     // -----------------------------------------------------------------------------------------------------------------
 
     def counter(c : Card, k : String) = state(c).counter(k)
-    def advancement(c : Card) = state(c).advancement
+    def advancement(c : Card) = state(c).advancement + advancementBonus(c)
 
     def addCounter(c : Card, k : String, n : Int) {
         val s = state(c)
         s.counters += k -> (s.counter(k) + n).atLeast(0)
     }
 
-    def agendaPoints(f : Faction) : Int = scored(f)./(c => c.data.agendaPoints.|(0) + impl(c).agendaPointsBonus(c) + hosted(c)./(h => impl(h).agendaPointsBonus(h)).sum).sum
+    def agendaPoints(f : Faction) : Int = scored(f)./(agendaValue).sum
 
     def pointsToWin = 7
 
@@ -753,10 +755,10 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performRotHardware orElse performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
+        val pf = performRestrictions orElse performRotHardware orElse performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
             performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse performRotAssets orElse performRotAgendas
 
-        a match {
+        restrictContinue(a match {
             case NextAction => nextStep
             case IdleAction => Ask(active).add(IdleInfo())
             case GameOverAction(w, reason) =>
@@ -768,7 +770,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
             case a if pf.isDefinedAt(a) => pf(a)
             case a : SelfPerform => a.perform(soft)(this)
             case a => throw new Error("unknown action " + a)
-        }
+        })
     }
 }
 

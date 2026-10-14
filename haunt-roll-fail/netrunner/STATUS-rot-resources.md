@@ -20,7 +20,7 @@ By faction: Neutral 51, Criminal 40, Anarch 31, Shaper 31, Adam 6, Apex 3, Sunny
 
 Fully automated (printed abilities resolved by the engine), apart from the notes in the next section:
 Aaron Marron, Access to Globalsec, Activist Support, Adjusted Chronotype, Akshara Sareen, Algo Trading, All-nighter,
-Always Be Running (like jinteki the "first click must run / play a run event" restriction is not enforced), Angel
+Always Be Running (the "first click must run / play a run event" restriction is enforced (see `STATUS-fix-restrictions.md`)), Angel
 Arena, Armitage Codebusting, Artist Colony, Assimilator, Bank Job, Beach Party, Beth Kilrain-Chang, Bhagat,
 Bio-Modeled Network, Biometric Spoofing, Blockade Runner, Bloo Moose, Borrowed Satellite, Bug Out Bag, Caldera,
 Charlatan, Chatterjee University, Citadel Sanctuary, Clan Vengeance, Compromised Employee, Corporate Defector,
@@ -49,9 +49,6 @@ Shipping.
 Not modelled because the engine has no hook for it (and adding one would need edits to shared files):
 
 * **Trash prevention** — Dummy Box, Sacrificial Construct: no effect; Fall Guy: only its "[trash]: gain 2" ability.
-
-* **The Black File** — the power counters / removal work; "the Corp cannot win except by flatline" is not enforced
-  (`checkWin` cannot be intercepted).
 * **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
 * **Chrome Parlor** — the engine does not record the source of damage: no effect.
 * **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
@@ -71,8 +68,6 @@ Approximations:
 * **Psych Mike** — counts cards accessed from R&D this turn (normally equal to "during that run").
 * **Salvaged Vanadis Armory** — offered right after each damage event (rather than in the next paid ability window).
 * **Bazaar** — does not check that the hardware was installed from the grip.
-* **Hunting Grounds** — facedown programs installed by it count against MU (engine-wide `memoryUsed` counts every
-  installed program).
 * **DJ Fenris** — the hosted identity is a pseudo card (`Card(code, 0)`) hosted faceup; its triggers and static
   abilities are active through the normal hosted-card rules; it is removed from the game when Fenris leaves play.
 

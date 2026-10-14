@@ -50,21 +50,19 @@ Quest, Tiered Subscription, Congratulations!, Loot Box, Focus Group, Game Over, 
 Trust, SDS Drone Deployment, Roughneck Repair Squad, Afshar, Sandstone, Trebuchet, Secure and Protect, Reduced
 Service, Vulnerability Audit, CSR Campaign, Rime.
 
-### ur — Uprising (58/58 implemented, 3 partial)
+### ur — Uprising (58/58 implemented, 2 partial)
 
 Runner: Hoshiko Shiro (flip implemented with a "flipped" counter on the identity; gains Digital / +1 link),
 Moshing, Devil Charm, Gachapon, Keiko, Odore, Paladin Poemu, Bravado, Boomerang, Mu Safecracker, Prognostic Q-Loop,
 Afterimage, Makler, Penumbral Toolkit, The Back, Harmony AR Therapy, Aniccam, Simulchip, Cordyceps, Euler, Mantle, Penrose,
 Self-modifying Code, Paule's Cafe, Buffer Drive, Daily Casts, DreamNet.
 
-Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricator (partial: the "not in the
-root of this server" restriction of the on-trash install is not enforced), Drafter, Tyr, NEXT Activation Command,
-Scapenet, Tranquility Home Grid ("remote server only" not enforced on install), Flower Sermon, Prana Condenser
+Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricator, Drafter, Tyr, NEXT Activation Command,
+Scapenet, Tranquility Home Grid, Flower Sermon, Prana Condenser
 (prevents net damage from any source; one use per damage instance), Engram Flush, Konjin, Hyoubu Precog
 Manifold, Kakurenbo, GameNET (partial: triggers on payments of "pay N credits" choices of Corp card abilities during
 a run (`CreditsPaid` with `Spend.corpAbility`) and on any credit loss of the Runner during a run, whose source is not
-tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station
-(partial: "limit 1 remote server" not enforced), Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
+tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station, Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
 Argus Crackdown, Cyberdex Sandbox, False Lead, NAPD Cordon.
 
 Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26096, 26112, 26117, 26127.

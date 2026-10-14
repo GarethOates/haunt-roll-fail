@@ -409,7 +409,21 @@ object URCards {
             l.any.$(ChooseCardEffect(Corp, l, InstallPayingPurpose(99, None, false), "Vaporframe Fabricator: install a card from HQ ignoring all costs?", true))
         }
         override def abilities(self : Card)(implicit g : Game) = $(Ability("install 1 card from HQ ignoring all costs", click(), install, click = true, once = once("vaporframe"), ok = g.isRezzed(self) && g.hand(Corp).%(corpInstallable).any, reason = "nothing to install"))
-        override def onTrash(self : Card, by : Faction)(implicit g : Game) = by.isRunner.??(install)
+        // "you cannot install that card in the root of this server"
+        override def onTrash(self : Card, by : Faction)(implicit g : Game) = by.isRunner.??(g.zoneServer(g.lastTrashedFrom) match {
+            case Some(s) =>
+                val l = g.hand(Corp).%(corpInstallable)
+                l.any.$(ChooseCardEffect(Corp, l, NoRootInstallPurpose(self, s), "Vaporframe Fabricator: install a card from HQ ignoring all costs (not in the root of " + s.name + ")?", true))
+            case None => install
+        })
+        override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
+            case NoRootInstallPurpose(_, s) =>
+                cards.single.foreach { c =>
+                    val l = (c.data.isIce || c.data.isUpgrade).?(g.servers).|(g.remotes : $[Server]).%(x => c.data.isIce || x != s)
+                    g.push(ChooseServerPayingEffect(c, 99, l, true, false))
+                }
+                NextAction
+        }
     }
 
     object Drafter extends NC("26101") {
@@ -569,6 +583,7 @@ object URCards {
 
     object EarthStation extends NC("26120") {
         def flipped(self : Card)(implicit g : Game) = g.counter(self, "flipped") > 0
+        override def remoteLimit(self : Card)(implicit g : Game) = 1                    // "Limit 1 remote server" (both sides)
         override def runCost(self : Card, server : Server)(implicit g : Game) =
             if (!flipped(self) && server == HQ) c(1) else if (flipped(self) && server.isRemote) c(6) else $
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {

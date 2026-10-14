@@ -210,6 +210,8 @@ object RotIceCards1 {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Advanced(c, _) if c == self => $(sync(self))
             case CounterAdded(c, "advancement") if c == self => $(sync(self))
+            case Rezzed(x) if x.code == "07023" => $(sync(self))                  // Satellite Grid's extra advancement token
+            case Trashed(x, _, _) if x.code == "07023" => $(sync(self))
             case _ => $
         }
     }
@@ -722,7 +724,7 @@ object RotIceCards1 {
     }
 
     object Jua extends RI("21034") {
-        override def onEncounter(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "uses Jua: the Runner cannot install cards this turn (not enforced)"))
+        override def onEncounter(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "uses Jua: the Runner cannot install cards for the remainder of the turn"), AddFlagEffect(Flag("runner-no-install", None, None, "turn", 0, $)))
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Choose 2 installed Runner cards; the Runner adds 1 of them to the top of the stack", RotSubAction(self, 1)))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>

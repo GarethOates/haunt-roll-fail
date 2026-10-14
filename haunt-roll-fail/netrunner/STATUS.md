@@ -62,15 +62,15 @@ generic mechanics each set introduced are in the set status files; the engine si
 |---|---|---|---|---|---|
 | System Gateway (sg) | 77 | 77 | AMAZE Amusements, Bran 1.0, Tao's swap | `cards-sg.scala` | this file |
 | Elevation (elev) | 82 | 82 | 8 (Bling, Detente, Public Access Plaza, IP Enforcement, The Zwicky Group, Plutus, Biawak, Petty Cash) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| Vantage Point (vp) | 66 | 66 | 9 (Stick and Poke, Word on the Street, Perfect Recall, Melies U, The Red Room, Hype Machine, Myoshu, Reanimation Protocol, Flagship) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Vantage Point (vp) | 66 | 66 | 7 (Stick and Poke, Word on the Street, Perfect Recall, Melies U, Hype Machine, Myoshu, Reanimation Protocol) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
 | System Update 2021 (su21) | 82 | 82 | 11 (Egret, En Passant, Daily Business Show, Sneakdoor Beta, Ayla, Atman, Oaktown Renovation, Corporate Town / Archer, Marilyn Campaign, Reina Roja) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Midnight Sun (ms) | 65 | 65 | 12 (Deep Dive, Into the Depths, Steelskin Scarring, Ob Superheavy Logistics, Azef Protocol, Light the Fire!, Mitosis, Anemone, Hakarl 1.0, Trieste, Mystic Maemi, ...) | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
-| Uprising Booster Pack (urbp) | 7 | 7 | 3 (La Costa Grid, Cayambe Grid, Megaprix Qualifier) | `cards-ms.scala` | `STATUS-su21-ms.md` |
+| Uprising Booster Pack (urbp) | 7 | 7 | 2 (Cayambe Grid, Megaprix Qualifier) | `cards-ms.scala` | `STATUS-su21-ms.md` |
 | Parhelion (ph) | 63 | 63 | ~22 (Matryoshka, Asmund Pudlat, Nanuq, Hostile Architecture, Anvil, Klevetnik, Issuaq Adaptics, Superdeep Borehole, Bloop, ...) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | The Automata Initiative (tai) | 65 | 65 | ~19 (Daniela Jorge Inacio, Tucana, Banner, Wage Workers, Front Company, A Teia, AirbladeX, Starlit Knight, ...) | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | Rebellion Without Rehearsal (rwr) | 65 | 65 | 7 (Sebastiao Souza Pessoa, Boi-tata, Manuel Lattes de Moura, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation) | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 | Downfall (df) | 65 | 65 | 5 (Climactic Showdown, In the Groove, Direct Access, Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
-| Uprising (ur) | 58 | 58 | 3 (Vaporframe Fabricator, GameNET, Earth Station); 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Uprising (ur) | 58 | 58 | 1 (GameNET); 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 
 Preset decks (`Decks.presets`, 48): 7 System Gateway starters, 15 su21/ms decks (decks.scala), 8 Startup decks
 (`StartupDecks`, cards-vp.scala), 8 ph/tai decks (`decks-ph-tai.scala`), 10 rwr/df/ur decks (`decks-rwr-df-ur.scala`); all
@@ -86,16 +86,16 @@ them by name.
 
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| ICE | 211 | 211 | ~17 (Vikram 1.0, Wendigo, Jua, Tithonium, Mind Game, the grail ice, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
+| ICE | 211 | 211 | ~14 (Tithonium, Mind Game, the grail ice, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
 | Programs | 164 | 164 | ~16 (Hivemind, LLDS Energy Regulator, Net Shield, Tracker, Mass-Driver, Copycat, Sneakdoor Prime A/B, Customized Secretary, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
-| Resources | 164 | 164 | ~18 (no trash-prevention hook: Dummy Box, Sacrificial Construct, Fall Guy; The Black File, Paparazzi, Chrome Parlor, Starlight Crusade Funding; approximations: Aeneas Informant, DJ Fenris, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
-| Events | 148 | 148 | ~24 (Escher, Corporate Scandal, Cold Read, Immolation Script, Divide and Conquer, ask-level restrictions of Interdiction / Hacktivist Meeting / Security Leak / Blackmail, Apocalypse / Reboot faceup flip, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
-| Operations | 146 | 146 | ~25 (Surveillance Sweep, Net Watchlist, Enhanced Login Protocol, Media Blitz, Oversight AI, "name a card" lists, alliance influence, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
-| Assets | 144 | 144 | ~22 (Broadcast Square, Director Haas / Victoria Jenkins clicks, Jeeves, Sundew, Genetics Pavilion, Blacklist, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
+| Resources | 164 | 164 | ~17 (no trash-prevention hook: Dummy Box, Sacrificial Construct, Fall Guy; Paparazzi, Chrome Parlor, Starlight Crusade Funding; approximations: Aeneas Informant, DJ Fenris, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
+| Events | 148 | 148 | ~20 (Escher, Corporate Scandal, Cold Read, Immolation Script, Divide and Conquer, Apocalypse / Reboot faceup flip, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Operations | 146 | 146 | ~25 (Surveillance Sweep, Net Watchlist, Enhanced Login Protocol, Media Blitz, Oversight AI, "name a card" lists, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
+| Assets | 144 | 144 | ~22 (Broadcast Square, Director Haas / Victoria Jenkins clicks, Jeeves, Sundew, Genetics Pavilion, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
 | Agendas | 114 | 114 | ~12 (Mandatory Upgrades / Seed Replacement, Accelerated Beta Test, Bacterial Programming, Personality Profiles, Unorthodox Predictions, Evidence Collection 1-3 no effect, ...) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Upgrades | 79 | 79 | ~11 (Satellite Grid no effect, Navi Mumbai, Heinlein Grid, Tyr's Hand, Tori Hanzo, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Upgrades | 79 | 79 | ~10 (Navi Mumbai, Heinlein Grid, Tyr's Hand, Tori Hanzo, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
 | Hardware | 101 | 101 | ~15 (MemStrips / Knobkierie / Deep Red, Ekomind, Patchwork, Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| Identities | 90 | 90 | ~16 (Apex, Adam, SSO Industries, Seidr, Archives Interface, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design timing, deck-building restrictions not enforced: The Professor, Custom Biotics, ...) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| Identities | 90 | 90 | ~13 (Adam, SSO Industries, Seidr, Archives Interface, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design timing, ...) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | **Total rotated** | **1,361** | **1,361** | **~176** | | |
 | **All cards** | **2,056** | **2,056** | ~280 (current sets ~104 + rotated ~176) | | |
 
@@ -123,10 +123,10 @@ were turned into `case object`s so that the journal round trip works (the branch
 them). The `isActive` check of a hosted card reads the host's `disablesHosted` from the raw implementation (the
 `extImpl` wrapper made it recursive).
 
-Known gaps carried over from the branches: "remote server only" / "limit 1 region per server" install restrictions are
-not enforced. (The UI gap for cards hosted without being installed and for cards set aside on identities was closed in
-the QA pass, see "UI additions of the QA pass". Bad publicity credits are run credits and stealth / purpose-restricted
-credits are enforced since the credits pass, see "Credits and costs" below.)
+Known gaps carried over from the branches: none of the install-restriction kind ("remote server only" / "limit 1 region per
+server" are enforced since the restrictions pass). (The UI gap for cards hosted without being installed and for cards set aside
+on identities was closed in the QA pass, see "UI additions of the QA pass". Bad publicity credits are run credits and stealth /
+purpose-restricted credits are enforced since the credits pass, see "Credits and costs" below.)
 
 ### Credits and costs (fix pass, 2026-10-14)
 
@@ -138,6 +138,18 @@ are enforced; additional credit costs of icebreaker abilities (Interrupt 0, Midw
 trash-resource cost (Wireless Net Pavilion) and server / host dependent install costs (Network Exchange, Hackerspace) are
 real costs. ~60 cards were ported onto it. Details, payment order, shared-file edits and the remaining approximations:
 `STATUS-fix-credits.md`; engine API: `ENGINE.md` §8.2.
+
+### Restrictions pass (2026-10-14)
+
+Install / rez / play legality, global lockdowns, advancement counting and deck-building rules are enforced on every path by
+`rules-ext-restrictions.scala` (`RestrictionRules`, `InstallRules`, `DeckRules`): printed server restrictions ("remote server
+only", "central server only", "HQ or R&D only", "install only in the root of HQ / R&D"), limit 1 region per server, remote
+server limits (A Teia, Earth Station), install locks (Jua, Signal Jamming), Unscheduled Maintenance, Apex, "install only if"
+requirements, rez lockdowns (Interdiction, Blackmail / Cyber Threat, Hacktivist Meeting, "cannot rez" markers) for every rez
+path, The News Now Hour and Blacklist for every play / move, Vikram 1.0 / Wendigo program use, Always Be Running, The Black
+File, Satellite Grid, agenda values with modifiers, per-identity deck validation (The Professor, Custom Biotics, Nova
+Initiumia / Ampere, draft identities, agenda factions, alliance influence). Details, the shared-file edits and the tests are in
+`STATUS-fix-restrictions.md`. Six su21/ms presets had out-of-faction agendas and were fixed.
 
 ### UI additions of the QA pass
 

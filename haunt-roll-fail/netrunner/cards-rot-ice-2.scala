@@ -723,7 +723,7 @@ object RotIceCards2 {
 
     object Vikram1 extends RI("10012") {
         override def subroutines(self : Card)(implicit g : Game) = $(
-            Sub("The Runner cannot use programs for the remainder of this run (not enforced)", MessageEffect(Corp, "uses Vikram 1.0 (program prevention is not enforced)")),
+            Sub("The Runner cannot use programs for the remainder of this run", CopyAbilityEffect($(MessageEffect(Corp, "uses Vikram 1.0: the Runner cannot use programs for the remainder of this run"), AddFlagEffect(Flag("no-program-use", None, None, "run", 0, $))))),
             trace(4, "Do 1 core damage", $(core(1))), trace(4, "Do 1 core damage", $(core(1))))
         override def runnerAbilities(self : Card)(implicit g : Game) = bioroid(self, 1)
     }
@@ -778,7 +778,21 @@ object RotIceCards2 {
     }
 
     object Wendigo extends Morph("06047", "Code Gate", "Barrier") {
-        override def subroutines(self : Card)(implicit g : Game) = $(Sub("Prevent the Runner from using a chosen program for the remainder of this run (not enforced)", MessageEffect(Corp, "uses Wendigo (program prevention is not enforced)")))
+        override def subroutines(self : Card)(implicit g : Game) = $(Sub("Choose a program. The Runner cannot use the chosen program for the remainder of this run", RotSubAction(self, 1)))
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case RotSubAction(self, 1) =>
+                val l = g.runnerInstalledOf("Program")
+                if (l.any)
+                    g.push(ChooseCardEffect(Corp, l, RotIcePurpose(self, 1), "Wendigo: choose a program the Runner cannot use for the remainder of this run", false))
+                NextAction
+        }
+        override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
+            cards.foreach { c =>
+                g.log(Corp, "uses Wendigo: the Runner cannot use", c, "for the remainder of this run")
+                g.addFlag(Flag("cannot-use", |(c), None, "run", 0, $))
+            }
+            NextAction
+        }
     }
 
     object Whirlpool extends RI("20103") {

@@ -368,7 +368,7 @@ trait TurnRules { game : Game =>
 
     // scoring: the agenda moves to the score area, the win condition is checked at once, then "when scored" abilities resolve
     def scoreAgenda(c : Card) {
-        val points = c.data.agendaPoints.|(0)
+        lazy val points = agendaValue(c)
         lastScoredFrom = serverOf(c)
         lastScoredAdvancement = advancement(c) ; lastScoredInstalledTurn = state(c).installedTurn ; scoringAgenda = |(c)
         val hostedTrashed = leavePlay(c)
@@ -386,7 +386,7 @@ trait TurnRules { game : Game =>
     }
 
     def stealAgenda(c : Card) {
-        val points = c.data.agendaPoints.|(0)
+        lazy val points = agendaValue(c)
         lastStolenFrom = zoneServer(zone(c))
         val hostedTrashed = isInstalled(c).??(leavePlay(c))
         moveTo(c, ScoredZone(Runner))

@@ -622,7 +622,7 @@ object RotResourceCards2 {
     }
 
     object TheBlackFile extends RR("10099") {
-        // "the Corp cannot win except by flatline" is not modelled by the engine (the win check cannot be intercepted)
+        // "the Corp cannot win except by flatline": RestrictionRules.corpCannotWin; the win is checked again when it leaves
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(BlackFileAction(self))
             case _ => $
@@ -630,7 +630,7 @@ object RotResourceCards2 {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case BlackFileAction(self) =>
                 if (g.counter(self, "power") >= 2)
-                    g.push(RemoveFromGameEffect(self))
+                    g.push(RemoveFromGameEffect(self), CheckWinAction)
                 else
                     g.push(AddCounterEffect(self, "power", 1))
                 NextAction

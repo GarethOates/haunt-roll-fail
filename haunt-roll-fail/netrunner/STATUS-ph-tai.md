@@ -9,8 +9,8 @@ adds a few helpers (`encounterIce`, `runOnThisServer`, `fullyBroke`, `runnerCanI
 
 ### Parhelion — 63/63 implemented (57 standard-legal + 6 eternal-only)
 
-All cards are implemented. Identities without abilities: Nova Initiumia, Ampère (deck-building restrictions are not
-validated). Partial / simplified:
+All cards are implemented. Identities without abilities: Nova Initiumia, Ampère (their deck-building restrictions are
+validated by `DeckRules` (see `STATUS-fix-restrictions.md`)). Partial / simplified:
 
 * **Matryoshka** (eternal): copies are hosted in a `StashZone` (not shown by the UI); the break ability is offered as
   "break all remaining subroutines for X credits + turn 1 hosted copy facedown" (the engine also lists single-sub
@@ -27,7 +27,6 @@ validated). Partial / simplified:
 * **Hostile Architecture / Yakov Avdakov**: "installed card trashed by the Runner" / "trashed from this server" are
   detected with a snapshot of the installed Corp cards taken at the previous event (`lastServerOf`, `wasInstalled`);
   "except during installation" uses the `installing` flag of the ext rules.
-* **Djupstad Grid, Nanisivik Grid, ZATO City Grid**: "limit 1 region per server" / "remote server only" not enforced.
 * **Anvil**: "cannot break this ice's printed subroutines" is an encounter-scoped flag applied to all break actions
   (including bioroid breaks).
 * **Unsmiling Tsarevna**: "cannot break more than 1 printed subroutine per encounter" greys out further break options
@@ -56,8 +55,8 @@ Partial / simplified:
 * **Daniela Jorge Inácio**: the additional costs are paid after the steal / trash (2 random grip cards to the bottom
   of the stack); the upgrade can only be trashed on access with at least 2 cards in the grip; the persistent steal
   cost after she is trashed during a run is kept as an `on-steal` flag for that run.
-* **Tucana**: persistent search after being trashed during a run via an `on-steal` flag; "remote server only" not
-  enforced; the ice is installed and rezzed paying install + rez cost - 3.
+* **Tucana**: persistent search after being trashed during a run via an `on-steal` flag; the ice is installed and rezzed
+  paying install + rez cost - 3.
 * **Abaasy, Orca, Curupira, Umbrella** "fully breaks": the card broke the last unbroken subroutine (it is not
   checked that it broke all of them).
 * **Banner**: prevents every "end the run" effect during that encounter (not only subroutine-sourced ones).

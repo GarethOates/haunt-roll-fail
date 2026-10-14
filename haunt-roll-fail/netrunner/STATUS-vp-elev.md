@@ -23,10 +23,10 @@ Runner: Chain Reaction, Take a Dive, The Tungsten Tailor, Corsair, Lampades, Hac
 Kompromat, Sell Out, Tailgate, Borrowed Goods, Rotary, Baker, Underdome Irregulars, Hiram Svensson, Aircheck, Beta Build,
 Methuselah, Touchstone, Read-Write Share, Sipa, Stowaway, Word on the Street*.
 Corp: Méliès City Luxury Line, Synchrocyclotron, Ansel 2.0, Reverb, Sleipnir, Vertigo, Caveat Emptor, realloc(), Retirement Plan,
-Perfect Recall*, Méliès U*, Lotus Haze, Esca, ezaM, Knowledge Seeker, Lionsmane, Vicsek, Cultivate, Unleash, The Red Room*,
+Perfect Recall*, Méliès U*, Lotus Haze, Esca, ezaM, Knowledge Seeker, Lionsmane, Vicsek, Cultivate, Unleash, The Red Room,
 Editorial Division, Witch Hunt, Magistrate Revontulet, Nihilo Agent, Grubber, Lethe, Paywall, Flood the Market, Scapegoat,
 Hype Machine*, Sacrifice Zone Expansion, Luana Campos, Event Horizon, Flywheel, Tocsin, Myōshu*, Reanimation Protocol*, Vulture Fund,
-Flagship*, Shackleton Grid, Let Them Dream.
+Flagship, Shackleton Grid, Let Them Dream.
 
 Nothing is left unimplemented.
 
@@ -52,7 +52,6 @@ Nothing is left unimplemented.
 * Public Access Plaza tags when trashed by the Runner (the engine resets the rezzed flag before `onTrash`).
 * IP Enforcement follows the printed text (remove X tags only; the Clojure version also charges X credits).
 * Perfect Recall's protection is stored per run and checked through the hook `protectsFromAccess`; it stops if Perfect Recall leaves play.
-* Flagship / The Red Room: the "HQ or R&D only" / "central only" install restrictions are not enforced.
 * Hype Machine's discount keys on agenda *points* scored/stolen this turn (0-point agendas would not count).
 * Méliès U: the secretly chosen server is stored as a counter on the identity (`melies`); the Ask that chooses it is only shown to the Corp
   but the counter is visible to a client that inspects the identity.

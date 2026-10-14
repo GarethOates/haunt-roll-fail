@@ -652,8 +652,8 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         val counts : $[(CardData, Int)] = rest.groupBy(_.code).toList./((c, l) => l.head -> l.num).sortBy(_._1.title)
         val kinds = p.side.isCorp.?(corpKinds).|(runnerKinds)
         val allKinds = kinds ++ counts.map(_._1.kind).distinct.diff(kinds)
-        val influence = id./(i => rest.%(_.faction != i.faction)./(_.influence.|(0)).sum).|(0)
-        val limit = id./~(_.influenceLimit).|(15)
+        val influence = id./(i => DeckRules.influence(i, rest)).|(0)
+        val limit = id./(DeckRules.influenceLimit).%(_ != Int.MaxValue)./(_.toString).|("unlimited")
         val min = id./~(_.minDeckSize).|(40)
         val points = rest./(_.agendaPoints.|(0)).sum
         val check = Decks.validate(p.side, p.codes)
