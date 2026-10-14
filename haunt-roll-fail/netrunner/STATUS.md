@@ -61,16 +61,16 @@ generic mechanics each set introduced are in the set status files; the engine si
 | Set | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
 | System Gateway (sg) | 77 | 77 | none (see `STATUS-fix-misc.md`) | `cards-sg.scala` | this file |
-| Elevation (elev) | 82 | 82 | 3 (Bling, IP Enforcement (printed text), Plutus) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| Vantage Point (vp) | 66 | 66 | 1 (Reanimation Protocol) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| System Update 2021 (su21) | 82 | 82 | 3 (Atman, Corporate Town / Archer, Marilyn Campaign) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
-| Midnight Sun (ms) | 65 | 65 | 3 (Azef Protocol, Mitosis, Mystic Maemi) | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
-| Uprising Booster Pack (urbp) | 7 | 7 | 2 (Cayambe Grid, Megaprix Qualifier) | `cards-ms.scala` | `STATUS-su21-ms.md` |
-| Parhelion (ph) | 63 | 63 | ~10 (Matryoshka (X = 1 or all), Hostile Architecture, Klevetnik, Bloop, ...) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
-| The Automata Initiative (tai) | 65 | 65 | ~6 (Daniela Jorge Inacio steal cost, Mercury, Jaguarundi / Attini / Pulse, ...) | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
-| Rebellion Without Rehearsal (rwr) | 65 | 65 | 7 (Sebastiao Souza Pessoa, Boi-tata, Manuel Lattes de Moura, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation) | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
-| Downfall (df) | 65 | 65 | 2 (Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
-| Uprising (ur) | 58 | 58 | 1 (GameNET); 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Elevation (elev) | 82 | 82 | 1 (Bling: hosted cards trashed at turn end, as jinteki) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Vantage Point (vp) | 66 | 66 | 1 (Reanimation Protocol: install-only fallback, as jinteki) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| System Update 2021 (su21) | 82 | 82 | none (see `STATUS-fix-final-nsg.md`) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| Midnight Sun (ms) | 65 | 65 | none | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| Uprising Booster Pack (urbp) | 7 | 7 | none | `cards-ms.scala` | `STATUS-su21-ms.md` |
+| Parhelion (ph) | 63 | 63 | 1 (Mr. Hendrik: click-loss prevention as a choice) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| The Automata Initiative (tai) | 65 | 65 | none | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| Rebellion Without Rehearsal (rwr) | 65 | 65 | none | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Downfall (df) | 65 | 65 | none | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Uprising (ur) | 58 | 58 | none; 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 
 Preset decks (`Decks.presets`, 48): 7 System Gateway starters, 15 su21/ms decks (decks.scala), 8 Startup decks
 (`StartupDecks`, cards-vp.scala), 8 ph/tai decks (`decks-ph-tai.scala`), 10 rwr/df/ur decks (`decks-rwr-df-ur.scala`); all
@@ -93,11 +93,11 @@ them by name.
 | Operations | 146 | 146 | ~9 (Surveillance Sweep, Net Watchlist (break / pump only), Enhanced Login Protocol, Bad Times / MCA Informant, Death and Taxes, Accelerated Diagnostics, "name a card" lists) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
 | Assets | 144 | 144 | ~6 (Genetics Pavilion, Ibrahim Salem, Lakshmi Smartfabrics, IT Department, Full Immersion RecStudio, Mumbad Construction Co.) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
 | Agendas | 114 | 114 | ~6 (Accelerated Beta Test, Bacterial Programming, Personality Profiles, Evidence Collection 1-3 no effect) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Upgrades | 79 | 79 | ~4 (Armored Servers break cost, Warroid Tracker, Overseer Matrix, Daruma root swaps) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Upgrades | 79 | 79 | ~3 (Armored Servers break cost, Warroid Tracker, Overseer Matrix; Daruma's root swaps are checked since the final NSG pass) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
 | Hardware | 101 | 101 | ~6 (Patchwork for card-effect installs, Q-Coherence Chip, Respirocytes, Top Hat, Maya, Archives Interface) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | Identities | 90 | 90 | ~12 (Adam, Skorpios, Gagarin, Acme, SSO Industries, Seidr, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design / Jinteki Biotech timing) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| **Total rotated** | **1,361** | **1,361** | **~70** (was ~176 before the four fix passes) | | |
-| **All cards** | **2,056** | **2,056** | ~108 (current sets ~38 + rotated ~70; was ~280) | | |
+| **Total rotated** | **1,361** | **1,361** | **~69** (was ~176 before the four fix passes) | | |
+| **All cards** | **2,056** | **2,056** | ~72 (current sets 3 + rotated ~69; was ~280) | | |
 
 The counts above are after the four rules-accuracy fix passes (credits, restrictions, prevention, card-specific fixes; see
 "Rules-accuracy fix passes" below). They are approximate ("~"): an entry counts a card whose printed text is approximated or
@@ -155,6 +155,17 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   they needed (`ClicksSpent`, `AgendaCounterSpent`, `BreachEnded`, bioroid click-breaks as `SubsBroken`, granted / reordered /
   non-resolving subroutines, lingering restrictions, allotted clicks (`CardImpl.clicksPerTurn`), host subtypes
   (`CardImpl.hostSubtypes`), the real trace link strength).
+
+* **Final pass for the current sets** (`rules-ext-final-nsg.scala`, `FinalNsgRules`, `STATUS-fix-final-nsg.md`, ENGINE.md 8.7):
+  the player chooses the credit sources when two or more restricted sources could pay (Auto = the deterministic order, preselected
+  and taken by bots); credit losses carry their source (`CreditsLostFrom`, GameNET); additional costs paid before the action (rez:
+  Corporate Town, Archer, Plutus, Bloop, Biawak; score: Azef Protocol; trash-resource: Sebastião, Manuel Lattes; steal / trash:
+  Daniela Jorge Inácio as real costs); a "trace initiated" window (Flip Switch, Disrupter, Power Tap); root moves / swaps re-check the
+  root limits; any subset of subroutines can be broken (Matryoshka, every "break up to N"); "spend [click]" is a click cost; every
+  "pay N" of the current sets goes through the credit engine; Bling, IP Enforcement, Reanimation Protocol, Hostile Architecture,
+  Unsmiling Tsarevna, Bankhar, Front Company, Boi-tatá, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation, Whistleblower, MirrorMorph,
+  double operations. ~45 cards; 3 approximations left in the current sets (Bling's trash timing, Reanimation Protocol's install-only
+  fallback, Mr. Hendrik's click-loss prevention), see that file.
 
 #### Integration of the four passes
 
@@ -375,8 +386,8 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
 * Prevention / interrupts: damage, tags, bad publicity, end the run, jack out, trash (installed Runner cards), "when
   encountered" abilities and subroutine breaking (Tyr's Hand) go through the prevention windows of
   `rules-ext-prevention.scala` (forced interrupts first, then both players with priority, the active player first); see
-  `STATUS-fix-prevention.md` and ENGINE.md section 8.4. "When a trace is initiated" abilities (Flip Switch, Disrupter,
-  Power Tap, Compromised Employee) still use the older one-shot "trace" ask of `TraceEffect`.
+  `STATUS-fix-prevention.md` and ENGINE.md section 8.4. "When a trace is initiated" abilities (Flip Switch, Disrupter, Power Tap)
+  use the "trace" window of `rules-ext-final-nsg.scala` (ENGINE.md 8.7).
 * Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
 * Hidden information is hidden by the UI only (every client replays the whole journal, so a determined spectator could
   read it from the browser's memory; the game creator receives all links anyway); the Manual menu lets the Corp move
@@ -617,6 +628,15 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   `q8-quick-runner-hint`, `q4-corp-preview`, `q7-corp-midgame-1440`, `v1-runner-vs-bot-gallery`,
   `v4-runner-midgame-1440`, `v5-runner-midgame-1920`, `s4-sable-mark-1440`, `w1-worst-1440`, `o1-corp-link`,
   `o2-runner-link`, `o4-runner-after-corp`.
+
+### Tested after the final NSG pass (2026-10-14)
+
+* `sbt -batch compile` green. JVM harness (scratchpad `final-nsg/host`, a copy of `merge4/host` pointed at this checkout): all
+  scripted checks pass (`ScriptTest`, `CreditScript`, `PreventionScript`, `RestrictionScript`, `FixScript`, `PresetCheck` 195 presets /
+  0 invalid, `RotIceScript` 211 ice / 0 failures, `RotAssetScript`, `RotAgendaScript`, `RotEventScript`, `RotHardwareScript` 80,
+  `RotOperationScript` 56, `RotProgramScript`, `RotMergeScript`, new `FinalNsgScript` 82); `ScriptTest`'s Bling check now uses the basic
+  play action. Bot games: 300 + 300 over all presets + 200 rotated vs rotated presets, **800 games, 0 errors** (plus 750 on earlier
+  builds). See `STATUS-fix-final-nsg.md`.
 
 ## Known bugs
 

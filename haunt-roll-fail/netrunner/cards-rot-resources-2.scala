@@ -288,9 +288,12 @@ object RotResourceCards2 {
         }
     }
 
+    // "Gain 1 credit whenever a trace is initiated": a forced trigger of the trace-initiated timing (FinalNsgRules)
     object PowerTap extends RR("06016") {
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "trace").$(Ability("gain 1 credit (trace initiated)", NoCost, $(gain(Runner, 1), TraceCorpBoostAction(g.traceBase, g.traceSuccess, g.traceFail))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case TraceInitiated(_) => $(MessageEffect(Runner, "uses Power Tap"), gain(Runner, 1))
+            case _ => $
+        }
     }
 
     object PsychMike extends RR("22021") {

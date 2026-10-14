@@ -265,7 +265,7 @@ object SGCards {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case PantographChooseAction(self) =>
-                val l = g.hand(Runner).%(c => !c.data.isEvent && g.canSpend(Runner, g.installCost(c, None), Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)))
+                val l = g.gripCards.%(c => !c.data.isEvent && g.canSpend(Runner, g.installCost(c, None), Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)))
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, PantographPurpose(self), "Pantograph: install a card from the grip?", true))
                 NextAction
@@ -452,7 +452,7 @@ object SGCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case ApproachServer(s) if thisServer(self, s) && g.isRezzed(self) =>
                 $(ChooseOneEffect(Runner, "Manegarm Skunkworks: choose one", $(
-                    Alt("Spend [click][click]", $(LoseClicksEffect(Runner, 2)), g.clicks(Runner) >= 2),
+                    Alt("Spend [click][click]", $(SpendClicksEffect(Runner, 2)), g.clicks(Runner) >= 2),
                     Alt("Pay 5 credits", $(SpendEffect(Runner, 5, Spend.corpAbility, 0, $)), g.canSpend(Runner, 5, Spend.corpAbility)),
                     Alt("End the run", $(EndRunEffect)))))
             case _ => $

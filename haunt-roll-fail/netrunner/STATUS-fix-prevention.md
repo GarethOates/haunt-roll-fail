@@ -94,8 +94,8 @@ prevention / interrupt / timing approximation. Reference: jinteki `src/clj/game/
 * Skorpios Defense Systems: removes a just-trashed card from the heap (not a set-aside interrupt): Runner cards reach the heap
   through many direct `moveTo` paths (damage, discards, mills), an interrupt would need all of them routed through one effect.
 * Salvaged Vanadis Armory: offered right after the damage (the engine has no "next paid ability window after X" marker).
-* "When a trace is initiated" abilities (Flip Switch, Disrupter, Power Tap, Compromised Employee) still use the one-shot "trace"
-  ask of `TraceEffect`; Power Tap's gain is optional there.
+* (Fixed in the final NSG pass, see `STATUS-fix-final-nsg.md`: "when a trace is initiated" abilities are used in a "trace" window; Power Tap is a
+  `TraceInitiated` trigger.)
 * Tyr's Hand: the break's `SubsBroken` event still lists the prevented subroutine (the costs are paid and the subroutine is
   removed from the broken list right after the break); breaks performed by card effects (not the break actions) are not
   interruptible. Only Tyr's Hand offers the "rez when a subroutine would be broken" interrupt.

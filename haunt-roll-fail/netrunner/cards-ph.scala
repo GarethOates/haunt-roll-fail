@@ -36,7 +36,7 @@ abstract class PT(c : String) extends SG(c) {
         g.canSpend(Runner, (g.installCost(c, None) - discount).atLeast(0), Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)) && (!g.impl(c).mustBeHosted(c) || g.allIce.exists(h => g.impl(c).hostRequirement(c, h)))
 
     def clickOrEtr(label : String)(implicit g : Game) =
-        ChooseOneEffect(Runner, label, $(Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) >= 1), Alt("End the run", $(EndRunEffect))))
+        ChooseOneEffect(Runner, label, $(Alt("Spend [click]", $(SpendClicksEffect(Runner, 1)), g.clicks(Runner) >= 1), Alt("End the run", $(EndRunEffect))))
 }
 
 // card specific actions and purposes
@@ -457,7 +457,7 @@ object PHCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaStolen(_) =>
                 $(ChooseOneEffect(Runner, "Thule Subsea: choose one", $(
-                    Alt("Spend [click] and 2 credits", $(LoseClicksEffect(Runner, 1), LoseCreditsEffect(Runner, 2)), g.clicks(Runner) >= 1 && g.credits(Runner) >= 2),
+                    Alt("Spend [click] and 2 credits", $(SpendClicksEffect(Runner, 1), SpendEffect(Runner, 2, Spend.corpAbility, 0, $)), g.clicks(Runner) >= 1 && g.canSpend(Runner, 2, Spend.corpAbility)),
                     Alt("Suffer 1 core damage", $(core(1))))))
             case _ => $
         }
@@ -483,10 +483,11 @@ object PHCards {
         }
     }
 
-    object Bloop extends PT("33098") {
+    // "As an additional cost to rez this ice, derez another piece of harmonic ice": paid before the rez (FinalNsgRules)
+    object Bloop extends PT("33098") with FnsExtraRezCost {
         def others(self : Card)(implicit g : Game) = g.rezzedIce.%(i => i != self && g.has(i, "Harmonic"))
         override def canRez(self : Card)(implicit g : Game) = others(self).any
-        override def onRez(self : Card)(implicit g : Game) = others(self).any.$(ChooseCardEffect(Corp, others(self), BloopPurpose(self), "Bloop: derez another piece of harmonic ice", false))
+        def extraRezCost(self : Card)(implicit g : Game) = others(self).any.$(ChooseCardEffect(Corp, others(self), BloopPurpose(self), "Bloop: derez another piece of harmonic ice (additional cost to rez)", false))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.foreach(c => g.push(DerezEffect(c)))
             NextAction
@@ -509,8 +510,8 @@ object PHCards {
     }
 
     object DistributedTracing extends PT("33100") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 2 && g.regLast("stolen") > 0
-        override def onPlay(self : Card)(implicit g : Game) = $(LoseClicksEffect(Corp, 1), tag(1))
+        override def canPlay(self : Card)(implicit g : Game) = g.fnsDoubleCanPlay(Corp) && g.regLast("stolen") > 0
+        override def onPlay(self : Card)(implicit g : Game) = g.fnsDoubleCost(Corp) :+ tag(1)
     }
 
     object Hypoxia extends PT("33101") {
@@ -528,9 +529,9 @@ object PHCards {
 
     object MrHendrik extends PT("33103") {
         override def onAccess(self : Card)(implicit g : Game) =
-            (g.isInstalled(self) && g.credits(Corp) >= 2).$(OptionalEffect(Corp, "Mr. Hendrik: pay 2 credits to do 1 core damage?", $(LoseCreditsEffect(Corp, 2), ChooseOneEffect(Runner, "Mr. Hendrik: choose one", $(
+            (g.isInstalled(self) && g.canSpend(Corp, 2, Spend.effect(|(self)))).$(OptionalEffect(Corp, "Mr. Hendrik: pay 2 credits to do 1 core damage?", $(SpendEffect(Corp, 2, Spend.effect(|(self)), 0, $(ChooseOneEffect(Runner, "Mr. Hendrik: choose one", $(
                 Alt("Suffer 1 core damage", $(core(1))),
-                Alt("Lose all remaining clicks", $(LoseClicksEffect(Runner, 99)), g.clicks(Runner) > 0)))), $))
+                Alt("Lose all remaining clicks", $(LoseClicksEffect(Runner, 99)), g.clicks(Runner) > 0)))))), $))
     }
 
     object IssuaqAdaptics extends PT("33104") {
@@ -730,10 +731,11 @@ object PHCards {
             case Trashed(c, Runner, _) if c != self && g.owner(c).isCorp && g.wasInstalled(c) && g.isRezzed(self) && g.reg("runner-trash-installed") == 1 => $(MessageEffect(Corp, "uses Hostile Architecture"), meat(2))
             case _ => $
         }
-        override def onTrash(self : Card, by : Faction)(implicit g : Game) = by.isRunner.$(HostileArchitectureAction(self))
+        // "(including this asset)": only while it was rezzed (active) when the Runner trashed it
+        override def onTrash(self : Card, by : Faction)(implicit g : Game) = (by.isRunner && g.fnsWasRezzed(self)).$(HostileArchitectureAction(self))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case HostileArchitectureAction(self) =>
-                if (g.reg("runner-trash-installed") == 1 && g.state(self).seen) {
+                if (g.reg("runner-trash-installed") == 1) {
                     g.log(Corp, "uses", self)
                     g.push(meat(2))
                 }

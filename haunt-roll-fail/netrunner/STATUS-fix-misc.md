@@ -112,11 +112,8 @@ Sakai, Warden Fatuma (front), SSO Industries, Seidr Laboratories, Copycat (print
 
 ## Still approximate in this theme (and why)
 
-* Matryoshka: X is 1 or "all remaining" (the engine's break actions do not offer an arbitrary subset of 2+ subroutines).
-* Daniela Jorge Inácio: the steal cost is still paid after the steal and with fewer than 2 grip cards — a steal-cost question
-  (costs pass).
-* Urban Art Vernissage, Cybersand Harvester: hosted install credits still need the "take" ability — install payments have no
-  credit-source hook (costs pass).
+* (Matryoshka's arbitrary X, Daniela Jorge Inácio's steal cost and Urban Art Vernissage / Cybersand Harvester: fixed or verified in
+  the final NSG pass, see `STATUS-fix-final-nsg.md`.)
 * Acme Consulting (+1 tag "considered") uses a real tag; Gagarin's access cost is automatic; Skorpios is not an interrupt
   (timing pass); encounter-on-access ice (Archangel, ...) are placed temporarily in the server; Hivemind counters are spent
   only by the rotated virus programs (counter costs: costs pass); Personality Profiles' "search the stack" detection,

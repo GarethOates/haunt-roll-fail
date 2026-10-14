@@ -35,9 +35,10 @@ case class PelangiClearAction(card : Card) extends CardAction
 case class RejigPurpose(card : Card) extends CardPurpose
 case class RejigInstallAction(card : Card, discount : Int) extends CardAction
 case class WhistleblowerPurpose(card : Card) extends CardPurpose
-case class WhistleblowerStealAction(card : Card, agenda : Card) extends CardAction
+case class WhistleblowerTrashAction(card : Card) extends CardAction
 case class MirrorMorphAction(card : Card, kind : String) extends CardAction
 case class MirrorMorphResetAction(card : Card) extends CardAction
+case class MirrorMorphExtraAction(card : Card) extends CardAction
 case class FullyOperationalAction(card : Card, n : Int) extends CardAction
 case class RedLevelAction(card : Card, done : $[String]) extends CardAction
 case class YagiUdaPurpose(card : Card) extends CardPurpose
@@ -229,8 +230,8 @@ object DFCards {
     object Masterwork extends NC("26015") {
         override def memory(self : Card)(implicit g : Game) = 1
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RunInitiated(_) if g.hand(Runner).%(c => c.data.isHardware && g.canAffordInstall(c, -1)).any =>
-                $(OptionalEffect(Runner, "Masterwork: install a piece of hardware paying 1 credit more?", $(ChooseCardEffect(Runner, g.hand(Runner).%(c => c.data.isHardware && g.canAffordInstall(c, -1)), InstallPayingPurpose(-1, None, false), "Choose a piece of hardware", true)), $))
+            case RunInitiated(_) if g.gripCards.%(c => c.data.isHardware && g.canAffordInstall(c, -1)).any =>
+                $(OptionalEffect(Runner, "Masterwork: install a piece of hardware paying 1 credit more?", $(ChooseCardEffect(Runner, g.gripCards.%(c => c.data.isHardware && g.canAffordInstall(c, -1)), InstallPayingPurpose(-1, None, false), "Choose a piece of hardware", true)), $))
             case Installed(Runner, c) if c.data.isHardware && !g.usedThisTurn(self, "masterwork") => $(MarkUsedEffect(self, "masterwork"), draw(Runner, 1))
             case _ => $
         }
@@ -366,7 +367,7 @@ object DFCards {
 
     object TheArtist extends NC("26027") {
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => (c.data.isProgram || c.data.isHardware) && g.canAffordInstall(c, 1))
+            val l = g.gripCards.%(c => (c.data.isProgram || c.data.isHardware) && g.canAffordInstall(c, 1))
             $(
                 Ability("gain 2 credits", click(), $(gain(Runner, 2)), click = true, once = once("artist-credits")),
                 Ability("install a program or piece of hardware paying 1 credit less", click(), $(ChooseCardEffect(Runner, l, InstallPayingPurpose(1, None, false), "The Artist: choose a card to install", false)), click = true, once = once("artist-install"), ok = l.any, reason = "nothing to install"))
@@ -392,34 +393,33 @@ object DFCards {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RejigInstallAction(self, d) =>
-                val l = g.hand(Runner).%(c => (c.data.isProgram || c.data.isHardware) && g.canAffordInstall(c, d))
+                val l = g.gripCards.%(c => (c.data.isProgram || c.data.isHardware) && g.canAffordInstall(c, d))
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, InstallPayingPurpose(d, None, false), "Rejig: choose a card to install paying " + d + " credits less", false))
                 NextAction
         }
     }
 
+    // "you may trash this resource to choose a card name": the trash is the cost (at once); the named agenda is stolen ignoring all
+    // costs the next time this run the Runner accesses an agenda with that name (run flag "fns-whistleblower", FinalNsgRules)
     object Whistleblower extends NC("26030") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SuccessfulRun(_) if !g.state(self).usedRun.has("wb") =>
+            case SuccessfulRun(_) =>
                 val codes = g.decks.get(Corp).|($).%(c => Cards.get(c).exists(_.isAgenda)).distinct
-                codes.any.$(OptionalEffect(Runner, "Whistleblower: trash it to name an agenda?", $(ChooseCodeEffect(Runner, codes, "Whistleblower: name an agenda", WhistleblowerPurpose(self))), $))
-            case RunEnds(_, _, _) if g.state(self).usedRun.has("wb") => $(TrashEffect(self, Runner, false))
+                codes.any.$(OptionalEffect(Runner, "Whistleblower: trash it to name an agenda?", $(WhistleblowerTrashAction(self), ChooseCodeEffect(Runner, codes, "Whistleblower: name an agenda", WhistleblowerPurpose(self))), $))
             case _ => $
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
-                g.state(p.card).memo = c.code
-                g.state(p.card).usedRun :+= "wb"
+                g.log(Runner, "names", c.title.filter(_ < 128).hl)
+                g.addFlag(g.runFlag("fns-whistleblower", |(c)))
             }
             NextAction
         }
-        override def accessAbility(self : Card, target : Card)(implicit g : Game) =
-            (g.state(self).usedRun.has("wb") && target.code == g.state(self).memo && target.data.isAgenda && g.run.exists(!_.cannotStealOrTrash)).?(Ability("steal it ignoring all costs (Whistleblower)", NoCost, $(WhistleblowerStealAction(self, target))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
-            case WhistleblowerStealAction(self, c) =>
-                if (g.location.contains(c) && !g.zone(c).is[ScoredZone])
-                    g.stealAgenda(c)
+            case WhistleblowerTrashAction(self) =>
+                if (g.isInstalled(self))
+                    g.withTrashCause("cost") { g.trashCard(self, Runner, false) }
                 NextAction
         }
     }
@@ -428,9 +428,14 @@ object DFCards {
     // Corp
     // ------------------------------------------------------------------------------------------------------------
 
+    // "when the third action completes, you may gain 1 credit or take another different action, paying [click] less": the
+    // reward is offered when the third action has resolved (before the next action prompt); the additional action gets a [click]
+    // and the options matching the first three actions are greyed out until it is taken (FinalNsgRules.fnsMMExtra)
     object MirrorMorph extends NC("26031") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ActionTaken(Corp, k) => $(MirrorMorphAction(self, k))
+            // a click ability is identified by its card (two copies of a card are different actions, as jinteki's card ids)
+            case ActionTaken(Corp, k) if !k.startsWith("ability-") => $(MirrorMorphAction(self, k))
+            case AbilityUsed(Corp, c, true) => $(MirrorMorphAction(self, "ability-" + c.code + "-" + c.n))
             case PlayResolved(Corp, c) => $(MirrorMorphAction(self, "play"))
             case TurnBegins(_) => $(MirrorMorphResetAction(self))
             case _ => $
@@ -438,13 +443,26 @@ object DFCards {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case MirrorMorphAction(self, k) =>
                 if (g.active.isCorp) {
+                    g.fnsMMExtra = $
                     g.mmActions :+= k
-                    if (g.mmActions.num == 3 && g.mmActions.distinct.num == 3)
-                        g.push(ChooseOneEffect(Corp, "MirrorMorph: three different actions", $(Alt("Gain 1 credit", $(gain(Corp, 1))), Alt("Gain [click]", $(GainClicksEffect(Corp, 1))))))
+                    if (g.mmActions.num == 3 && g.mmActions.distinct.num == 3) {
+                        val reward = ChooseOneEffect(Corp, "MirrorMorph: three different actions", $(
+                            Alt("Gain 1 credit", $(gain(Corp, 1))),
+                            Alt("Take another different action, paying [click] less", $(GainClicksEffect(Corp, 1), MirrorMorphExtraAction(self)))))
+                        val i = g.pending.indexWhere(_ == ActionPhaseAction(Corp))
+                        if (i >= 0)
+                            g.pending = g.pending.take(i) ++ $(reward) ++ g.pending.drop(i)
+                        else
+                            g.push(reward)
+                    }
                 }
+                NextAction
+            case MirrorMorphExtraAction(self) =>
+                g.fnsMMExtra = g.mmActions
                 NextAction
             case MirrorMorphResetAction(self) =>
                 g.mmActions = $
+                g.fnsMMExtra = $
                 NextAction
         }
     }
@@ -671,7 +689,7 @@ object DFCards {
             case FocusGroupAction(self, k) =>
                 val n = g.hand(Runner).%(_.data.kind == k).num
                 if (n > 0 && g.installedCards(Corp).any)
-                    g.push(ChooseOneEffect(Corp, "Focus Group: " + n + " " + k.toLowerCase + " cards revealed, pay X credits to place X advancement counters", 0.to(n.atMost(g.credits(Corp))).$./(x => Alt("Pay " + x, (x > 0).$(LoseCreditsEffect(Corp, x), ChooseCardEffect(Corp, g.installedCards(Corp), AdvancePurpose(x), "Focus Group: choose a card", false))))))
+                    g.push(ChooseOneEffect(Corp, "Focus Group: " + n + " " + k.toLowerCase + " cards revealed, pay X credits to place X advancement counters", 0.to(n.atMost(g.creditsFor(Corp, Spend.effect(|(self))))).$./(x => Alt("Pay " + x, (x > 0).$(SpendEffect(Corp, x, Spend.effect(|(self)), 0, $(ChooseCardEffect(Corp, g.installedCards(Corp), AdvancePurpose(x), "Focus Group: choose a card", false))))))))
                 g.push(RevealCardsEffect(Runner, g.hand(Runner)))
                 NextAction
         }
@@ -685,13 +703,13 @@ object DFCards {
                 val targets = g.runnerInstalledOf(k).%(c => !c.data.isIcebreaker)
                 g.push(BadPubEffect(1))
                 if (targets.any)
-                    g.push(ChooseCardsEffect(Runner, targets, 0, targets.num.atMost(g.credits(Runner) / 3), GameOverPurpose(self, targets), "Game Over: choose cards to prevent from being trashed (3 credits each)"))
+                    g.push(ChooseCardsEffect(Runner, targets, 0, targets.num.atMost(g.creditsFor(Runner, Spend.corpAbility) / 3), GameOverPurpose(self, targets), "Game Over: choose cards to prevent from being trashed (3 credits each)"))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
             case GameOverPurpose(self, targets) =>
                 if (cards.any)
-                    g.push(LoseCreditsEffect(Runner, 3 * cards.num))
+                    g.push(SpendEffect(Runner, 3 * cards.num, Spend.corpAbility, 0, $))
                 g.push(TrashCardsEffect(targets.%!(cards.has), Corp))
                 NextAction
         }
@@ -746,10 +764,10 @@ object DFCards {
     }
 
     object SecureAndProtect extends NC("26061") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 2
+        override def canPlay(self : Card)(implicit g : Game) = g.fnsDoubleCanPlay(Corp)
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Corp).%(_.data.isIce).sortBy(_.title)
-            $(LoseClicksEffect(Corp, 1)) ++ l.any.$(ChooseCardEffect(Corp, l, SecureAndProtectPurpose(self), "Secure and Protect: choose a piece of ice", false)) :+ ShuffleDeckEffect(Corp)
+            g.fnsDoubleCost(Corp) ++ l.any.$(ChooseCardEffect(Corp, l, SecureAndProtectPurpose(self), "Secure and Protect: choose a piece of ice", false)) :+ ShuffleDeckEffect(Corp)
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.push(RevealCardsEffect(Corp, $(c)), ChooseServerPayingEffect(c, 3, Server.centrals, false, false)))
@@ -758,7 +776,7 @@ object DFCards {
     }
 
     object ReducedService extends NC("26062") {
-        override def onRez(self : Card)(implicit g : Game) = $(ChooseOneEffect(Corp, "Reduced Service: pay credits to place power counters", 0.to(4.atMost(g.credits(Corp))).$./(n => Alt("Pay " + n, $(ReducedServiceAction(self, n))))))
+        override def onRez(self : Card)(implicit g : Game) = $(ChooseOneEffect(Corp, "Reduced Service: pay credits to place power counters", 0.to(4.atMost(g.creditsFor(Corp, Spend.effect(|(self))))).$./(n => Alt("Pay " + n, $(ReducedServiceAction(self, n))))))
         override def runCost(self : Card, server : Server)(implicit g : Game) = (g.isRezzed(self) && thisServer(self, server) && g.counter(self, "power") > 0).??($[Cost](CreditCost(2 * g.counter(self, "power"))))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if s.isCentral && g.counter(self, "power") > 0 && g.isRezzed(self) => $(AddCounterEffect(self, "power", -1))
@@ -767,7 +785,7 @@ object DFCards {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case ReducedServiceAction(self, n) =>
                 if (n > 0)
-                    g.push(LoseCreditsEffect(Corp, n), AddCounterEffect(self, "power", n))
+                    g.push(SpendEffect(Corp, n, Spend.effect(|(self)), 0, $(AddCounterEffect(self, "power", n))))
                 NextAction
         }
     }

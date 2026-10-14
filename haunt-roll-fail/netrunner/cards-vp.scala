@@ -65,6 +65,7 @@ case class TocsinSearchAction(card : Card, subtype : String) extends CardAction
 case class TocsinPurpose(card : Card) extends CardPurpose
 case class MyoshuAction(card : Card) extends CardAction
 case class ReanimationPurpose(card : Card) extends CardPurpose
+case class ReanimationRezAction(card : Card, ice : Card, server : |[Server]) extends CardAction
 case class LtdSearchAction(card : Card, zone : String) extends CardAction
 case class LtdPurpose(card : Card, fromRd : Boolean) extends CardPurpose
 case class SzeFaceupAction(card : Card) extends CardAction
@@ -838,13 +839,21 @@ object VPCards {
             case ServerPickedAction(self, server, key) =>
                 val parts = key.split(':')
                 val c = Card(parts(1), parts(2).toInt)
+                // an additional rez cost of the ice (Archer, Bloop, Biawak) is paid before the install-and-rez payment
+                val extra = g.extraRezCostOf(c)
+                g.push(ReanimationRezAction(self, c, server))
+                if (extra.any && g.impl(c).canRez(c))
+                    g.pushAll(extra :+ FnsMarkRezCostPaidEffect(c))
+                NextAction
+            case ReanimationRezAction(self, c, server) =>
                 val pay = g.installParts(c, server, None, 10, true)
                 val cost = pay.map(_._1).sum
-                if (g.canSpendAll(Corp, pay)) {
+                if (g.canSpendAll(Corp, pay) && (g.extraRezCostOf(c).none || g.fnsRezCostPaid.has(c))) {
                     g.spendAll(Corp, pay)
                     g.log(Corp, "pays", cost.credits, "(10 less)")
                     g.push(CorpInstallEffect(c, server, true), RezEffect(c, true))
-                    if (!g.has(c, "Liability") && !g.has(c, "Illicit"))
+                    // printed: "If you rezzed a piece of non-liability ice this way, take 1 bad publicity" (jinteki also exempts illicit ice)
+                    if (!g.has(c, "Liability"))
                         g.push(MessageEffect(Corp, "takes 1 bad publicity (Reanimation Protocol)"), BadPubEffect(1))
                 }
                 else {

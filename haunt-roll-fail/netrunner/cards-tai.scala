@@ -173,7 +173,7 @@ object TAICards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if thisCardRun(self) && g.encountersThisRun == 1 => $(MessageEffect(Runner, "uses S-Dobrado"), BypassIceEffect(ice))
             case EncounterIce(ice) if thisCardRun(self) && g.encountersThisRun == 2 && g.threat(4) && g.clicks(Runner) >= 1 =>
-                $(OptionalEffect(Runner, "S-Dobrado: spend [click] to bypass the ice?", $(LoseClicksEffect(Runner, 1), BypassIceEffect(ice)), $))
+                $(OptionalEffect(Runner, "S-Dobrado: spend [click] to bypass the ice?", $(SpendClicksEffect(Runner, 1), BypassIceEffect(ice)), $))
             case _ => $
         }
     }
@@ -250,7 +250,7 @@ object TAICards {
 
     object Arissana extends PT("34020") {
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => c.data.isProgram && runnerCanInstall(c, 0))
+            val l = g.gripCards.%(c => c.data.isProgram && runnerCanInstall(c, 0))
             $(Ability("install a program from the grip (trashed when the run ends unless it is a trojan)", $, $(ChooseCardEffect(Runner, l, ArissanaPurpose(self), "Arissana: choose a program to install", true)), once = once("arissana"), ok = g.run.exists(r => !r.ended) && l.any, reason = "only during a run"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -379,7 +379,7 @@ object TAICards {
             case BahiaChoiceAction(self, k, used) =>
                 val options = $(
                     (0, "Draw 2 cards", $[ForcedAction](draw(Runner, 2)), true),
-                    (1, "Install 1 card from the grip paying 1 credit less", $[ForcedAction](InstallFromListDiscountEffect(Runner, g.hand(Runner), 1, "Bahia Bands: choose a card to install paying 1 credit less", true)), true),
+                    (1, "Install 1 card from the grip paying 1 credit less", $[ForcedAction](InstallFromListDiscountEffect(Runner, g.gripCards, 1, "Bahia Bands: choose a card to install paying 1 credit less", true)), true),
                     (2, "Remove 1 tag", $[ForcedAction](RemoveTagsEffect(1)), g.tagged),
                     (3, "Place 4 credits on Bahia Bands to pay trash costs this run", $[ForcedAction](AddCounterEffect(self, "credit", 4)), true))
                 val l = options.%(o => !used.has(o._1))./(o => Alt(o._2, o._3 ++ (k > 1).$(BahiaChoiceAction(self, k - 1, used :+ o._1)), o._4))
@@ -442,7 +442,7 @@ object TAICards {
 
     object Jaguarundi extends PT("34035") {
         override def onEncounter(self : Card)(implicit g : Game) =
-            g.threat(4).$(ChooseOneEffect(Runner, "Jaguarundi: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) >= 1))))
+            g.threat(4).$(ChooseOneEffect(Runner, "Jaguarundi: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Spend [click]", $(SpendClicksEffect(Runner, 1)), g.clicks(Runner) >= 1))))
         override def subroutines(self : Card)(implicit g : Game) = $(tagSub(1), Sub("If the Runner is tagged, do 1 core damage", JaguarundiAction(self)))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case JaguarundiAction(self) =>
@@ -585,14 +585,20 @@ object TAICards {
         }
     }
 
+    // Additional costs (FinalNsgRules): the steal cost is a real cost (RandomToBottomCost) paid before the steal, for agendas
+    // stolen from this server or its root while it is rezzed; the trash cost is paid before the trash on access (PayTrashAction);
+    // "Persistent": trashed by the Runner during a run, the steal cost lasts for the rest of that run (run flag "fns-daniela").
     object DanielaJorgeInacio extends PT("34047") {
         override def canBeTrashedOnAccess(self : Card)(implicit g : Game) = g.hand(Runner).num >= 2
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case AgendaStolen(_) if g.isRezzed(self) && g.lastStolenFrom.exists(s => thisServer(self, s)) => $(MessageEffect(Corp, "uses Daniela Jorge Inacio"), RandomToBottomEffect(Runner, 2))
-            case _ => $
-        }
+        override def extraStealCost(self : Card, agenda : Card)(implicit g : Game) =
+            (g.isRezzed(self) && g.zoneServer(g.zone(agenda)).exists(s => thisServer(self, s))).$(RandomToBottomCost(2) : Cost)
         override def onTrash(self : Card, by : Faction)(implicit g : Game) =
-            (by.isRunner && g.state(self).seen).??(g.run.%(r => !r.ended).$./~(r => $(MessageEffect(Corp, "uses Daniela Jorge Inacio"), RandomToBottomEffect(Runner, 2), AddFlagEffect(Flag("on-steal", |(self), |(r.server), "run", 0, $(MessageEffect(Corp, "uses Daniela Jorge Inacio"), RandomToBottomEffect(Runner, 2)))))))
+            (by.isRunner && g.fnsWasRezzed(self)).??(g.run.%(r => !r.ended).$./~ { r =>
+                val server = g.fnsTrashedFrom(self)./~(z => g.zoneServer(z))
+                // trashed by other means than paying its trash cost on access: the cost is paid now (as jinteki)
+                (!g.fnsTrashCostPaid.has(self)).??($(MessageEffect(Corp, "uses Daniela Jorge Inacio"), RandomToBottomEffect(Runner, 2))) ++
+                    server.$./(s => AddFlagEffect(Flag("fns-daniela", None, |(s), "run", 0, $)) : ForcedAction)
+            })
     }
 
     object EpiphanyAnalytica extends PT("34048") {
@@ -645,7 +651,7 @@ object TAICards {
 
     object Behold extends PT("34051") {
         override def onAccess(self : Card)(implicit g : Game) =
-            (g.zone(self) == DeckZone(Corp)).$(RevealEffect(Corp, self)) ++ (g.credits(Corp) >= 4).$(OptionalEffect(Corp, "Behold!: pay 4 credits to give the Runner 2 tags?", $(LoseCreditsEffect(Corp, 4), tag(2)), $))
+            (g.zone(self) == DeckZone(Corp)).$(RevealEffect(Corp, self)) ++ g.canSpend(Corp, 4, Spend.effect(|(self))).$(OptionalEffect(Corp, "Behold!: pay 4 credits to give the Runner 2 tags?", $(SpendEffect(Corp, 4, Spend.effect(|(self)), 0, $(tag(2)))), $))
     }
 
     object FederalFundraising extends PT("34052") {
@@ -728,10 +734,10 @@ object TAICards {
     }
 
     object Pivot extends PT("34062") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 2
+        override def canPlay(self : Card)(implicit g : Game) = g.fnsDoubleCanPlay(Corp)
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Corp).%(c => c.data.isOperation || c.data.isAgenda).sortBy(_.title)
-            $(LoseClicksEffect(Corp, 1)) ++ l.any.$(ChooseCardEffect(Corp, l, PivotPurpose(self), "Pivot: choose an operation or agenda to reveal and add to HQ", true)) ++ $(ShuffleDeckEffect(Corp)) ++ g.threat(3).$(PivotPlayAction(self))
+            g.fnsDoubleCost(Corp) ++ l.any.$(ChooseCardEffect(Corp, l, PivotPurpose(self), "Pivot: choose an operation or agenda to reveal and add to HQ", true)) ++ $(ShuffleDeckEffect(Corp)) ++ g.threat(3).$(PivotPlayAction(self))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
             case PivotPurpose(self) =>
@@ -763,7 +769,7 @@ object TAICards {
         override def abilities(self : Card)(implicit g : Game) =
             (g.zone(self) == HandZone(Corp)).$(Ability("expend: do 1 meat damage", clickc(1), $(TrashEffect(self, Corp, false), meat(1)), click = true, ok = g.threat(3), reason = "threat 3 not reached"))
         override def onAccess(self : Card)(implicit g : Game) =
-            (g.isRezzed(self) && g.credits(Corp) >= 2).$(OptionalEffect(Corp, "Angelique Garza Correa: pay 2 credits to do 2 meat damage?", $(LoseCreditsEffect(Corp, 2), meat(2)), $))
+            (g.isRezzed(self) && g.canSpend(Corp, 2, Spend.effect(|(self)))).$(OptionalEffect(Corp, "Angelique Garza Correa: pay 2 credits to do 2 meat damage?", $(SpendEffect(Corp, 2, Spend.effect(|(self)), 0, $(meat(2)))), $))
     }
 
     object Tucana extends PT("34064") {

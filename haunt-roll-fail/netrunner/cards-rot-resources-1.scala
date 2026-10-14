@@ -382,8 +382,7 @@ object RotResourceCards1 {
             case Rezzed(c) if c.data.isIce => $(MessageEffect(Runner, "gains 1 credit (Compromised Employee)"), gain(Runner, 1))
             case _ => $
         }
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "trace" && g.counter(self, "credit") > 0).$(Ability("take the hosted credit for the trace", NoCost, $(AddCounterEffect(self, "credit", -1), gain(Runner, 1), TraceCorpBoostAction(g.traceBase, g.traceSuccess, g.traceFail))))
+        // (its credit pays for traces through the credit engine: paysFor; no separate "take" ability)
     }
 
     object CorporateDefector extends RR("12109") {

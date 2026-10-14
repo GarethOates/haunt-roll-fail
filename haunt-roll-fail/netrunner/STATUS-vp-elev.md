@@ -14,8 +14,8 @@ Chromatophores, Devadatta Drone, Principia, "Knickknack" O'Brian, Side Hustle.
 Corp: LEO Construction, Poétrï Luxury Brands, Aggressive Trendsetting, Project Ingatan, Humanoid Resources, Otto Campaign, Bumi 1.0,
 Scatter Field, Nanomanagement, Top-Down Solutions, Mercia B4LL4RD, AU Co., PT Untaian, Proprionegation, Sericulture Expansion, Byte!,
 Phật Gioan Baotixita, Empiricist, Mycoweb, Semak-samun, Peer Review, Mitra Aman, Nebula Talent Management, Synapse Global,
-Embedded Reporting, Next Big Thing, Idiosyncresis, Public Access Plaza, Doomscroll, N-Pot, Bigger Picture, IP Enforcement*, Touch-ups,
-BANGUN, The Zwicky Group, Greenmail, Off the Books, Anthill Excavation Contract, Plutus*, Biawak, Kessleroid, Syailendra,
+Embedded Reporting, Next Big Thing, Idiosyncresis, Public Access Plaza, Doomscroll, N-Pot, Bigger Picture, IP Enforcement, Touch-ups,
+BANGUN, The Zwicky Group, Greenmail, Off the Books, Anthill Excavation Contract, Plutus, Biawak, Kessleroid, Syailendra,
 Key Performance Indicators, Measured Response, Flyswatter, Lamplighter, Petty Cash, Mahkota Langit Grid.
 
 ### Vantage Point — 66/66 implemented (approximations marked *)
@@ -34,10 +34,12 @@ Nothing is left unimplemented.
 * (Fixed in the credits pass, see `STATUS-fix-credits.md`: stealth-only costs of Corsair, Lampades, Baker; Aircheck's "cannot lose or
   spend credits from your credit pool"; Open Market, Mahkota Langit Grid and Azimat credits spent as credit sources; Hackerspace's
   discount only for resources installed onto it.)
-* Plutus: if neither additional cost can be paid the asset is derezzed again after rezzing.
+* Plutus: the additional rez cost (forfeit or reveal and trash 3 HQ cards) is paid before the rez (final NSG pass).
 * Hackerspace: hosting on it is offered in the install menu (`canHost` hook).
-* Bling: "install without spending credits" = install cost 0 at the time of install. Hosted (not installed) cards (Bling, Madani,
-  Detente, Read-Write Share) live in a new `StashZone(host)` which the UI does not render yet.
+* Bling: "install without spending credits" = no credits were spent on that install (final NSG pass, `fnsInstallSpent`); its
+  hosted cards are played / installed with the basic actions and the current-set "install from the grip" effects (`gripCards`);
+  they are trashed when the Runner's turn ends (as jinteki; the printed timing is "when your discard phase ends": remaining
+  approximation). Hosted (not installed) cards (Bling, Madani, Detente, Read-Write Share) live in `StashZone(host)`.
 * (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: Stick and Poke grants a real first subroutine for the encounter; Biawak's
   forfeit is optional (pay the 10 credits instead) and not asked when rezzed ignoring costs; Detente's access uses the normal
   access machinery; Word on the Street is added to the score area *before* the agenda is scored (its -1 counts for that win check);
@@ -45,11 +47,14 @@ Nothing is left unimplemented.
   Group sees the real source of a credit gain (an agenda's paid or "when scored" ability, a resolving operation); Hype Machine
   counts agendas scored / stolen, not points; Méliès U's hidden face is not a visible counter and starts random.)
 * Public Access Plaza tags when trashed by the Runner even if unrezzed (as jinteki).
-* IP Enforcement follows the printed text (remove X tags only; the Clojure version also charges X credits).
+* IP Enforcement follows the printed text (remove X tags as an additional cost; X = the printed agenda points; the Corp chooses
+  the remote; final NSG pass).
 * Perfect Recall's protection is stored per run and checked through the hook `protectsFromAccess`; it stops if Perfect Recall leaves play.
 * Méliès U: the secret choice is a journal action (like psi bids, hidden by the UI only); it is stored in the identity's memo (not
   drawn on the board), and the face before the first choice is random (`MeliesSetupAction`).
-* Reanimation Protocol: if the Corp cannot afford (install + rez - 10), the ice is only installed.
+* Reanimation Protocol: if the Corp cannot afford (install + rez - 10), the ice is only installed (as jinteki: remaining
+  approximation); the ice's additional rez cost (Archer, Bloop, Biawak) is paid first; only liability ice avoids the bad publicity
+  (printed text; jinteki also exempts illicit ice).
 * Dividends use `lastScoredAdvancement` (recorded before the agenda leaves play); "excess" = counters - current requirement.
 * Chromatophores keeps its host in `chromatophoreHosts` (the engine resets host links before `onTrash`).
 

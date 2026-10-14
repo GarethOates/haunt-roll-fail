@@ -124,8 +124,9 @@ validate.
 
 ## Still approximate (and why)
 
-* Root-to-root moves and swaps (Daruma, `SwapRootEffect`) do not re-check the one asset/agenda / one region per root rule; moves
-  between servers (`MoveServerChosenAction`) check the printed server restriction only.
+* (Fixed in the final NSG pass, see `STATUS-fix-final-nsg.md`: root moves and swaps (`MoveToRootEffect`, `SwapRootEffect`, Daruma,
+  `SwapInstalledWithHandEffect`) re-check the one asset / agenda and one region per root rules and refuse assets / agendas in
+  central roots.)
 * Security Leak's additional advance cost and The Price of Freedom apply to the basic advance action: no card effect "advances"
   a card (they place counters), so this is complete for the implemented cards.
 * A paid-ability window whose only option is greyed out by a restriction still opens with its "pass" option (cosmetic).

@@ -10,46 +10,44 @@ registered through `ExtDecks.presets` in `decks.scala`). Registered in `CardImpl
 Every card of the three sets present in the card database has an implementation object. "Implemented" below
 means the printed abilities are automated; "partial" lists what is left to manual play or approximated.
 
-### rwr — Rebellion Without Rehearsal (65/65 implemented, 7 partial)
+### rwr — Rebellion Without Rehearsal (65/65 implemented, 0 partial since the final NSG pass, `STATUS-fix-final-nsg.md`)
 
-Runner: Sebastiao Souza Pessoa (partial: the "Corp must trash 1 card from HQ" additional cost on the basic
-trash action is not enforced), Eye for an Eye, Privileged Access, Amanuensis, The Wizard's Chest, Boi-tata
-(partial: "trashed any of your installed cards" is approximated by "any of your non-event cards was trashed
-this turn while Boi-tata was installed"), Heliamphora, Arruaceiras Crew, Friend of a Friend, Manuel Lattes de
-Moura (partial: same basic-action trash cost as Sebastiao not enforced), Meeting of Minds, Window of
-Opportunity, Alarm Clock, Jeitinho, Cupellation (the "end of breach" Archives hosting is offered when a
-successful run on Archives ends), Malandragem, Physarum Entangler, Amelia Earhart, Juli Moreira Lee, Burner,
-Spree, Trick Shot, Cataloguer (partial: the click ability breaches R&D through a pseudo-run, so "run ends"
-abilities may fire), Coalescence, Lobisomem, Muse, Pressure Spike, "Pretty" Mary da Silva (only sees access
-bonuses granted before it resolves, like jinteki), Ashen Epilogue, Valentina Ferreira Carvalho.
+Runner: Sebastiao Souza Pessoa (the "Corp must trash 1 card from HQ" additional cost of the basic
+trash action is enforced since the final NSG pass), Eye for an Eye, Privileged Access, Amanuensis, The Wizard's Chest, Boi-tata
+("trashed any of your installed cards" = installed Runner cards trashed by the Runner this turn, final NSG pass), Heliamphora, Arruaceiras Crew, Friend of a Friend, Manuel Lattes de
+Moura (threat 3 basic-action trash cost enforced, final NSG pass), Meeting of Minds, Window of
+Opportunity, Alarm Clock, Jeitinho, Cupellation (its access ability is also offered on cards accessed in Archives;
+the non-printed "end of breach" hosting was removed, final NSG pass), Malandragem, Physarum Entangler, Amelia Earhart, Juli Moreira Lee, Burner,
+Spree, Trick Shot, Cataloguer (the click ability breaches R&D outside a run, `BreachServerEffect`, final NSG pass), Coalescence, Lobisomem, Muse, Pressure Spike, "Pretty" Mary da Silva (resolved last among the breach
+abilities, so it sees every access bonus of the breach, final NSG pass), Ashen Epilogue, Valentina Ferreira Carvalho.
 
 Corp: Thunderbolt Armaments, Lightning Laboratory, Warm Reception, Working Prototype, Lycian Multi-Munition,
 Sorocaban Blade, Active Policing, Corporate Hospitality, Brasilia Government Grid, See How They Run, Sisyphus
 Protocol, Charlotte Cacador, Cohort Guidance Program, Boto, Cloud Eater, Tributary, Bring Them Home, Kingmaking,
 Stoke the Embers, Janaina "JK" Dumont Kindelan, Capacitor, Piranhas, Seraph, Sudden Commandment, The Holo Man,
-Nuvem SA (partial: "trash a card from R&D" is only recognised for Nuvem's own trash and The Basalt Spire's
-cost, i.e. `TrashTopEffect`), Eminent Domain, The Basalt Spire, Hearts and Minds, Descent, Hammer, Logjam,
+Nuvem SA (any card the Corp trashes from R&D during its turn, final NSG pass), Eminent Domain, The Basalt Spire, Hearts and Minds, Descent, Hammer, Logjam,
 Business As Usual, Isaac Liberdade, The Powers That Be.
 
-### df — Downfall (65/65 implemented, 5 partial)
+### df — Downfall (65/65 implemented, 0 partial since the final NSG pass)
 
 Runner: Isolation, Demolisher, Chisel, Stargate, Utae, Climactic Showdown (fixed: removed from the game when the turn
 begins, the access bonus is a turn-lasting game effect, see `STATUS-fix-prevention.md`), Fencer Fueno, The Nihilist, Trickster Taka, Az McCaffrey, Always Have a Backup Plan, Blueberry Diesel, Flip Switch,
 Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove ("first click" = no
 action or click ability yet this turn, fix-misc pass), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /
 Code Gate / Sentry offered), Rezeki, The Artist, Direct Access (both identities lose all
-abilities during its run, fix-misc pass), Rejig, Whistleblower (partial: the resource is trashed when the run ends instead of immediately, the named
-agenda is stolen through an access ability "steal ignoring all costs").
+abilities during its run, fix-misc pass), Rejig, Whistleblower (trashed at once as the cost;
+the named agenda is stolen ignoring all costs the next time this run it is accessed, final NSG pass).
 
-Corp: MirrorMorph (partial: like jinteki, the reward is "gain 1 credit or gain [click]"; action kinds are the
-basic actions, operations and click abilities), Architect Deployment Test, Calvin B4L3Y, Nanoetching Matrix,
+Corp: MirrorMorph (the reward comes when the third action has resolved; "take another different action,
+paying [click] less" = a click for an action different from the first three, the others greyed out; action kinds are the basic
+actions, operations and click abilities per card, final NSG pass), Architect Deployment Test, Calvin B4L3Y, Nanoetching Matrix,
 Hagen, Fully Operational, Red Level Clearance, Cold Site Server, Hyoubu Institute, Project Yagi-Uda, Sting!,
 Public Health Portal, Storgotic Resonator, Saisentan, Complete Image, Letheia Nisei, Remastered Edition, Daily
 Quest, Tiered Subscription, Congratulations!, Loot Box, Focus Group, Game Over, Increased Drop Rates, Divested
 Trust, SDS Drone Deployment, Roughneck Repair Squad, Afshar, Sandstone, Trebuchet, Secure and Protect, Reduced
 Service, Vulnerability Audit, CSR Campaign, Rime.
 
-### ur — Uprising (58/58 implemented, 2 partial)
+### ur — Uprising (58/58 implemented, 0 partial since the final NSG pass)
 
 Runner: Hoshiko Shiro (flip implemented with a "flipped" counter on the identity; gains Digital / +1 link),
 Moshing, Devil Charm, Gachapon, Keiko, Odore, Paladin Poemu, Bravado, Boomerang, Mu Safecracker, Prognostic Q-Loop,
@@ -59,9 +57,9 @@ Self-modifying Code, Paule's Cafe, Buffer Drive, Daily Casts, DreamNet.
 Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricator, Drafter, Tyr, NEXT Activation Command,
 Scapenet, Tranquility Home Grid, Flower Sermon, Prana Condenser
 (prevents net damage from any source; one use per damage instance), Engram Flush, Konjin, Hyoubu Precog
-Manifold, Kakurenbo, GameNET (partial: triggers on payments of "pay N credits" choices of Corp card abilities during
-a run (`CreditsPaid` with `Spend.corpAbility`), on credits paid for steal costs (fix-misc pass) and on any credit loss of the
-Runner during a run, whose source is not tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station, Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
+Manifold, Kakurenbo, GameNET (triggers on payments of "pay N credits" choices of Corp card abilities during
+a run (`CreditsPaid` with `Spend.corpAbility`), on credits paid for steal costs and on credit losses of the Runner during a run
+whose source is a Corp card ability (`CreditsLostFrom`, final NSG pass)), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station, Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
 Argus Crackdown, Cyberdex Sandbox, False Lead, NAPD Cordon.
 
 Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26096, 26112, 26117, 26127.
