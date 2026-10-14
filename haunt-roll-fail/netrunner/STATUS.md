@@ -33,18 +33,18 @@
   headers, influence dots, summary lines; unicode/diacritic-insensitive title matching) and validator
   (side, one identity, min size, deck limits, influence, agenda points).
 * UI (`ui.scala`, `styles.scala`): Corp and Runner board panes with stat badges (credits, clicks, agenda points,
-  tags, bad publicity, link, MU, hand size), servers as boxes with the ice stack (rotated, outermost on top) above
-  the root, a "Runner" marker and orange outline showing the attacked server and the current ice position,
-  unrezzed cards dimmed with an "unrezzed" tag for the Corp (backs for the Runner), facedown Archives counted,
-  counters as badges (adv/virus/credit/power/strength), hosted cards under their host, rig grouped by type,
-  scored/stolen agendas, accessed cards shown during a breach, the viewer's hand as images. Clicking a card or a
-  server performs the single matching action of the current prompt, or opens a menu of the matching actions
-  (install destinations, break/pump, rez, advance, score, select toggles...), or opens the zoom overlay; cards with
-  available actions are outlined. Hovering a card shows a large preview with its text and state. Deck selection
-  is a gallery of presets with identity images on the board plus a decklist import overlay with Check/Import and
-  readable error messages. Three layouts (boards left + log/actions right, wide, single column) for common
-  resolutions. Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown, unrezzed/facedown
-  cards as backs, opponent's hand as backs.
+  tags, bad publicity, link, MU, hand size), servers drawn from the Runner's point of view (root at the top of the
+  server box, ice below it, outermost ice at the bottom), a "Runner" marker and orange outline showing the attacked
+  server and the current ice position, unrezzed cards dimmed with an "unrezzed" tag for the Corp (backs for the
+  Runner), facedown Archives counted, counters as badges (adv/virus/credit/power/strength), hosted cards under their
+  host, rig grouped by type, scored/stolen agendas, accessed cards shown during a breach. The viewer's hand is shown
+  in the action pane (see "UI rework" below). Clicking a card or a server performs the single matching action of the
+  current prompt, or opens a menu of the matching actions (install destinations, break/pump, rez, advance, score,
+  select toggles...), or opens the zoom overlay; cards with available actions are outlined. Hovering a card shows a
+  large image of it. Deck selection is a gallery of presets with identity images on the board plus a decklist import
+  overlay with Check/Import and readable error messages. Three layouts (boards left + log/actions right, wide, single
+  column) for common resolutions. Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown,
+  unrezzed/facedown cards as backs, the opponent's hand only as the "hand" count in their header.
 * Bots: `Random` (uniform over non-manual choices) and `Basic` (weighted heuristics: scores, steals, breaks, economy).
 * JVM harness `host.scala` (excluded from the JS build): bot-vs-bot games with log dumps.
 
@@ -110,15 +110,48 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   Protocol have none on NetrunnerDB; `fetch-assets.py` now also tries the v1 hosts and the v2/v3 APIs) or whose image
   failed to load is drawn as the card back with the title on top (board, hand, zoom, menus, deck gallery). Card
   images have a fixed height so the layout does not jump while images load lazily.
-* Layout robustness: ice is stacked vertically above the root (outermost on top); each board shrinks its font size
-  (all card sizes are in ex) until it fits its pane, so very long hands, many remotes and 10+ ice per server stay on
-  screen (tested with 24 cards in HQ, 8 remotes and 9 ice on HQ). Multi-value `margin`/`padding` styles were silently
+* Layout robustness: each board is scaled to fit its pane (all card sizes are in ex; see "UI rework" for the current
+  rule), so many remotes and 10+ ice per server stay on screen (tested with 24 cards in HQ, 8 remotes and 9 ice on HQ
+  before the rework; 8 servers / 10 ice in a bot game after it). Multi-value `margin`/`padding` styles were silently
   dropped by the HRF CSS generator; they are now written per side.
 * Game end: the run line / attacked-server marker / "turn N" badge are hidden once the game is over. "Save Replay"
   (self-contained HTML) is not offered: the framework embeds every declared image asset as a data URL and Netrunner
   declares ~2,000 lazily loaded card images (62 MB), so the save crashed with "url not loaded". Online games show
   "This game is saved on the server: open any of its links to replay it"; local games offer "Save Game Online" (as Coup
   does) and "Play Again".
+
+### UI rework after the first play test (product owner requests)
+
+* Deck preset names carry no set codes any more (`decks.scala`, `decks-ph-tai.scala`, `decks-rwr-df-ur.scala`, the
+  Startup presets in `cards-vp.scala`): e.g. "HB Architects of Tomorrow", "Jinteki Personal Evolution", "HB Thule
+  Subsea", "Weyland Earth Station", "Elevation Anarch Ryo". The gallery and the action pane list also strip any trailing
+  parenthesised suffix (`UI.cleanDeckName`), so presets added later with "(set)" suffixes are shown clean. The action
+  pane list shows identity thumbnail, deck name and identity on its own line (`UI.convertActions` override for
+  `ChoosePresetDeckAction`); gallery items show the identity image (hover zooms it), the name and size/influence.
+* Zoom: hovering a card (board, hand, deck gallery) shows the card image only, on a transparent background; clicking
+  a card without actions opens the image-only overlay. The printed text, stats and card state are shown beside the
+  image only when the image is missing (014001/014002 or a failed load). The zoom is dropped on every re-render so
+  it cannot stay stuck after the hovered card disappears.
+* Bigger cards: only the board area of a pane is scaled (`styles.boardArea`; the header keeps the pane font size).
+  `UI.fitPane` picks the largest size at which the board fits its pane (binary search on the font size), capped so
+  that a board card (cardSmall) is at most 40% of the pane height; boards therefore use the pane width and shrink only
+  when they would overflow (more servers, taller ice stacks, a bigger rig). Server names, counts, section titles and
+  the "Runner" marker use clamped font sizes so they stay readable without dominating. During setup only the deck
+  gallery is scaled. Checked at 1440x900 and 1920x1080.
+* Hands in the action pane: the boards no longer draw any hand. The viewer's hand is drawn above the prompt in the
+  action pane, as `HandCardInfoAction` Info items (`ViewObject[Card]` + `OnClickInfo`, built in `UI.preinfo` and
+  rendered through the asker's `ZOption`s with hover zoom), titled "HQ / Grip (n cards, maximum m)". Clicking a hand
+  card there does exactly what a board click does (the single matching action, or the menu of matching actions, or
+  the zoom). Cards with available actions are outlined. When a selection prompt already lists the hand cards
+  (discard to hand size, choose cards from HQ...) the hand is not repeated. A viewer without a seat (spectator link,
+  bot-vs-bot) sees both hands, labelled. The opponent's hand is only the "n/m hand" stat in their header. The
+  Info items are built by the UI rather than `Game.info` so that `game.scala` (shared with the set ports) is untouched.
+* Server orientation: with the Corp on top, each server box shows its name, then the root (central pile / installed
+  cards), then the ice with the innermost piece just under the root and the outermost at the bottom; the "Runner"
+  marker is drawn below the piece of ice being approached / encountered and between the root and the innermost ice
+  once the Runner approaches the server.
+* Small header tweaks: identity title slightly smaller, stats tighter, the "turn N" badge no longer says "running"
+  (the run line below the header does), so the Runner header fits one line at 1440x900.
 
 ## Simplifications / known gaps
 
@@ -251,6 +284,19 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   0 errors, after fixing the Plutus rez loop it had exposed ("game too long" in 1 of ~300 games before).
 * Console noise that is not the plugin's: `HTTP 409` / `HTTP 500` on `/append` (framework milestone races, see
   Simplifications).
+
+### Tested after the UI rework (2026-10-14)
+
+* `sbt -batch fastOptJS` (with `-J-Xmx8g`) passes. Headless Chrome over the DevTools protocol at 1440x900 and
+  1920x1080: deck selection (gallery, action-pane list, hover zoom of a gallery identity), a hotseat game saved online
+  (lobby `zzdxnlubkgsdeqng`, Corp `txaecjnvlgjlfmhy`, Runner `xzmdicfhnivwqyjr`, spectator `wybzbcudmwrctyuf`):
+  mulligan, Corp installs from the action-pane hand (Whitespace on HQ through the menu, Regolith straight into a new
+  remote, Whitespace on Server 1 through the server menu), runs on HQ and Server 1 with the Corp's rez windows, rez
+  and encounter, Runner installing Marjanah from the hand pane, both player links and the spectator link replayed on
+  the new builds; a local game as the Runner against the Basic Corp bot (Tao preset against Synapse; several turns
+  with installs and events played from the hand pane, runs, ETR choices, Tao's ice swap prompt); a bot-vs-bot game
+  (`?speed=20`) to the end (8 servers, 10 ice: the Corp board shrinks to fit). No plugin exceptions in the consoles
+  (only the shell's `NetworkError` font entries and 404s for images missing from the local cache).
 
 ## Known bugs
 
