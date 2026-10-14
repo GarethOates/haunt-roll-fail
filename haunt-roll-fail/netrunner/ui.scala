@@ -300,20 +300,20 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // Boards
     // ---------------------------------------------------------------------------------------------------------------
 
-    // A number of the status banner: a large value over a small label in the stat's own colour. A zero (no tags, no bad
-    // publicity...) stays in place but subdued; an alert (tags, bad publicity, core damage) gets a red outline.
-    // (a word value, the name of the marked server, is drawn smaller than a number)
-    def bigStat(value : Any, label : String, style : Style, emphasis : Boolean = false, zero : Boolean = false, alert : Boolean = false, extra : $[Style] = $) : Elem = {
+    // A number of the status banner: the stat's icon and a large value over a small label, in the stat's own colour. A
+    // zero (no tags, no bad publicity...) stays in place but subdued; an alert (tags, bad publicity, core damage) gets a
+    // red outline. (a word value, the name of the marked server, is drawn smaller than a number)
+    def bigStat(value : Any, label : String, style : Style, icon : Style, emphasis : Boolean = false, zero : Boolean = false, alert : Boolean = false, extra : $[Style] = $) : Elem = {
         val v = value.toString
-        Span(Span(v.txt, styles.bigValue)(v.exists(_.isLetter).$(styles.bigWord)) ~ Span(label.txt, styles.bigLabel), styles.bigStat, style)(emphasis.$(styles.bigEmphasis) ++ zero.$(styles.bigZero) ++ alert.$(styles.bigAlert) ++ extra)
+        Span(Span(Span(Empty, styles.statIcon, icon) ~ v.txt, styles.bigValue)(v.exists(_.isLetter).$(styles.bigWord)) ~ Span(label.txt, styles.bigLabel), styles.bigStat, style)(emphasis.$(styles.bigEmphasis) ++ zero.$(styles.bigZero) ++ alert.$(styles.bigAlert) ++ extra)
     }
 
     def plural(n : Int, one : String, many : String) = (n == 1).?(one).|(many)
 
     // The per-player status banner: the player name with the identity under it, then every stat as a large badge of the
-    // same style (credits, clicks and points first, then the side's own stats, see corpStats / runnerStats). The active
+    // same style, in groups set apart (points, clicks and credits, then the side's own groups, see corpStats / runnerStats). The active
     // player's banner is tinted with their colour and shows the turn number; their credits / clicks are outlined.
-    def statusBanner(f : Faction, stats : $[Elem]) : Elem = {
+    def statusBanner(f : Faction, stats : $[$[Elem]]) : Elem = {
         val g = game
         val id = g.identity.get(f)
         val active = g.active == f && g.turnStarted && !g.isOver
@@ -324,13 +324,16 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             Span(playerName(f), styles.bannerName) ~
             id./(c => Span(Span(c.title.txt, styles.get(NRFaction.of(c.data.faction))), styles.bannerId)).|(Empty),
             styles.bannerWho)
-        val turn = active.$(bigStat(g.turn, "turn", styles.bigTurn))
-        val main = $(
-            bigStat(credits, plural(credits, "credit", "credits"), styles.bigCredit, emphasis = active),
-            bigStat(clicks, plural(clicks, "click", "clicks"), styles.bigClick, emphasis = active && clicks > 0, extra = (active && clicks == 0).$(styles.bigSpent)),
-            bigStat(points, plural(points, "point", "points"), styles.bigPoints, zero = points == 0))
+        // in groups, set apart: the score, then clicks and credits, then the side's own stats, then the turn number
+        val score = $(bigStat(points, plural(points, "point", "points"), styles.bigPoints, styles.iconPoints, zero = points == 0))
+        val economy =
+            $(bigStat(clicks, plural(clicks, "click", "clicks"), styles.bigClick, styles.iconClick, emphasis = active && clicks > 0, extra = (active && clicks == 0).$(styles.bigSpent))) ++
+            extraClicksStat(f) ++
+            $(bigStat(credits, plural(credits, "credit", "credits"), styles.bigCredit, styles.iconCredit, emphasis = active))
+        val turn = active.$(bigStat(g.turn, "turn", styles.bigTurn, styles.iconTurn))
+        val groups = ($(score, economy) ++ stats ++ $(turn)).%(_.any)./(l => Span(l.merge, styles.statGroup))
         Div(
-            who ~ Span((turn ++ main ++ stats ++ extraClicksStat(f)).merge, styles.bannerStats),
+            who ~ Span(groups.merge, styles.bannerStats)(styles.bannerGroups),
             styles.header)(active.$(f.isCorp.?(styles.headerActiveCorp).|(styles.headerActiveRunner)))
     }
 
@@ -350,28 +353,34 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // allotted clicks for the next turn (Wage Workers and the like)
     def extraClicksStat(f : Faction) : $[Elem] = {
         val n = game.extraClicks.get(f).|(0)
-        (n != 0).$(bigStat((n > 0).?("+" + n).|("" + n), "clicks next turn", styles.bigClick))
+        (n != 0).$(bigStat((n > 0).?("+" + n).|("" + n), "clicks next turn", styles.bigClick, styles.iconClick))
     }
 
-    // the Corp's own stats: bad publicity, threat (while it matters), HQ size / maximum hand size
-    def corpStats : $[Elem] = {
+    // A player sees their own hand in the action pane (with its size and maximum): the Hand badge is for the opponent's
+    // hand. Hotseat (this client plays both sides: seats has both) and spectators (no seat) see both badges.
+    def handBadge(f : Faction) : Boolean = seats.num > 1 || viewer.contains(f).not
+
+    // the Corp's own stat groups: HQ size / maximum hand size (see handBadge); bad publicity, threat (while it matters)
+    def corpStats : $[$[Elem]] = {
         val g = game
         val bp = g.badPublicity
-        $(bigStat(bp, "bad pub", styles.bigBadPub, zero = bp == 0, alert = bp > 0)) ++
-        threatMatters.$(bigStat(g.threatLevel, "threat", styles.bigThreat, zero = g.threatLevel == 0)) ++
-        $(bigStat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.bigHand, zero = g.hand(Corp).none))
+        $(
+            handBadge(Corp).$(bigStat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.bigHand, styles.iconHand, zero = g.hand(Corp).none)),
+            $(bigStat(bp, "bad pub", styles.bigBadPub, styles.iconBadPub, zero = bp == 0, alert = bp > 0)) ++
+            threatMatters.$(bigStat(g.threatLevel, "threat", styles.bigThreat, styles.iconThreat, zero = g.threatLevel == 0)))
     }
 
-    // the Runner's own stats: tags, link, MU used / total, grip size / maximum hand size, core damage, mark
-    def runnerStats : $[Elem] = {
+    // the Runner's own stat groups: grip size / maximum hand size (see handBadge); MU used / total; link, tags, core damage, mark
+    def runnerStats : $[$[Elem]] = {
         val g = game
         $(
-            bigStat(g.tags, plural(g.tags, "tag", "tags"), styles.bigTag, zero = g.tags == 0, alert = g.tags > 0),
-            bigStat(g.link, "link", styles.bigLink, zero = g.link == 0),
-            bigStat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.bigMU, zero = g.memoryUsed == 0),
-            bigStat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.bigHand, zero = g.hand(Runner).none),
-            bigStat(g.coreDamage, "core dmg", styles.bigCore, zero = g.coreDamage == 0, alert = g.coreDamage > 0)) ++
-        (g.mark.any || markMatters).$(bigStat(g.mark./(_.name).|("none"), "mark", styles.bigMark, zero = g.mark.none))
+            handBadge(Runner).$(bigStat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.bigHand, styles.iconHand, zero = g.hand(Runner).none)),
+            $(bigStat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.bigMU, styles.iconMU, zero = g.memoryUsed == 0)),
+            $(
+                bigStat(g.link, "link", styles.bigLink, styles.iconLink, zero = g.link == 0),
+                bigStat(g.tags, plural(g.tags, "tag", "tags"), styles.bigTag, styles.iconTag, zero = g.tags == 0, alert = g.tags > 0),
+                bigStat(g.coreDamage, "core dmg", styles.bigCore, styles.iconCore, zero = g.coreDamage == 0, alert = g.coreDamage > 0)) ++
+            (g.mark.any || markMatters).$(bigStat(g.mark./(_.name).|("none"), "mark", styles.bigMark, styles.iconMark, zero = g.mark.none)))
     }
 
     // game-level lingering flags (not tied to a card)
