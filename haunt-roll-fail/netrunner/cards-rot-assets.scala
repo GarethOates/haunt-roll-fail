@@ -67,7 +67,7 @@ object RotAssetCardsA {
     object ZaibatsuLoyalty extends RA("01071") {
         override def exposeOptions(self : Card, target : Card)(implicit g : Game) =
             if (!g.isRezzed(self))
-                $(Alt("Rez Zaibatsu Loyalty (" + g.rezCost(self) + " credits)", $(RezEffect(self, false), RotExposeEffect(target)), g.credits(Corp) >= g.rezCost(self) && g.impl(self).canRez(self)))
+                $(Alt("Rez Zaibatsu Loyalty (" + g.rezCost(self) + " credits)", $(RezEffect(self, false), RotExposeEffect(target)), g.canSpend(Corp, g.rezCost(self), Spend.rez(self)) && g.impl(self).canRez(self)))
             else
                 $(Alt("Zaibatsu Loyalty: pay 1 credit to prevent the expose", $(LoseCreditsEffect(Corp, 1), RotExposePreventedEffect(target)), g.credits(Corp) >= 1),
                   Alt("Zaibatsu Loyalty: trash it to prevent the expose", $(TrashEffect(self, Corp, false), RotExposePreventedEffect(target))))
@@ -177,7 +177,7 @@ object RotAssetCardsA {
     object CitySurveillance extends RA("04055") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(ChooseOneEffect(Runner, "City Surveillance: pay 1 credit or take 1 tag", $(
-                Alt("Pay 1 credit", $(LoseCreditsEffect(Runner, 1)), g.credits(Runner) >= 1),
+                Alt("Pay 1 credit", $(SpendEffect(Runner, 1, Spend.corpAbility, 0, $)), g.canSpend(Runner, 1, Spend.corpAbility)),
                 Alt("Take 1 tag", $(tag(1))))))
             case _ => $
         }

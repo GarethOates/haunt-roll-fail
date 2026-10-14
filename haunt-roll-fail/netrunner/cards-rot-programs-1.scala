@@ -161,8 +161,8 @@ object RotProgramCards1 {
     }
 
     object BlacKat extends Rot("06053") {
-        override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Barrier"))) ++ stealth(1).$(BreakAbility(c(1), 3, $("Barrier"), |("break up to 3 barrier subroutines (stealth credit)")))
-        override def pumps(self : Card)(implicit g : Game) = $(Pump(c(2), 1)) ++ stealth(1).$(Pump(c(2), 2, EncounterDuration, |("+2 strength (stealth credit)")))
+        override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Barrier")), BreakAbility($(StealthCreditCost(1, 1)), 3, $("Barrier"), |("break up to 3 barrier subroutines (stealth credit)")))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump(c(2), 1), Pump($(StealthCreditCost(2, 1)), 2, EncounterDuration, |("+2 strength (at least 1 stealth credit)")))
     }
 
     object Origami extends Rot("06074") {
@@ -522,12 +522,12 @@ object RotProgramCards1 {
 
     object Multithreader extends Rot("09040") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 2)
-        override def creditsUsableForRun(self : Card)(implicit g : Game) = true
+        // "Use these credits to pay for using programs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.using.exists(_.data.isProgram)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 2))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) = $(Ability("take 1 hosted credit (to pay for a program ability)", NoCost, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0 && g.run.none, reason = "no hosted credits (used automatically during runs)"))
     }
 
     object Algernon extends Rot("22022") {

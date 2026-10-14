@@ -135,8 +135,8 @@ object RotProgramCards2 {
     object Passport extends CentralOnly("05046", "Code Gate", 1, 1, 2, 2)
 
     object Switchblade extends Rot("06077") {
-        override def breaks(self : Card)(implicit g : Game) = stealth(1).$(BreakAbility(c(1), 0, $("Sentry"), |("break any number of sentry subroutines (stealth credit)")))
-        override def pumps(self : Card)(implicit g : Game) = stealth(1).$(Pump(c(1), 7, EncounterDuration, |("+7 strength (stealth credit)")))
+        override def breaks(self : Card)(implicit g : Game) = $(BreakAbility($(StealthCreditCost(1, 1)), 0, $("Sentry"), |("break any number of sentry subroutines (stealth credits only)")))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(1, 1)), 7, EncounterDuration, |("+7 strength (stealth credits only)")))
     }
 
     object CerberusRex extends Cerberus("06096", "Code Gate")

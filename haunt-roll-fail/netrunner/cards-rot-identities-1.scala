@@ -168,12 +168,14 @@ object RotIdentityCards1 {
 
     object Whizzard extends RH("02001") {
         override def recurring(self : Card)(implicit g : Game) = 3
-        override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = purpose.startsWith("trash-")
+        // "Use these credits to trash cards." (trash costs of Corp cards)
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.trashing.exists(c => g.owner(c).isCorp)
     }
 
     object WeylandBecauseWeBuiltIt extends RH("02076") {
         override def recurring(self : Card)(implicit g : Game) = 1
-        override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = purpose == "advance-ice"
+        // "Use this credit to advance ice."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.advancing.exists(_.data.isIce)
     }
 
     object Andromeda extends RH("02083") {

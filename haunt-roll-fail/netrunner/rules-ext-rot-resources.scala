@@ -40,7 +40,7 @@ trait RotResourceRules { game : Game =>
         val cost = (installCost(c, None) - discount).atLeast(0)
         val mu = c.data.isProgram.??(c.data.memory.|(0))
         val hostOk = !impl(c).mustBeHosted(c) || allIce.exists(h => impl(c).hostRequirement(c, h))
-        (c.data.isProgram || c.data.isHardware || c.data.isResource) && credits(Runner) >= cost && (!c.data.isProgram || memoryFree >= mu) && hostOk && impl(c).canInstall(c)
+        (c.data.isProgram || c.data.isHardware || c.data.isResource) && canSpend(Runner, cost, Spend.install(c)) && (!c.data.isProgram || memoryFree >= mu) && hostOk && impl(c).canInstall(c)
     }
 
     // a card title safe to embed in a prompt string of a serialized action (ASCII, no quotes or backslashes)

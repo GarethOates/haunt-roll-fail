@@ -148,7 +148,8 @@ object URCards {
             case TurnEnds(Runner) if g.counter(self, "credit") >= 3 && g.runnerInstalled.any => $(ChooseCardEffect(Runner, g.runnerInstalled, TrashPurpose(Runner), "Paladin Poemu: choose an installed card to trash", false))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) = $(Ability("take 1 credit (to install a non-connection card)", NoCost, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"))
+        // "You can spend hosted credits to install non-connection cards."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(c => !g.has(c, "Connection"))
     }
 
     object Bravado extends NC("26074") {
@@ -184,8 +185,9 @@ object URCards {
 
     object MuSafecracker extends NC("26076") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SuccessfulRun(HQ) if stealthActive && g.credits(Runner) >= 1 => $(OptionalEffect(Runner, "Mu Safecracker: pay 1 credit to access 1 additional card from HQ?", $(LoseCreditsEffect(Runner, 1), AccessBonusEffect(HQ, 1)), $))
-            case SuccessfulRun(RnD) if stealthActive && g.credits(Runner) >= 2 => $(OptionalEffect(Runner, "Mu Safecracker: pay 2 credits to access 1 additional card from R&D?", $(LoseCreditsEffect(Runner, 2), AccessBonusEffect(RnD, 1)), $))
+            // "Spend credits only from stealth cards to use this hardware."
+            case SuccessfulRun(HQ) if g.canSpend(Runner, 1, Spend.ability(self), 1) => $(OptionalEffect(Runner, "Mu Safecracker: pay 1 stealth credit to access 1 additional card from HQ?", $(SpendEffect(Runner, 1, Spend.ability(self), 1, $(AccessBonusEffect(HQ, 1)))), $))
+            case SuccessfulRun(RnD) if g.canSpend(Runner, 2, Spend.ability(self), 2) => $(OptionalEffect(Runner, "Mu Safecracker: pay 2 stealth credits to access 1 additional card from R&D?", $(SpendEffect(Runner, 2, Spend.ability(self), 2, $(AccessBonusEffect(RnD, 1)))), $))
             case _ => $
         }
     }
@@ -209,12 +211,13 @@ object URCards {
 
     object Afterimage extends NC("26079") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(ice) if g.has(ice, "Sentry") && !g.usedThisTurn(self, "afterimage") && g.credits(Runner) >= 2 =>
-                $(OptionalEffect(Runner, "Afterimage: pay 2 credits to bypass this sentry?", $(MarkUsedEffect(self, "afterimage"), LoseCreditsEffect(Runner, 2), BypassEffect), $))
+            // "Spend credits only from stealth cards to use this ability."
+            case EncounterIce(ice) if g.has(ice, "Sentry") && !g.usedThisTurn(self, "afterimage") && g.canSpend(Runner, 2, Spend.ability(self), 2) =>
+                $(OptionalEffect(Runner, "Afterimage: pay 2 stealth credits to bypass this sentry?", $(MarkUsedEffect(self, "afterimage"), SpendEffect(Runner, 2, Spend.ability(self), 2, $(BypassEffect))), $))
             case _ => $
         }
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 2, $("Sentry")))
-        override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 2))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(1, 1)), 2, EncounterDuration, |("+2 strength (stealth credits only)")))
     }
 
     object Makler extends NC("26080") {
@@ -297,7 +300,8 @@ object URCards {
 
     object Mantle extends NC("26088") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 1)
-        override def creditsUsableForRun(self : Card)(implicit g : Game) = true
+        // "You can spend hosted credits to use hardware and programs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.using.exists(c => c.data.isHardware || c.data.isProgram)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) if g.counter(self, "credit") < 1 => $(AddCounterEffect(self, "credit", 1 - g.counter(self, "credit")))
             case _ => $
@@ -306,7 +310,7 @@ object URCards {
 
     object Penrose extends NC("26089") {
         override def breaks(self : Card)(implicit g : Game) = installedThisTurn(self).$(BreakAbility(c(1), 1, $("Barrier"), |("break 1 barrier subroutine (installed this turn)"))) :+ BreakAbility(c(1), 1, $("Code Gate"))
-        override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 3))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(1, 1)), 3, EncounterDuration, |("+3 strength (stealth credits only)")))
     }
 
     object SelfModifyingCode extends NC("26090") {
@@ -515,6 +519,7 @@ object URCards {
     object GameNET extends NC("26113") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case CreditsLost(Runner, n) if n > 0 && g.run.exists(!_.ended) => $(gain(Corp, 1))
+            case CreditsPaid(Runner, n, s) if n > 0 && s.is("corp-ability") && g.run.exists(!_.ended) => $(gain(Corp, 1))
             case _ => $
         }
     }
@@ -534,13 +539,13 @@ object URCards {
             case SubsBroken(ice, subs, _) if ice == self => $(LoseCreditsEffect(Runner, subs.num))
             case _ => $
         }
-        def paySub(implicit g : Game) = Sub("End the run unless the Runner pays 3[c]", ChooseOneEffect(Runner, "Gold Farmer: choose one", $(Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3), Alt("End the run", $(EndRunEffect)))))
+        def paySub(implicit g : Game) = Sub("End the run unless the Runner pays 3[c]", ChooseOneEffect(Runner, "Gold Farmer: choose one", $(Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility)), Alt("End the run", $(EndRunEffect)))))
         override def subroutines(self : Card)(implicit g : Game) = $(paySub, paySub)
     }
 
     object SYNCRerouting extends Lockdown("26118") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = lockdownTriggers(self, e) ++ (e match {
-            case RunInitiated(_) => $(ChooseOneEffect(Runner, "SYNC Rerouting: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 4 credits", $(LoseCreditsEffect(Runner, 4)), g.credits(Runner) >= 4))))
+            case RunInitiated(_) => $(ChooseOneEffect(Runner, "SYNC Rerouting: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 4 credits", $(SpendEffect(Runner, 4, Spend.corpAbility, 0, $)), g.canSpend(Runner, 4, Spend.corpAbility)))))
             case _ => $
         })
     }

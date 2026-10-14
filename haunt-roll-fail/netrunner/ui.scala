@@ -441,6 +441,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         // lingering restrictions and bonuses of this run
         val notes : $[String] =
             r.cannotStealOrTrash.$("cannot steal or trash") ++
+            (r.credits > 0).$(r.credits + " bad publicity credit" + (r.credits != 1).??("s")) ++
             r.preventAccess.$("no access") ++
             r.cannotJackOut.$("cannot jack out") ++
             r.disableRoot.$("root cards blank") ++

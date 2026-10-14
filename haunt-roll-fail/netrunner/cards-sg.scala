@@ -147,7 +147,7 @@ object SGCards {
             cards.single match {
                 case Some(b) =>
                     g.log(Runner, "reveals", b, "from the stack")
-                    if (g.successfulRunsThisTurn.any && g.credits(Runner) >= g.installCost(b, None))
+                    if (g.successfulRunsThisTurn.any && g.canSpend(Runner, g.installCost(b, None), Spend.install(b)))
                         g.push(OptionalEffect(Runner, "Mutual Favor: install the icebreaker?", $(MutualFavorInstallAction(p.card, b)), $(AddToHandEffect(b))))
                     else
                         g.push(AddToHandEffect(b))
@@ -265,7 +265,7 @@ object SGCards {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case PantographChooseAction(self) =>
-                val l = g.hand(Runner).%(c => !c.data.isEvent && g.credits(Runner) >= g.installCost(c, None) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)))
+                val l = g.hand(Runner).%(c => !c.data.isEvent && g.canSpend(Runner, g.installCost(c, None), Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)))
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, PantographPurpose(self), "Pantograph: install a card from the grip?", true))
                 NextAction
@@ -453,7 +453,7 @@ object SGCards {
             case ApproachServer(s) if thisServer(self, s) && g.isRezzed(self) =>
                 $(ChooseOneEffect(Runner, "Manegarm Skunkworks: choose one", $(
                     Alt("Spend [click][click]", $(LoseClicksEffect(Runner, 2)), g.clicks(Runner) >= 2),
-                    Alt("Pay 5 credits", $(LoseCreditsEffect(Runner, 5)), g.credits(Runner) >= 5),
+                    Alt("Pay 5 credits", $(SpendEffect(Runner, 5, Spend.corpAbility, 0, $)), g.canSpend(Runner, 5, Spend.corpAbility)),
                     Alt("End the run", $(EndRunEffect)))))
             case _ => $
         }
@@ -553,7 +553,7 @@ object SGCards {
 
     object Funhouse extends SG("30054") {
         override def onEncounter(self : Card)(implicit g : Game) = $(ChooseOneEffect(Runner, "Funhouse: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("End the run", $(EndRunEffect)))))
-        override def subroutines(self : Card)(implicit g : Game) = $(Sub("Give the Runner 1 tag unless they pay 4 credits", ChooseOneEffect(Runner, "Funhouse subroutine", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 4 credits", $(LoseCreditsEffect(Runner, 4)), g.credits(Runner) >= 4)))))
+        override def subroutines(self : Card)(implicit g : Game) = $(Sub("Give the Runner 1 tag unless they pay 4 credits", ChooseOneEffect(Runner, "Funhouse subroutine", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 4 credits", $(SpendEffect(Runner, 4, Spend.corpAbility, 0, $)), g.canSpend(Runner, 4, Spend.corpAbility))))))
     }
 
     object Ping extends SG("30055") {
@@ -569,7 +569,7 @@ object SGCards {
 
     object PublicTrail extends SG("30057") {
         override def onPlay(self : Card)(implicit g : Game) =
-            g.successfulRunsLastTurn.any.$(ChooseOneEffect(Runner, "Public Trail: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 8 credits", $(LoseCreditsEffect(Runner, 8)), g.credits(Runner) >= 8))))
+            g.successfulRunsLastTurn.any.$(ChooseOneEffect(Runner, "Public Trail: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 8 credits", $(SpendEffect(Runner, 8, Spend.corpAbility, 0, $)), g.canSpend(Runner, 8, Spend.corpAbility)))))
     }
 
     object AmazeAmusements extends SG("30058") {

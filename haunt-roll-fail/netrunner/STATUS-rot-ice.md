@@ -53,12 +53,9 @@ Tyrant, Veritas, Watchtower, Wendigo (partial), Woodcutter, Wormhole.
   not implement it either.
 - **Jua**: the encounter ability "the Runner cannot install cards this turn" is only logged. No global
   install-restriction hook exists, and adding one would mean editing the shared install paths.
-- **Interrupt 0**: approximated. While the run lasts, an icebreaker may break only if the Runner has 1[c] more
-  than its cheapest break ability costs, and the extra 1[c] is taken right after each break (through
-  `breakAllowed` and a `SubsBroken` trigger). The effect stops early if Interrupt 0 is derezzed or trashed
-  during the run.
+
 - **Tithonium**: the alternative rez cost (forfeit an agenda) is not offered. Only the normal rez cost is used.
-- **RSVP**: only break abilities that cost credits are blocked. Pumps and other credit spending still work.
+
 - **Mind Game**: the extra jack-out cost (add an installed card to the bottom of the stack) only applies to
   the jack-out offered right after the redirect.
 - **Excalibur, Uroboros, Lockdown, Gyri Labyrinth**: the turn restrictions ("no other run", "no draws",
@@ -66,7 +63,7 @@ Tyrant, Veritas, Watchtower, Wendigo (partial), Woodcutter, Wormhole.
   `handSize`). If no rotated ice is rezzed any more, the restriction lifts.
 - **Grail ice** (Galahad, Lancelot, Merlin, Excalibur): each revealed grail adds its printed subroutine from a
   fixed table for the encounter.
-- **Data Hound, Waiver**: the Runner's trace boost is measured as the credits they spent during the trace.
+
 - **Archangel, Chrysalis, Herald, Sapper** (encounter on access): the ice is temporarily placed rezzed as the
   outermost ice of the attacked server for the forced encounter, then put back where it came from.
 - **Formicary**: when the Runner approaches a server, the Corp is offered "rez Formicary and move it"

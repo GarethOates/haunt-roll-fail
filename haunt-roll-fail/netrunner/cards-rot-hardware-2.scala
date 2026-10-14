@@ -332,7 +332,7 @@ object RotHardwareCards2 {
         override def performRH(a : CardAction)(implicit g : Game) = a match {
             case RHRabbitHoleAction(self) =>
                 g.deck(Runner).%(_.title == self.title).starting.foreach { c =>
-                    if (g.credits(Runner) >= g.installCost(c, None))
+                    if (g.canSpend(Runner, g.installCost(c, None), Spend.install(c)))
                         g.push(RunnerInstallPayingEffect(c, None, 0))
                     else
                         g.log(Runner, "cannot afford to install another", self)
@@ -462,14 +462,10 @@ object RotHardwareCards2 {
     }
 
     object Cyberfeeder extends RH("25008") {
-        def virus(c : Card)(implicit g : Game) = c.data.isProgram && g.has(c, "Virus") && c.data.cost.|(0) > 0
         override def recurring(self : Card)(implicit g : Game) = 1
         override def breakerCredits(self : Card, breaker : Card)(implicit g : Game) = g.isIcebreaker(breaker)
-        override def installCostMod(self : Card, card : Card)(implicit g : Game) = (virus(card) && g.counter(self, "credit") > 0).?(-1).|(0)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Installed(Runner, c) if virus(c) && g.counter(self, "credit") > 0 => $(MessageEffect(Runner, "uses 1 credit from Cyberfeeder"), AddCounterEffect(self, "credit", -1))
-            case _ => $
-        }
+        // "Use this credit to pay for using icebreakers or for installing virus programs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = super.paysFor(self, spend) || spend.installing.exists(c => c.data.isProgram && g.has(c, "Virus"))
     }
 
     object Patchwork extends RH("25009") {

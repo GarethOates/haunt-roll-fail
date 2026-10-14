@@ -79,8 +79,8 @@ Accounts, 25119 SEA Source, 25136 Beanstalk Royalties, 25137 Oversight AI, 25147
 
 * **Surveillance Sweep**: the trace order is not changed (the engine's trace flow cannot be intercepted from an appended rules
   file); it only stays in play as a current.
-* **Net Watchlist**: the Runner loses 2 credits after breaking subroutines with an icebreaker (`SubsBroken`), instead of an
-  additional cost on icebreaker abilities; pumps are not taxed. (Not legal in any format; not in the presets.)
+* **Net Watchlist**: the 2 credits are an additional cost of icebreaker break and pump abilities (`CardImpl.icebreakerSurcharge`);
+  other paid abilities of icebreakers are not taxed. (Not legal in any format; not in the presets.)
 * **Enhanced Login Protocol**: the extra click is charged when the first click-run is initiated; the Run menu does not grey out the
   run for a Runner with exactly one click left (the run then fails "cannot pay the additional costs").
 * **Bad Times / MCA Informant** are moved to the Runner's play area (`PlayZone(Runner)`) so that the Runner-side hooks apply

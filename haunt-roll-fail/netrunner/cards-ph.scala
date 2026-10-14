@@ -33,7 +33,7 @@ abstract class PT(c : String) extends SG(c) {
     }
 
     def runnerCanInstall(c : Card, discount : Int)(implicit g : Game) =
-        g.credits(Runner) >= (g.installCost(c, None) - discount).atLeast(0) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)) && (!g.impl(c).mustBeHosted(c) || g.allIce.exists(h => g.impl(c).hostRequirement(c, h)))
+        g.canSpend(Runner, (g.installCost(c, None) - discount).atLeast(0), Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)) && (!g.impl(c).mustBeHosted(c) || g.allIce.exists(h => g.impl(c).hostRequirement(c, h)))
 
     def clickOrEtr(label : String)(implicit g : Game) =
         ChooseOneEffect(Runner, label, $(Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) >= 1), Alt("End the run", $(EndRunEffect))))

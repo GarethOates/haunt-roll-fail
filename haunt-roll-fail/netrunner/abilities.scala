@@ -99,6 +99,10 @@ trait CardImpl {
 
     // ---- extension hooks (added for su21/ms; all have neutral defaults) ---------------------------------------------
     def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) : Boolean = false   // recurring credits: "trash-asset", "play-event", ...
+    def paysFor(self : Card, spend : Spend)(implicit g : Game) : Boolean = false                // hosted credits may pay for this payment (rules-ext-credits.scala)
+    def icebreakerSurcharge(self : Card, breaker : Card, breaking : Boolean)(implicit g : Game) : Int = 0 // additional credits to use an icebreaker ability (Midway Station Grid, Net Watchlist)
+    def installCostModIn(self : Card, card : Card, server : |[Server])(implicit g : Game) : Int = 0  // install cost modifier that depends on the destination server (Network Exchange)
+    def hostedInstallCostMod(self : Card, card : Card)(implicit g : Game) : Int = 0               // install cost modifier of a card installed hosted on self (Hackerspace)
     def canRez(self : Card)(implicit g : Game) : Boolean = true                                 // additional rez requirements (forfeit an agenda)
     def preventsScoring(self : Card, agenda : Card)(implicit g : Game) : Boolean = false        // Clot
     def preventsBreak(self : Card, ice : Card, breaker : Card)(implicit g : Game) : Boolean = false // Swordsman / Hortum / Trieste

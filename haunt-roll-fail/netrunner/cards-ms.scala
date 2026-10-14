@@ -285,7 +285,7 @@ object MSCards {
                 }
                 NextAction
             case IntoTheDepthsInstallAction(self) =>
-                val l = g.deck(Runner).%(c => runProgramInstallable(c) && g.credits(Runner) >= g.installCost(c, None)).sortBy(_.title)
+                val l = g.deck(Runner).%(c => runProgramInstallable(c) && g.canSpend(Runner, g.installCost(c, None), Spend.install(c))).sortBy(_.title)
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, InstallPurpose(false, None), "Into the Depths: choose a program to install", true))
                 g.push(ShuffleDeckEffect(Runner))
@@ -295,7 +295,7 @@ object MSCards {
 
     object RiggingUp extends Ext("33024") {
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => (c.data.isHardware || (c.data.isProgram && g.memoryFree >= c.data.memory.|(0))) && g.credits(Runner) >= (g.installCost(c, None) - 3).atLeast(0))
+            val l = g.hand(Runner).%(c => (c.data.isHardware || (c.data.isProgram && g.memoryFree >= c.data.memory.|(0))) && g.canSpend(Runner, (g.installCost(c, None) - 3).atLeast(0), Spend.install(c)))
             l.any.$(ChooseCardEffect(Runner, l, RiggingUpPurpose(self), "Rigging Up: choose a program or piece of hardware to install, paying 3 less", true))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {

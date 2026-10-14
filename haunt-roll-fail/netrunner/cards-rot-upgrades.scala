@@ -31,7 +31,6 @@ case class RaMumbadPurpose(card : Card, ice : Card) extends CardPurpose
 case class RaNihongaiAction(card : Card) extends CardAction
 case class RaNihongaiPurpose(card : Card) extends CardPurpose
 case class RaNihongaiHQPurpose(card : Card, rd : Card) extends CardPurpose
-case class RaKhondiPayAction(card : Card, ice : Card) extends CardAction
 case class RaBambooAction(card : Card) extends CardAction
 case class RaWarroidAction(card : Card) extends CardAction
 case class RaJinjaAction(card : Card, ice : $[Card]) extends CardAction
@@ -77,7 +76,7 @@ object RotUpgradeCards {
 
     object AmazonIndustrialZone extends RAg("02038") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Installed(Corp, c) if c.data.isIce && protecting(self, c) && !g.isRezzed(c) && g.credits(Corp) >= g.rezCost(c) - 3 =>
+            case Installed(Corp, c) if c.data.isIce && protecting(self, c) && !g.isRezzed(c) && g.canSpend(Corp, g.rezCost(c) - 3, Spend.rez(c)) =>
                 $(OptionalEffect(Corp, "Amazon Industrial Zone: rez the ice, lowering its rez cost by 3?", $(DiscountRezEffect(c, 3)), $))
             case _ => $
         }
@@ -87,10 +86,10 @@ object RotUpgradeCards {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 2)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) => $(RefillCreditsEffect(self, 2))
-            // hosted credits pay for the basic advance action on cards in this server (refunded after the advance)
-            case Advanced(c, _) if inThisServer(self, c) && g.counter(self, "credit") > 0 && g.active.isCorp && g.phase == "action" => $(TakeCreditsEffect(Corp, self, 1))
             case _ => $
         }
+        // hosted credits pay for advancing cards in the root of / protecting this server
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.advancing.exists(c => inThisServer(self, c))
     }
 
     object RuhrValley extends RAg("02111") {
@@ -113,7 +112,7 @@ object RotUpgradeCards {
 
     object AwakeningCenter extends RAg("03021") {
         def hostedIce(self : Card)(implicit g : Game) = g.hosted(self).%(c => c.data.isIce && !g.isRezzed(c))
-        def rezzable(self : Card)(implicit g : Game) = hostedIce(self).%(c => g.credits(Corp) >= g.rezCost(c) - 7)
+        def rezzable(self : Card)(implicit g : Game) = hostedIce(self).%(c => g.canSpend(Corp, g.rezCost(c) - 7, Spend.rez(c)))
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.hand(Corp).%(c => c.data.isIce && g.has(c, "Bioroid"))
             $(Ability("host a piece of bioroid ice from HQ", click(), $(ChooseCardEffect(Corp, l, RaAwakeningHostPurpose(self), "Awakening Center: choose a piece of bioroid ice", false)), click = true, ok = l.any, reason = "no bioroid ice in HQ"))
@@ -196,11 +195,8 @@ object RotUpgradeCards {
     }
 
     object MidwayStationGrid extends RAg("06007") {
-        override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) = !runHere(self) || !g.isIcebreaker(breaker) || g.availableCredits(Runner, None) >= 1
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(_, _, b) if runHere(self) && g.isIcebreaker(b) => $(MessageEffect(Runner, "pays 1 credit for Midway Station Grid"), LoseCreditsEffect(Runner, 1))
-            case _ => $
-        }
+        // "During runs on this server, the Runner must pay 1 credit as an additional cost to use an icebreaker ability to break subroutines."
+        override def icebreakerSurcharge(self : Card, breaker : Card, breaking : Boolean)(implicit g : Game) = (breaking && runHere(self)).??(1)
     }
 
     object HeinleinGrid extends RAg("06023") {
@@ -268,12 +264,10 @@ object RotUpgradeCards {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 2)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) => $(RefillCreditsEffect(self, 2))
-            // hosted credits pay for installing ice protecting this server (refunded after the install)
-            case Installed(Corp, c) if c.data.isIce && protecting(self, c) && g.active.isCorp && g.phase == "action" && g.counter(self, "credit") > 0 =>
-                val paid = g.serverOf(self)./(s => g.ice(s).num - 1).|(0)
-                (paid > 0).$(TakeCreditsEffect(Corp, self, paid))
             case _ => $
         }
+        // hosted credits pay for installing ice protecting this server
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(_.data.isIce) && spend.server.exists(s => g.serverOf(self).has(s))
     }
 
     object CyberdexVirusSuite extends RAg("07027") {
@@ -374,7 +368,7 @@ object RotUpgradeCards {
     object SuratCityGrid extends RAg("10057") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Rezzed(c) if c != self && inThisServer(self, c) =>
-                val l = g.installedCards(Corp).%(x => !g.isRezzed(x) && !x.data.isAgenda && g.credits(Corp) >= g.rezCost(x) - 2 && g.impl(x).canRez(x))
+                val l = g.installedCards(Corp).%(x => !g.isRezzed(x) && !x.data.isAgenda && g.canSpend(Corp, g.rezCost(x) - 2, Spend.rez(x)) && g.impl(x).canRez(x))
                 l.any.$(OptionalEffect(Corp, "Surat City Grid: rez another card paying 2 credits less?", $(ChooseCardEffect(Corp, l, RezDiscountPurpose(self, 2), "Surat City Grid: choose a card to rez", false)), $))
             case _ => $
         }
@@ -479,20 +473,11 @@ object RotUpgradeCards {
 
     object KhondiPlaza extends RAg("12019") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> g.remotes.num)
-        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (g.isActive(self) && card.data.isIce && protecting(self, card)).?(-g.counter(self, "credit")).|(0)
+        // hosted credits pay for rezzing ice protecting this server
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.rezzing.exists(c => c.data.isIce && protecting(self, c))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) => $(RefillCreditsEffect(self, g.remotes.num))
-            case Rezzed(c) if c.data.isIce && protecting(self, c) && g.counter(self, "credit") > 0 => $(RaKhondiPayAction(self, c))
             case _ => $
-        }
-        override def performCard(a : CardAction)(implicit g : Game) = a match {
-            case RaKhondiPayAction(self, c) =>
-                val m = g.counter(self, "credit").atMost(c.data.cost.|(0))
-                if (m > 0) {
-                    g.log(Corp, "spends", m.credits, "from", self)
-                    g.push(AddCounterEffect(self, "credit", -m))
-                }
-                NextAction
         }
     }
 
@@ -599,7 +584,7 @@ object RotUpgradeCards {
     }
 
     object JinjaCityGrid extends RAg("21031") {
-        def installable(self : Card, l : $[Card])(implicit g : Game) = l.%(c => g.zone(c) == HandZone(Corp) && g.credits(Corp) >= g.installCost(c, g.serverOf(self)) - 4)
+        def installable(self : Card, l : $[Card])(implicit g : Game) = l.%(c => g.zone(c) == HandZone(Corp) && g.canSpend(Corp, g.installCost(c, g.serverOf(self)) - 4, Spend.install(c, g.serverOf(self))))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case CardsDrawn(Corp, l) if l.exists(_.data.isIce) => $(RaJinjaAction(self, l.%(_.data.isIce)))
             case _ => $

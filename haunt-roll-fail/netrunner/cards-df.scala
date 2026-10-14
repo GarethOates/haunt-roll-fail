@@ -146,7 +146,7 @@ object DFCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) | AgendaStolen(_) => $(AddCounterEffect(self, "credit", 1))
             case TurnEnds(Runner) if g.counter(self, "credit") >= 3 =>
-                $(ChooseOneEffect(Runner, "Fencer Fueno: choose one", $(Alt("Pay 1 credit", $(LoseCreditsEffect(Runner, 1)), g.credits(Runner) >= 1), Alt("Trash Fencer Fueno", $(TrashEffect(self, Runner, false))))))
+                $(ChooseOneEffect(Runner, "Fencer Fueno: choose one", $(Alt("Pay 1 credit", $(SpendEffect(Runner, 1, Spend.ability(self), 0, $)), g.canSpend(Runner, 1, Spend.ability(self))), Alt("Trash Fencer Fueno", $(TrashEffect(self, Runner, false))))))
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = $(Ability("take 1 credit", NoCost, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0 && g.run.exists(_.successful), reason = "only during a successful run"))
@@ -179,14 +179,14 @@ object DFCards {
     }
 
     object TricksterTaka extends NC("26009") {
-        override def creditsUsableForRun(self : Card)(implicit g : Game) = g.run.exists(r => !r.successful && !r.unsuccessful)
+        // "You can spend hosted credits to use programs during runs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.using.exists(_.data.isProgram) && g.run.exists(r => !r.ended)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) | AgendaStolen(_) => $(AddCounterEffect(self, "credit", 1))
             case TurnEnds(Runner) if g.counter(self, "credit") >= 3 =>
                 $(ChooseOneEffect(Runner, "Trickster Taka: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Trash Trickster Taka", $(TrashEffect(self, Runner, false))))))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) = $(Ability("take 1 credit", NoCost, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0 && g.run.exists(r => !r.successful && !r.unsuccessful), reason = "only during a run"))
     }
 
     object Az extends NC("26010") {
@@ -647,7 +647,7 @@ object DFCards {
 
     object LootBox extends NC("26051") {
         override def subroutines(self : Card)(implicit g : Game) = $(
-            Sub("End the run unless the Runner pays 2[c]", ChooseOneEffect(Runner, "Loot Box: choose one", $(Alt("Pay 2 credits", $(LoseCreditsEffect(Runner, 2)), g.credits(Runner) >= 2), Alt("End the run", $(EndRunEffect))))),
+            Sub("End the run unless the Runner pays 2[c]", ChooseOneEffect(Runner, "Loot Box: choose one", $(Alt("Pay 2 credits", $(SpendEffect(Runner, 2, Spend.corpAbility, 0, $)), g.canSpend(Runner, 2, Spend.corpAbility)), Alt("End the run", $(EndRunEffect))))),
             Sub("Reveal the top 3 cards of the stack, add 1 to the grip and gain its cost, trash this ice", LootBoxSubAction(self)))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case LootBoxSubAction(self) =>

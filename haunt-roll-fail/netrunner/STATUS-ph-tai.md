@@ -23,7 +23,7 @@ validated). Partial / simplified:
   (returned to grip) are not covered.
 * **Reprise**: "stole an agenda this turn" uses the new `stolen` register.
 * **Spark of Inspiration**: the set-aside cards stay in the stack (listed in the log), the stack is shuffled afterwards.
-* **Concerto**: hosted credits are usable for anything during its run (engine semantics of run credits).
+
 * **Hostile Architecture / Yakov Avdakov**: "installed card trashed by the Runner" / "trashed from this server" are
   detected with a snapshot of the installed Corp cards taken at the previous event (`lastServerOf`, `wasInstalled`);
   "except during installation" uses the `installing` flag of the ext rules.
@@ -52,10 +52,7 @@ validated). Partial / simplified:
 
 Partial / simplified:
 
-* **Urban Art Vernissage, Cybersand Harvester**: hosted credits are not spent automatically on installs; a free
-  "take hosted credits" ability is offered instead (as jinteki's manual ability).
-* **Bahia Bands**: the 4 hosted credits are usable for anything during its run (not only trash costs).
-* **Debbie "Downtown" Moreira**: hosted credits are usable for anything during her run.
+
 * **Daniela Jorge Inácio**: the additional costs are paid after the steal / trash (2 random grip cards to the bottom
   of the stack); the upgrade can only be trashed on access with at least 2 cards in the grip; the persistent steal
   cost after she is trashed during a run is kept as an `on-steal` flag for that run.

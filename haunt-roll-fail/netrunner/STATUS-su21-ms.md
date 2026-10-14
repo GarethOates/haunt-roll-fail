@@ -26,7 +26,7 @@ Partially implemented / simplified:
   the Runner moved past (`lastRun.position`).
 * **Daily Business Show** — the extra draw applies to the first draw of the turn (register `drawn-Corp == 0`); with several
   rezzed DBS each one asks for one card to put on the bottom (jinteki asks once for n cards).
-* **Architects of Tomorrow** — the 4-credit discount is applied by refunding the difference before a normal rez.
+
 * **Sneakdoor Beta** — the server is changed to HQ when the Runner approaches Archives (before the approach-server window), not
   exactly "when the run would be declared successful".
 * **Ayla** — the 4 set-aside cards are hosted on the identity (not shown in the UI yet); the `[click]` ability works.
@@ -94,8 +94,8 @@ Mystic Maemi, Swift, Cybertrooper Talut, Megaprix Qualifier, La Costa Grid, Digi
   `PayTrashAction` through `payCredits(f, n, self, purpose)` / `availableCredits(f, self, purpose)`.
 * **Discounted installs / rezzes** — `InstallDiscountEffect(card, n)` (trojans choose a host), `RezDiscountEffect(card, n)`.
 * **Forfeit** — `ForfeitEffect()` / `ForfeitPurpose()`; **install and rez ignoring all costs** — `InstallRezPurpose()`.
-* **Bad publicity** — `extTriggers(RunInitiated)` gives the Runner `badPublicity` credits when a run begins (simplification:
-  they are not removed when the run ends).
+* **Bad publicity** — `extTriggers(RunInitiated)` gives the Runner `badPublicity` run credits when a run begins
+  (`BadPublicityCreditsEffect`, `Run.credits`; spent before the pool and lost when the run ends, see `rules-ext-credits.scala`).
 * Misc: `RandomTrashFromHandEffect`, `LoseAllClicksEffect`, `AddSubtypeEffect`/`RemoveSubtypeEffect`, `ScoreAgendaEffect`,
   `AddToScoreAreaEffect`, `MoveAdvancementEffect`, `SetChoiceEffect`/`SetTargetEffect` (new `CardState.choice`/`target`),
   `SetRunFlagEffect("disable-root")`, `PumpBreakerAllEffect` (turn-long breaker pump), `MarkRunUsedEffect` (once per run),
@@ -162,7 +162,7 @@ Mystic Maemi, Swift, Cybertrooper Talut, Megaprix Qualifier, La Costa Grid, Digi
 ## Not done / ideas
 
 * Hosted cards on identities (Ayla) are not rendered in the UI.
-* Bad publicity credits are a permanent gain instead of run-only credits.
+
 * "Remote server only" (La Costa Grid) install restriction, "Limit 1 region per server" are not enforced (same as SG).
 * The Twinning's power counter was not observed in the bot logs (needs a run credit source and a card spending from it in the
   same game); the logic follows the `spent-from-card` register.

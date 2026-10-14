@@ -49,8 +49,7 @@ Shipping.
 Not modelled because the engine has no hook for it (and adding one would need edits to shared files):
 
 * **Trash prevention** — Dummy Box, Sacrificial Construct: no effect; Fall Guy: only its "[trash]: gain 2" ability.
-* **Wireless Net Pavilion** — the extra 2 credits on the Corp's basic "trash a resource" action are not charged
-  (`TrashResourceAction` is handled by the core before the extension rules see it).
+
 * **The Black File** — the power counters / removal work; "the Corp cannot win except by flatline" is not enforced
   (`checkWin` cannot be intercepted).
 * **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
@@ -61,14 +60,9 @@ Approximations:
 
 * **Aeneas Informant** — the "reveal and gain 1" offer for each accessed card with a trash cost that was not trashed
   is made when the run ends instead of right after that access.
-* **Inside Man / Ice Analyzer** — runner installs pay without a purpose, so the restricted credits are moved to the
-  pool with a "take" ability that is only usable while holding hardware / a program during your turn.
-* **Crash Space** — the hosted credits pay the 2 credits of the remove-tag action as a block ([click] + 2 hosted
-  credits); the 3-meat-damage prevention is exact.
+
 * **Hernando Cortez** — the additional cost is modelled as a rez-cost increase (same credits, same timing).
-* **Network Exchange** — the install-cost hook does not see the target server, so ice costs 1 more whenever any ice
-  is already installed (instead of "not in the innermost position").
-* **Jackpot!** — offered whenever an agenda is stolen; takes all hosted credits (not "any number").
+* **Jackpot!** — offered whenever an agenda is stolen.
 * **Keros Mcintyre** — "you derez" is approximated by "ice derezzed during your turn".
 * **Muertos Gang Member** — the "when uninstalled" rez is offered when it is trashed.
 * **Street Magic** — subroutines resolved through it are marked broken so that the encounter does not fire them a

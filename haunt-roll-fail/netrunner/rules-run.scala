@@ -45,12 +45,12 @@ trait RunRules { game : Game =>
 
     def startRun(s : Server, source : |[Card], click : Boolean) : Continue = {
         val costs = runCosts(s)
-        if (!canPay(Runner, costs, None)) {
+        if (!canPay(Runner, costs, None, |(Spend.run(s)))) {
             log(Runner, "cannot pay the additional costs to run", s)
             return NextAction
         }
         if (costs.any) {
-            payCosts(Runner, costs, None)
+            payCosts(Runner, costs, None, |(Spend.run(s)))
             log(Runner, "pays", Cost.desc(costs), "to run", s)
         }
         val r = new Run(s, source, click)
@@ -131,21 +131,21 @@ trait RunRules { game : Game =>
                         impl(b).breaks(b).indexed./~ { (br, bi) =>
                             val typeOk = (br.subtypes.none || br.subtypes.exists(t => has(c, t))) && impl(c).canBreakWith(c, b) && !allActive.exists(x => impl(x).preventsBreak(x, c, b))
                             val strOk = !isIcebreaker(b) || breakerStrength(b) >= str
-                            val payOk = canPay(Runner, br.costs, |(b))
+                            val payOk = canPay(Runner, breakCostsWith(b, br.costs), |(b), |(Spend.break(b, c)))
                             val allowed = allActive.forall(x => impl(x).breakAllowed(x, b, c))
                             if (!typeOk || unbroken.none || !allowed)
                                 $
                             else {
                                 val singles = unbroken./(i => BreakSubAction(Runner, b, bi, c, i).!(!strOk, "strength too low").!(!payOk, "cannot pay"))
                                 val multiSubs = (br.n == 0).?(unbroken).|(unbroken.take(br.n))
-                                val multi = (br.n != 1 && unbroken.num > 1).$(BreakSubsAction(Runner, b, bi, c, multiSubs).!(!strOk, "strength too low").!(!canPay(Runner, breakCosts(br, multiSubs.num), |(b)), "cannot pay"))
+                                val multi = (br.n != 1 && unbroken.num > 1).$(BreakSubsAction(Runner, b, bi, c, multiSubs).!(!strOk, "strength too low").!(!canPay(Runner, breakCostsWith(b, breakCosts(br, multiSubs.num)), |(b), |(Spend.break(b, c))), "cannot pay"))
                                 singles ++ multi
                             }
                         }
                     }
                     val pumpOptions = breakers.distinct./~ { b =>
                         impl(b).pumps(b).indexed./ { (p, pi) =>
-                            PumpAction(Runner, b, pi).!(!canPay(Runner, p.costs, |(b)), "cannot pay")
+                            PumpAction(Runner, b, pi).!(!canPay(Runner, pumpCostsWith(b, p.costs), |(b), |(Spend.pump(b, |(c)))), "cannot pay")
                         }
                     }
                     val runnerAsk = Ask(Runner)
@@ -168,7 +168,7 @@ trait RunRules { game : Game =>
         case BreakSubAction(f, b, bi, c, i) =>
             val br = impl(b).breaks(b).apply(bi)
             windowPassed = $
-            payCosts(f, br.costs, |(b))
+            payCosts(f, breakCostsWith(b, br.costs), |(b), |(Spend.break(b, c)))
             state(c).brokenSubs :+= i
             log(Runner, "uses", b, "to break", subs(c).apply(i).label.hl, "on", c)
             push(EncounterAction(c))
@@ -179,7 +179,7 @@ trait RunRules { game : Game =>
         case BreakSubsAction(f, b, bi, c, l) =>
             val br = impl(b).breaks(b).apply(bi)
             windowPassed = $
-            payCosts(f, breakCosts(br, l.num), |(b))
+            payCosts(f, breakCostsWith(b, breakCosts(br, l.num)), |(b), |(Spend.break(b, c)))
             state(c).brokenSubs ++= l
             log(Runner, "uses", b, "to break", l.num.hl, "subroutines on", c)
             push(EncounterAction(c))
@@ -190,7 +190,7 @@ trait RunRules { game : Game =>
         case PumpAction(f, b, pi) =>
             val p = impl(b).pumps(b).apply(pi)
             windowPassed = $
-            payCosts(f, p.costs, |(b))
+            payCosts(f, pumpCostsWith(b, p.costs), |(b), |(Spend.pump(b, run./~(_.ice))))
             val s = state(b)
             pumpDurationFor(b, p.duration) match {
                 case EncounterDuration => s.strengthEncounter += p.strength

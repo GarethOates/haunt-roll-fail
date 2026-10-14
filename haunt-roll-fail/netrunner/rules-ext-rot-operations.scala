@@ -200,7 +200,7 @@ trait RotOperationRules { game : Game =>
 
     // the affordable install destinations (None = a new remote server)
     def rotInstallTargets(c : Card, l : $[Server], allowNew : Boolean, payInstall : Boolean, rez : Int) : $[|[Server]] =
-        (l.%(servers.has)./(s => |(s) : |[Server]) ++ (allowNew && canCreateRemote).$(None : |[Server])).%(s => credits(Corp) >= rotInstallCost(c, s, payInstall, rez))
+        (l.%(servers.has)./(s => |(s) : |[Server]) ++ (allowNew && canCreateRemote).$(None : |[Server])).%(s => canSpendAll(Corp, (payInstall.??(installParts(c, s, None, 0, false)) ++ (rez == 1 && !c.data.isAgenda).$((rezCost(c), Spend.rez(c))))))
 
     // ---- game-level triggers: bookkeeping registers, currents, conditions whose host left play --------------------------
     // (called after the cards' own triggers: registers incremented here still have their old value inside card triggers)
@@ -258,7 +258,7 @@ trait RotOperationRules { game : Game =>
             NextAction
 
         case RecordTraceMarginAction =>
-            val boost = (rotTraceCredits - credits(Runner)).atLeast(0)
+            val boost = runnerTraceBoost
             rotTraceMargin = (traceStrength - (link + boost)).atLeast(0)
             log("The trace strength exceeds the link strength by", rotTraceMargin.hl)
             NextAction
@@ -279,7 +279,8 @@ trait RotOperationRules { game : Game =>
         case RotServerChosenAction(f, c, s, pay, rez, adv, source) =>
             val cost = pay.??(installCost(c, s))
             if (cost > 0) {
-                credits += Corp -> (credits(Corp) - cost).atLeast(0)
+                spendCredits(Corp, cost, Spend.install(c, s))
+                credits += Corp -> credits(Corp).atLeast(0)
                 log(Corp, "pays", cost.credits, "to install")
             }
             val then = (rez > 0 && !c.data.isAgenda).$(RezEffect(c, rez == 2)) ++ (adv > 0).$(PlaceAdvancementEffect(c, adv)) ++ source./(x => RotRecordServerAction(x, c))
@@ -293,11 +294,11 @@ trait RotOperationRules { game : Game =>
         case RotPlayEffect(c, ignore) =>
             val f = owner(c)
             val cost = playCost(c)
-            if (!location.contains(c) || zone(c).is[PlayZone] || availableCredits(f, None, "play-" + c.data.kind.toLowerCase) < cost)
+            if (!location.contains(c) || zone(c).is[PlayZone] || !canSpend(f, cost, Spend.play(c)))
                 NextAction
             else {
                 val from = zone(c)
-                payCredits(f, cost, None, "play-" + c.data.kind.toLowerCase)
+                spendCredits(f, cost, Spend.play(c))
                 moveTo(c, PlayZone(f))
                 state(c).seen = true
                 log(f, "plays", c, "(" ~ cost.credits ~ ")", from match {

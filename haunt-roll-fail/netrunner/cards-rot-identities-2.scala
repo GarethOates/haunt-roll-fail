@@ -44,7 +44,7 @@ object RotIdentityCards2 {
     object NewAngelesSol extends RH("09002") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaScored(_) | AgendaStolen(_) =>
-                val l = (g.hand(Corp) ++ g.discard(Corp)).%(c => c.data.isOperation && g.has(c, "Current") && g.impl(c).canPlay(c) && g.credits(Corp) >= g.playCost(c))
+                val l = (g.hand(Corp) ++ g.discard(Corp)).%(c => c.data.isOperation && g.has(c, "Current") && g.impl(c).canPlay(c) && g.canSpend(Corp, g.playCost(c), Spend.play(c)))
                 l.any.$(ChooseCardEffect(Corp, l, PlayPurpose(self, true, false), "New Angeles Sol: play a current from HQ or Archives?", true))
             case _ => $
         }
@@ -236,7 +236,7 @@ object RotIdentityCards2 {
     object AsaGroup extends RH("21009") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Installed(Corp, c) if firstTime(self, "asa") =>
-                val l = g.serverOf(c).$./~(s => g.hand(Corp).%(x => !x.data.isAgenda && (x.data.isIce || x.data.isUpgrade || (x.data.isAsset && s.isRemote)) && g.credits(Corp) >= g.installCost(x, |(s)))./(x => (x, s)))
+                val l = g.serverOf(c).$./~(s => g.hand(Corp).%(x => !x.data.isAgenda && (x.data.isIce || x.data.isUpgrade || (x.data.isAsset && s.isRemote)) && g.canSpend(Corp, g.installCost(x, |(s)), Spend.install(x, |(s))))./(x => (x, s)))
                 $(MarkUsedEffect(self, "asa")) ++ l.any.$(says(self, "install a card in the same server")) ++ l.any.$(ChooseCardEffect(Corp, l.map(_._1), InstallPurpose(false, g.serverOf(c)), "Asa Group: install a non-agenda card from HQ in the same server?", true))
             case _ => $
         }
@@ -402,7 +402,7 @@ object RotIdentityCards2 {
             $(Ability("gain 3 credits or draw 3 cards", click(), $(ChooseOneEffect(Corp, "Detective's Bureau: choose one", $(Alt("Gain 3 credits", $(gain(Corp, 3))), Alt("Draw 3 cards", $(draw(Corp, 3)), g.deck(Corp).num >= 3)))), click = true, ok = flipped(self), reason = "not flipped"))
         override def performRH(a : CardAction)(implicit g : Game) = a match {
             case RHBureauRezAction(self, pool) =>
-                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && !c.data.isAgenda && g.impl(c).canRez(c) && g.credits(Corp) >= (g.rezCost(c) - pool).atLeast(0))
+                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && !c.data.isAgenda && g.impl(c).canRez(c) && g.canSpend(Corp, (g.rezCost(c) - pool).atLeast(0), Spend.rez(c)))
                 if (l.any)
                     g.push(ChooseCardEffect(Corp, l, RHBureauRezPurpose(self, pool), "Cyber Bureau: rez a card (" + pool + " credits of discount left)?", true))
                 NextAction
@@ -417,7 +417,7 @@ object RotIdentityCards2 {
                 cards.single.foreach { c =>
                     val cost = g.rezCost(c)
                     val d = pool.atMost(cost)
-                    g.credits += Corp -> (g.credits(Corp) - (cost - d))
+                    g.spendCredits(Corp, cost - d, Spend.rez(c))
                     g.log(Corp, "pays", (cost - d).credits, "(" ~ d.hl ~ " less)")
                     g.push(RezEffect(c, true), RHBureauRezAction(self, pool - d))
                 }
@@ -459,7 +459,7 @@ object RotIdentityCards2 {
 
     object NBNMakingNews extends RH("25104") {
         override def recurring(self : Card)(implicit g : Game) = 2
-        override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = purpose == "trace"
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.is("trace")
     }
 
     object SparkAgency extends RH("25105") {

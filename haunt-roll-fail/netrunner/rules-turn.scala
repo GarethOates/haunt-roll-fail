@@ -112,13 +112,13 @@ trait TurnRules { game : Game =>
                         .add(ClickDrawAction(f).!(deck(f).none, "empty"))
                         .add(PlayMenuAction(f).!(hand(f).%(c => c.data.isOperation || c.data.isEvent).none, "nothing to play"))
                         .add(InstallMenuAction(f).!(hand(f).%(c => installable(c)).none, "nothing to install"))
-                        .add(f.isCorp.$(AdvanceMenuAction(f).!(credits(f) < 1 || advanceableCards.none, "nothing to advance")))
+                        .add(f.isCorp.$(AdvanceMenuAction(f).!(advanceableCards.forall(c => !canSpend(f, 1, Spend.advance(c))), "nothing to advance")))
                         .add(f.isCorp.??(scoreOptions(f)))
                         .add(f.isCorp.??(rezOptions(f, "action", None)))
-                        .add(f.isCorp.$(TrashResourceMenuAction(f).!(!tagged || credits(f) < 2 || installedCards(Runner).%(_.data.isResource).none, "Runner is not tagged")))
+                        .add(f.isCorp.$(TrashResourceMenuAction(f).!(!tagged || installedCards(Runner).%(_.data.isResource).forall(c => !canSpend(f, trashResourceCost, Spend.trashResource(c))), "Runner is not tagged")))
                         .add(f.isCorp.$(PurgeAction(f).!(n < 3, "needs 3 clicks")))
                         .add(f.isRunner.$(RunMenuAction(f)))
-                        .add(f.isRunner.$(RemoveTagAction(f).!(tags == 0 || credits(f) < 2, "not tagged")))
+                        .add(f.isRunner.$(RemoveTagAction(f).!(tags == 0 || !canSpend(f, removeTagCost, Spend.removeTag), "not tagged")))
                         .add(abilityOptions(f, "action", true))
                         .add(ConcedeAction(f))
 
@@ -149,11 +149,11 @@ trait TurnRules { game : Game =>
             NextAction
 
         case PlayMenuAction(f) =>
-            Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(availableCredits(f, None, "play-" + c.data.kind.toLowerCase) < playCost(c), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
+            Ask(f).add(hand(f).%(c => c.data.isOperation || c.data.isEvent)./(c => PlayCardAction(f, c).!(!canSpend(f, playCost(c), Spend.play(c)), "not enough credits").!(!impl(c).canPlay(c), "cannot play"))).cancel
 
         case PlayCardAction(f, c) =>
             spendClick(f)
-            payCredits(f, playCost(c), None, "play-" + c.data.kind.toLowerCase)
+            spendCredits(f, playCost(c), Spend.play(c))
             moveTo(c, PlayZone(f))
             state(c).seen = true
             impl(c).initialCounters(c).foreach { case (k, n) => addCounter(c, k, n) }
@@ -171,8 +171,8 @@ trait TurnRules { game : Game =>
             if (f.isCorp) {
                 val l = (c.data.isIce || c.data.isUpgrade).?(servers).|(remotes)
                 Ask(f)
-                    .add(l./(s => CorpInstallAction(f, c, |(s)).!(credits(f) < installCost(c, |(s)), "not enough credits")))
-                    .add(CorpInstallAction(f, c, None).!(credits(f) < installCost(c, None), "not enough credits"))
+                    .add(l./(s => CorpInstallAction(f, c, |(s)).!(!canSpend(f, installCost(c, |(s)), Spend.install(c, |(s))), "not enough credits")))
+                    .add(CorpInstallAction(f, c, None).!(!canSpend(f, installCost(c, None), Spend.install(c)), "not enough credits"))
                     .cancel
             }
             else {
@@ -181,11 +181,11 @@ trait TurnRules { game : Game =>
                 val hosts = impl(c).mustBeHosted(c).?(allIce.%(h => impl(c).hostRequirement(c, h))).|($)
                 val trashOptions = (c.data.isProgram && memoryFree < mu).??(installedCards(Runner).%(isProgram).%(p => memoryFree + p.data.memory.|(0) >= mu))
                 if (impl(c).mustBeHosted(c))
-                    Ask(f).add(hosts./(h => RunnerInstallAction(f, c, |(h), None).!(credits(f) < cost, "not enough credits"))).cancel
+                    Ask(f).add(hosts./(h => RunnerInstallAction(f, c, |(h), None).!(!canSpend(f, cost, Spend.install(c, None, |(h))), "not enough credits"))).cancel
                 else if (c.data.isProgram && memoryFree < mu)
-                    Ask(f).add(trashOptions./(p => RunnerInstallAction(f, c, None, |(p)).!(credits(f) < cost, "not enough credits"))).cancel
+                    Ask(f).add(trashOptions./(p => RunnerInstallAction(f, c, None, |(p)).!(!canSpend(f, cost, Spend.install(c)), "not enough credits"))).cancel
                 else
-                    Ask(f).add(RunnerInstallAction(f, c, None, None).!(credits(f) < cost, "not enough credits")).add(installedCards(Runner).%(h => isActive(h) && impl(h).canHost(h, c))./(h => RunnerInstallAction(f, c, |(h), None).!(credits(f) < cost, "not enough credits"))).cancel
+                    Ask(f).add(RunnerInstallAction(f, c, None, None).!(!canSpend(f, cost, Spend.install(c)), "not enough credits")).add(installedCards(Runner).%(h => isActive(h) && impl(h).canHost(h, c))./(h => RunnerInstallAction(f, c, |(h), None).!(!canSpend(f, hostedInstallCost(c, |(h)), Spend.install(c, None, |(h))), "not enough credits"))).cancel
             }
 
         case CorpInstallAction(f, c, s) =>
@@ -202,11 +202,11 @@ trait TurnRules { game : Game =>
             NextAction
 
         case AdvanceMenuAction(f) =>
-            Ask(f).add(advanceableCards./(c => AdvanceAction(f, c))).cancel
+            Ask(f).add(advanceableCards./(c => AdvanceAction(f, c).!(!canSpend(f, 1, Spend.advance(c)), "not enough credits"))).cancel
 
         case AdvanceAction(f, c) =>
             spendClick(f)
-            credits += f -> (credits(f) - 1)
+            spendCredits(f, 1, Spend.advance(c))
             addCounter(c, "advancement", 1)
             log(f, "advances", hiddenCorpElem(c))
             regInc("advanced")
@@ -226,12 +226,13 @@ trait TurnRules { game : Game =>
             NextAction
 
         case TrashResourceMenuAction(f) =>
-            Ask(f).add(installedCards(Runner).%(_.data.isResource)./(c => TrashResourceAction(f, c))).cancel
+            Ask(f).add(installedCards(Runner).%(_.data.isResource)./(c => TrashResourceAction(f, c).!(!canSpend(f, trashResourceCost, Spend.trashResource(c)), "not enough credits"))).cancel
 
         case TrashResourceAction(f, c) =>
             spendClick(f)
-            credits += f -> (credits(f) - 2)
-            log(f, "pays", 2.credits, "to trash a resource")
+            val cost = trashResourceCost
+            spendCredits(f, cost, Spend.trashResource(c))
+            log(f, "pays", cost.credits, "to trash a resource")
             push(ActionPhaseAction(f))
             trashCard(c, f, false)
             trigger(ActionTaken(f, "trash-resource"))
@@ -244,7 +245,7 @@ trait TurnRules { game : Game =>
             NextAction
 
         case RunMenuAction(f) =>
-            Ask(f).add(servers.%(canRunOn)./(s => RunAction(f, s).!(!canPay(f, runCosts(s), None), "cannot pay the additional cost"))).cancel
+            Ask(f).add(servers.%(canRunOn)./(s => RunAction(f, s).!(!canPay(f, runCosts(s), None, |(Spend.run(s))), "cannot pay the additional cost"))).cancel
 
         case RunAction(f, s) =>
             spendClick(f)
@@ -254,9 +255,10 @@ trait TurnRules { game : Game =>
 
         case RemoveTagAction(f) =>
             spendClick(f)
-            credits += f -> (credits(f) - 2)
+            val cost = removeTagCost
+            spendCredits(f, cost, Spend.removeTag)
             tags -= 1
-            log(f, "pays", 2.credits, "to remove a tag")
+            log(f, "pays", cost.credits, "to remove a tag")
             push(ActionPhaseAction(f))
             trigger(TagsRemoved(1))
             trigger(ActionTaken(f, "remove-tag"))
@@ -346,7 +348,7 @@ trait TurnRules { game : Game =>
     def canScoreNow(kind : String) : Boolean = active.isCorp && run.none && (kind == "action" || kind == "turn-start" || kind == "turn-begins")
 
     def rezOptions(f : Faction, ctx : String, approached : |[Card]) : $[UserAction] =
-        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isAgenda && impl(c).canRezIn(c, ctx).|(!c.data.isIce)) ++ approached.$).distinct./(c => RezAction(f, c, ctx).!(credits(Corp) < rezCost(c), "not enough credits").!(!impl(c).canRez(c), "cannot rez").!(usedThisTurn(c, "cannot-rez"), "cannot rez this turn"))
+        (installedCards(Corp).%(c => !isRezzed(c) && !c.data.isAgenda && impl(c).canRezIn(c, ctx).|(!c.data.isIce)) ++ approached.$).distinct./(c => RezAction(f, c, ctx).!(!canSpend(Corp, rezCost(c), Spend.rez(c)), "not enough credits").!(!impl(c).canRez(c), "cannot rez").!(usedThisTurn(c, "cannot-rez"), "cannot rez this turn"))
 
     def reask(ctx : String) : ForcedAction = ctx match {
         case "action" => ActionPhaseAction(active)

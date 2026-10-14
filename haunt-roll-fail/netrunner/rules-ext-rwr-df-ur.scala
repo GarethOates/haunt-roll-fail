@@ -122,7 +122,7 @@ trait RWRRules { game : Game =>
 
     def canAffordInstall(c : Card, discount : Int) : Boolean = {
         val mu = c.data.isProgram.??(c.data.memory.|(0))
-        credits(Runner) >= (installCost(c, None) - discount).atLeast(0) && (!c.data.isProgram || memoryFree >= mu || installedCards(Runner).%(isProgram).any)
+        canSpend(Runner, (installCost(c, None) - discount).atLeast(0), Spend.install(c)) && (!c.data.isProgram || memoryFree >= mu || installedCards(Runner).%(isProgram).any)
     }
 
     // install a runner card from any zone, handling trojans (choose host) and MU (not enforced beyond the generic install)
@@ -185,7 +185,7 @@ trait RWRRules { game : Game =>
             else {
                 val cost = (installCost(c, None) - d).atLeast(0)
                 if (cost > 0) {
-                    payCredits(Runner, cost, None)
+                    spendCredits(Runner, cost, Spend.install(c, None, h))
                     log(Runner, "pays", cost.credits)
                 }
                 push(RunnerInstallEffect(c, h, true))
@@ -197,9 +197,10 @@ trait RWRRules { game : Game =>
                 NextAction
             else {
                 val s : Server = so.|(newRemote())
-                val cost = (installCost(c, |(s)) + rez.??(rezCost(c)) - d).atLeast(0)
+                val parts = installParts(c, |(s), None, d, rez)
+                val cost = parts.map(_._1).sum
                 if (cost > 0) {
-                    credits += Corp -> (credits(Corp) - cost)
+                    spendAll(Corp, parts)
                     log(Corp, "pays", cost.credits)
                 }
                 if (rez)
@@ -294,10 +295,10 @@ trait RWRRules { game : Game =>
 
         case PlayFreeEffect(c) =>
             val f = owner(c)
-            if (!zone(c).is[HandZone] || credits(f) < playCost(c) || !impl(c).canPlay(c))
+            if (!zone(c).is[HandZone] || !canSpend(f, playCost(c), Spend.play(c)) || !impl(c).canPlay(c))
                 NextAction
             else {
-                payCredits(f, playCost(c), None)
+                spendCredits(f, playCost(c), Spend.play(c))
                 moveTo(c, PlayZone(f))
                 state(c).seen = true
                 impl(c).initialCounters(c).foreach { case (k, n) => addCounter(c, k, n) }

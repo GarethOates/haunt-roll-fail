@@ -34,19 +34,18 @@ everything else). For those actions it runs the rest of the chain through `rhInn
 `performInternal(a, NoVoid)` with a re-entrancy guard (`rhInner`). That keeps it independent of how the chain is composed
 after a merge, and it then adjusts the result. The intercepted actions are:
 
-* `EncounterAction` (break/pump options greyed "cannot pay" are re-enabled when credits usable for that breaker cover the cost;
-  rez restrictions), `BreakSubAction` / `BreakSubsAction` / `PumpAction` / Runner `UseAbilityAction` on icebreakers (set
-  `rhPayingFor` during the payment);
+* `EncounterAction` (rez restrictions; icebreaker credits are now ordinary credit sources of `rules-ext-credits.scala`, so the
+  break / pump options and their payment need no interception any more);
 * `UseAbilityAction` / `PreventUseAction` of the Runner (fires `RHTrashAbilityUsed` for [trash] abilities, used by Geist);
 * `InstallWhereAction(Runner, c)` (mods that must be hosted on an icebreaker; extra hosting options on cards that host
   programs without MU), `InstallMenuAction(Runner)` (Apex's restriction, mods without a host),
   `RunnerInstallEffect` (records the zone the card came from: Exile, Autoscripter);
 * `RezAction` / `RezEffect` / `ActionPhaseAction` / `PaidWindowAction` / `RezMenuAction`, only while a rez restriction
-  flag exists (Cortez Chip surcharge, Saraswati "cannot rez", EMP Device) or SYNC is in play;
+  flag exists (Cortez Chip surcharge, Saraswati "cannot rez", EMP Device);
 * `CheckWinAction` (only while a card modifies the agenda points needed: Harmony Medtech, draft identities);
-* `RemoveTagAction` / `TrashResourceAction` (SYNC), `AdvanceAction` on ice (Weyland: Because We Built It),
-  `TraceCorpBoostAction` / `TraceCorpAction` (NBN: Making News), `TraceRunnerAction` (fires `RHTraceResolved`, used by Spinal Modem),
-  `PsiResolveAction` (fires `RHPsiRevealed`, used by Nisei Division);
+* `TraceRunnerAction` (fires `RHTraceResolved`, used by Spinal Modem), `PsiResolveAction` (fires `RHPsiRevealed`, used by Nisei
+  Division). (SYNC's remove-tag / trash-resource costs are `Game.removeTagCost` / `trashResourceCost`, Weyland BWBI's and Making
+  News' credits are credit sources: the credits pass removed those interceptions.)
 * `DamageApplyEffect` (damage choice: Titanium Ribs, Chronos Protocol), `TagsEffect` (automatic tag avoidance: Jesminder,
   Dorm Computer, Qianju PT), `AccessDoneAction` ("after accessing a card": Maya, Maw), `MulliganAction` (Andromeda, Cyber Bureau).
 
@@ -75,10 +74,10 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
 
 ## Simplifications
 
-* **Recurring / restricted credits.** Icebreaker-only credits (Toolbox, Lockpick, Silencer, Dyson Fractal Generator, Spinal
-  Modem, Cyberfeeder, Omni-drive, Flame-out, Ele "Smoke") are exact for break / pump / breaker abilities. Install-only and
-  play-only credits (Cybsoft MacroDrive, Cyberfeeder's virus installs, Public Terminal) are a 1-credit discount that consumes the
-  hosted credit. Weyland BWBI's credit is spent automatically when advancing ice. Māui's credits pay for anything during HQ runs.
+* **Recurring / restricted credits** are credit sources of `rules-ext-credits.scala` (`RH.paysFor`: icebreaker credits of Toolbox,
+  Lockpick, Silencer, Dyson Fractal Generator, Spinal Modem, Cyberfeeder, Omni-drive, Flame-out, Ele "Smoke"; install / play credits
+  of Cybsoft MacroDrive, Cyberfeeder, Public Terminal; Weyland BWBI's advance credit; Whizzard's trash credits; Making News' trace
+  credits). Māui's credits pay for anything during HQ runs (the printed text).
   Patchwork is a once-per-turn ability (trash 1 grip card: the next play/install this turn costs 2 less), not an interrupt.
 * **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3).
   Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size, but the limit is only

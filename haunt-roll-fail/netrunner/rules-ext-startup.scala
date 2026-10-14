@@ -185,11 +185,11 @@ case class PlayCardEffect(f : Faction, card : Card, payCost : Boolean, rfg : Boo
             NextAction
         else {
             val cost = payCost.?(g.playCost(c)).|(0)
-            if (cost > g.credits(f))
+            if (!g.canSpend(f, cost, Spend.play(c)))
                 NextAction
             else {
                 val from = g.zone(c)
-                g.payCredits(f, cost, None)
+                g.spendCredits(f, cost, Spend.play(c))
                 g.playedFrom += c -> from
                 g.moveTo(c, PlayZone(f))
                 g.state(c).seen = true
@@ -341,8 +341,8 @@ case class DiscountRezEffect(card : Card, discount : Int) extends ForcedAction w
     def perform(soft : Void)(implicit g : Game) = {
         if (!g.isRezzed(card) && g.isInstalled(card)) {
             val cost = (g.rezCost(card) - discount).atLeast(0)
-            if (g.credits(Corp) >= cost) {
-                g.credits += Corp -> (g.credits(Corp) - cost)
+            if (g.canSpend(Corp, cost, Spend.rez(card))) {
+                g.spendCredits(Corp, cost, Spend.rez(card))
                 g.log(Corp, "pays", cost.credits, "(" ~ discount.hl ~ " less)")
                 g.push(RezEffect(card, true))
             }
@@ -451,7 +451,7 @@ abstract class Startup(val code : String) extends CardImpl {
         val cost = (g.installCost(c, None) - discount).atLeast(0)
         val mu = c.data.isProgram.??(c.data.memory.|(0))
         val hosts = g.impl(c).mustBeHosted(c).?(g.allIce.%(h => g.impl(c).hostRequirement(c, h))).|($(c))
-        ok && g.credits(Runner) >= cost && (!c.data.isProgram || g.memoryFree >= mu) && hosts.any
+        ok && g.canSpend(Runner, cost, Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= mu) && hosts.any
     }
 
     def runnerInstallable(l : $[Card], discount : Int)(implicit g : Game) = l.%(c => runnerCanInstall(c, discount))
@@ -515,10 +515,7 @@ object StartupExt {
                 |(NextAction)
             else {
                 val cost = (g.installCost(c, server) - discount).atLeast(0)
-                if (f.isCorp)
-                    g.credits += Corp -> (g.credits(Corp) - cost)
-                else
-                    g.payCredits(Runner, cost, None)
+                g.spendCredits(f, cost, Spend.install(c, server, host))
                 g.log(f, "pays", cost.credits, "(" ~ discount.hl ~ " less)")
                 g.pushAll(impl.onLoopInstall(self, c))
                 if (f.isCorp)
@@ -530,7 +527,7 @@ object StartupExt {
 
         case DiscountInstallPayAction(self, target, discount) =>
             val cost = (g.installCost(target, None) - discount).atLeast(0)
-            g.payCredits(Runner, cost, None)
+            g.spendCredits(Runner, cost, Spend.install(target))
             g.log(Runner, "pays", cost.credits, "(" ~ discount.hl ~ " less)")
             |(NextAction)
 
@@ -575,7 +572,7 @@ object StartupExt {
                     }
                     else {
                         g.trashCost(c) match {
-                            case Some(tc) if g.credits(Runner) >= tc && !g.accessProtected(c) =>
+                            case Some(tc) if g.canSpend(Runner, tc, Spend.trash(c)) && !g.accessProtected(c) =>
                                 g.push(OptionalEffect(Runner, "Pay " + tc + " credits to trash the accessed card?", $(OutsideAccessTrashAction(self, c)), $))
                             case _ =>
                         }
@@ -588,7 +585,7 @@ object StartupExt {
         case OutsideAccessTrashAction(self, c) =>
             if (g.zone(c) == HandZone(Corp)) {
                 val tc = g.trashCost(c).|(0)
-                g.payCredits(Runner, tc, None)
+                g.spendCredits(Runner, tc, Spend.trash(c))
                 g.log(Runner, "pays", tc.credits, "to trash", c)
                 g.trashCard(c, Runner, true)
             }

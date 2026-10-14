@@ -249,7 +249,7 @@ object RotOperationCardsA {
 
     object AcceleratedDiagnostics extends RotOp("04052") {
         override def effects(self : Card)(implicit g : Game) = $(ADStartAction(self))
-        def playable(c : Card)(implicit g : Game) = c.data.isOperation && g.zone(c) == DeckZone(Corp) && g.availableCredits(Corp, None, "play-operation") >= g.playCost(c) && (g.has(c, "Double") || g.has(c, "Triple") || g.impl(c).canPlay(c))
+        def playable(c : Card)(implicit g : Game) = c.data.isOperation && g.zone(c) == DeckZone(Corp) && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && (g.has(c, "Double") || g.has(c, "Triple") || g.impl(c).canPlay(c))
         override def performOp(a : CardAction)(implicit g : Game) = a match {
             case ADStartAction(self) =>
                 val top = g.deck(Corp).take(3)
@@ -780,7 +780,7 @@ object RotOperationCardsA {
         override def effects(self : Card)(implicit g : Game) = $(ConsultingAction(self))
         override def performOp(a : CardAction)(implicit g : Game) = a match {
             case ConsultingAction(self) =>
-                val l = g.deck(Corp).%(c => c.data.isOperation && g.availableCredits(Corp, None, "play-operation") >= g.playCost(c) && g.impl(c).canPlay(c)).distinctBy(_.title).sortBy(_.title)
+                val l = g.deck(Corp).%(c => c.data.isOperation && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c)).distinctBy(_.title).sortBy(_.title)
                 if (l.any)
                     g.push(ChooseCardEffect(Corp, l, ConsultingPurpose(self), "Consulting Visit: choose an operation in R&D to play", true), ConsultingShuffleAction(self))
                 else
@@ -827,7 +827,7 @@ object RotOperationCardsA {
     }
 
     object Subcontract extends RotOp("10113") {
-        def ops(self : Card)(implicit g : Game) = g.hand(Corp).%(c => c != self && c.data.isOperation && g.availableCredits(Corp, None, "play-operation") >= g.playCost(c) && g.impl(c).canPlay(c))
+        def ops(self : Card)(implicit g : Game) = g.hand(Corp).%(c => c != self && c.data.isOperation && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c))
         override def playReq(self : Card)(implicit g : Game) = g.tagged && g.hand(Corp).exists(c => c != self && c.data.isOperation)
         override def effects(self : Card)(implicit g : Game) = $(SubcontractStepAction(self, 1))
         override def performOp(a : CardAction)(implicit g : Game) = a match {

@@ -9,18 +9,18 @@ Behaviour ported from `netrunner-src/src/clj/game/cards/*.clj`; the Startup form
 ### Elevation — 82/82 implemented (approximations marked *)
 Runner: Ryō "Phoenix" Ōno, Topan, Charm Offensive, Scrounge, Shred, Bling*, Gourmand, Hantu, Rising Tide, Cacophony, Rent Rioters,
 Barry "Baz" Wong, MuslihaT, Clean Getaway, Lie Low, Maintenance Access, Transfer of Wealth, Detente*, Maglectric Rapid, Sang Kancil,
-Fransofia Ward, Open Market*, Dewi Subrotoputri, Magdalene Keino-Chemutai, Illumination, Ritual, GAMEDRAGON Pro, Madani, Azimat*,
+Fransofia Ward, Open Market, Dewi Subrotoputri, Magdalene Keino-Chemutai, Illumination, Ritual, GAMEDRAGON Pro, Madani, Azimat,
 Chromatophores, Devadatta Drone, Principia, "Knickknack" O'Brian, Side Hustle.
 Corp: LEO Construction, Poétrï Luxury Brands, Aggressive Trendsetting, Project Ingatan, Humanoid Resources, Otto Campaign, Bumi 1.0,
 Scatter Field, Nanomanagement, Top-Down Solutions, Mercia B4LL4RD, AU Co., PT Untaian, Proprionegation, Sericulture Expansion, Byte!,
 Phật Gioan Baotixita, Empiricist, Mycoweb, Semak-samun, Peer Review, Mitra Aman, Nebula Talent Management, Synapse Global,
 Embedded Reporting, Next Big Thing, Idiosyncresis, Public Access Plaza*, Doomscroll, N-Pot, Bigger Picture, IP Enforcement*, Touch-ups,
 BANGUN, The Zwicky Group*, Greenmail, Off the Books, Anthill Excavation Contract, Plutus*, Biawak*, Kessleroid, Syailendra,
-Key Performance Indicators, Measured Response, Flyswatter, Lamplighter, Petty Cash*, Mahkota Langit Grid*.
+Key Performance Indicators, Measured Response, Flyswatter, Lamplighter, Petty Cash*, Mahkota Langit Grid.
 
 ### Vantage Point — 66/66 implemented (approximations marked *)
-Runner: Chain Reaction, Take a Dive, The Tungsten Tailor, Corsair*, Lampades*, Hackerspace*, Nurse Hạnh, Stick and Poke*, Vic,
-Kompromat, Sell Out, Tailgate, Borrowed Goods, Rotary, Baker*, Underdome Irregulars, Hiram Svensson, Aircheck*, Beta Build,
+Runner: Chain Reaction, Take a Dive, The Tungsten Tailor, Corsair, Lampades, Hackerspace, Nurse Hạnh, Stick and Poke*, Vic,
+Kompromat, Sell Out, Tailgate, Borrowed Goods, Rotary, Baker, Underdome Irregulars, Hiram Svensson, Aircheck, Beta Build,
 Methuselah, Touchstone, Read-Write Share, Sipa, Stowaway, Word on the Street*.
 Corp: Méliès City Luxury Line, Synchrocyclotron, Ansel 2.0, Reverb, Sleipnir, Vertigo, Caveat Emptor, realloc(), Retirement Plan,
 Perfect Recall*, Méliès U*, Lotus Haze, Esca, ezaM, Knowledge Seeker, Lionsmane, Vicsek, Cultivate, Unleash, The Red Room*,
@@ -31,18 +31,15 @@ Flagship*, Shackleton Grid, Let Them Dream.
 Nothing is left unimplemented.
 
 ## Simplifications / approximations
-* Stealth credits ("spend credits only from stealth cards": Corsair, Lampades, Baker): the ability requires enough hosted credits on
-  stealth cards (Methuselah, Touchstone, Aircheck) but payment goes through the normal run-credit path (stealth sources first).
-  Aircheck does not forbid spending/losing credits from the pool.
+* (Fixed in the credits pass, see `STATUS-fix-credits.md`: stealth-only costs of Corsair, Lampades, Baker; Aircheck's "cannot lose or
+  spend credits from your credit pool"; Open Market, Mahkota Langit Grid and Azimat credits spent as credit sources; Hackerspace's
+  discount only for resources installed onto it.)
 * Stick and Poke: the ice does not literally gain a subroutine; on the first encounter each turn the Runner chooses between
   "break it with a matching icebreaker (1 credit)" (offered only if an installed breaker of the right type has enough strength) and
   letting it resolve (1 net damage, draw 1).
 * Biawak: whenever the Corp has a scored agenda the rez costs 10 less and an agenda must be forfeited (the choice to pay 14 instead is
   not offered). Plutus: if neither additional cost can be paid the asset is derezzed again after rezzing.
-* Open Market / Mahkota Langit Grid: hosted credits reduce the install/rez cost by the hosted amount and the counters are removed when
-  the card is installed/rezzed (instead of being spent explicitly). Azimat offers a separate access ability to pay a trash cost with its
-  credits. Hackerspace gives its 1 credit discount to all unique connection/companion resources (not only hosted ones); hosting on it is
-  offered in the install menu (`canHost` hook).
+* Hackerspace: hosting on it is offered in the install menu (`canHost` hook).
 * Bling: "install without spending credits" = install cost 0 at the time of install. Hosted (not installed) cards (Bling, Madani,
   Detente, Read-Write Share) live in a new `StashZone(host)` which the UI does not render yet.
 * Detente's outside-of-run access is a reduced access (steal / pay to trash / on-access abilities, no access-abilities of other cards).

@@ -69,8 +69,8 @@ trait RotEventRules { game : Game =>
         case RezAction(_, c, _) if !c.data.isIce && currentActive("08021") && hand(Corp).none => a.!(true, "Hacktivist Meeting: no card in HQ to trash")
         case AdvanceMenuAction(_) if hasFlag("no-advance") => a.!(true, "cannot advance cards this turn")
         case AdvanceAction(_, _) if hasFlag("no-advance") => a.!(true, "cannot advance cards this turn")
-        case AdvanceMenuAction(_) if currentActive("14009") && credits(Corp) < 2 => a.!(true, "Security Leak: advancing costs 1 more")
-        case AdvanceAction(_, _) if currentActive("14009") && credits(Corp) < 2 => a.!(true, "Security Leak: advancing costs 1 more")
+        case AdvanceMenuAction(_) if currentActive("14009") && advanceableCards.forall(c => !canSpend(Corp, 2, Spend.advance(c))) => a.!(true, "Security Leak: advancing costs 1 more")
+        case AdvanceAction(_, c) if currentActive("14009") && !canSpend(Corp, 2, Spend.advance(c)) => a.!(true, "Security Leak: advancing costs 1 more")
         case InstallWhereAction(_, c) if c.data.isIce && iceInstallBlocked => a.!(true, "Unscheduled Maintenance: only 1 ice per turn")
         case CorpInstallAction(_, c, _) if c.data.isIce && iceInstallBlocked => a.!(true, "Unscheduled Maintenance: only 1 ice per turn")
         case RunAction(_, s) if runBlocked(s) => a.!(true, "cannot run this server this turn")
@@ -136,7 +136,7 @@ trait RotEventRules { game : Game =>
             r
         // Security Leak: advancing costs 1 more
         case a : AdvanceAction if currentActive("14009") =>
-            credits += Corp -> (credits(Corp) - 1)
+            spendCredits(Corp, 1, Spend.advance(a.card))
             log(Corp, "pays", 1.credits, "more to advance (Security Leak)")
             performPHTAI(a)
         // Data Breach / Mobius: run R&D again after the run is cleaned up, keeping the event in play

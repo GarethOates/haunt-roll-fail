@@ -372,7 +372,7 @@ object RotAssetCardsB {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RAQuarantineRezAction(self, d, k) =>
-                val l = g.allIce.%(i => !g.isRezzed(i) && g.impl(i).canRez(i) && g.credits(Corp) >= (g.rezCost(i) - d).atLeast(0))
+                val l = g.allIce.%(i => !g.isRezzed(i) && g.impl(i).canRez(i) && g.canSpend(Corp, (g.rezCost(i) - d).atLeast(0), Spend.rez(i)))
                 if (k > 0 && l.any)
                     g.push(ChooseCardEffect(Corp, l, RAQuarantineRezPurpose(self, d, k), "Quarantine System: rez a piece of ice paying " + d + " credits less?", true))
                 NextAction
@@ -394,7 +394,7 @@ object RotAssetCardsB {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RAClydeAction(self) =>
                 g.push(ChooseOneEffect(Runner, "Clyde Van Rite: pay 1 credit or trash the top card of the stack", $(
-                    Alt("Pay 1 credit", $(LoseCreditsEffect(Runner, 1)), g.credits(Runner) >= 1),
+                    Alt("Pay 1 credit", $(SpendEffect(Runner, 1, Spend.corpAbility, 0, $)), g.canSpend(Runner, 1, Spend.corpAbility)),
                     Alt("Trash the top card of the stack", $(MillEffect(Runner, 1)), g.deck(Runner).any || g.credits(Runner) < 1))))
                 NextAction
         }
