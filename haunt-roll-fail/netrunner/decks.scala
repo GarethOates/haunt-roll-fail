@@ -249,7 +249,7 @@ object Decks {
             "31027" -> 3, "31028" -> 2, "31029" -> 2, "31033" -> 1, "31030" -> 1, "31035" -> 1, "31036" -> 2, "27003" -> 2, "33022" -> 2,
             "31037" -> 3, "30030" -> 3, "31008" -> 2,
         )),
-    ) ++ StartupDecks.presets ++ PHTAIDecks.presets ++ ExtDecks.presets ++ RotIceDecks.presets ++ RotProgramDecks.presets
+    ) ++ StartupDecks.presets ++ PHTAIDecks.presets ++ ExtDecks.presets ++ RotIceDecks.presets ++ RotProgramDecks.presets ++ RotResourceDecks.presets
 
     def validate(f : Faction, codes : $[String]) : DeckCheck = {
         val unknown = codes.%(c => Cards.get(c).none)
