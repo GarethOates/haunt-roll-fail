@@ -95,18 +95,15 @@ If another worktree also overrides one of these, both compose as long as each ca
   requires 1 credit in the pool). Net Police refills to the current link at the start of the Corp's turn.
 * Broadcast Square resolves its trace when the bad publicity would be taken; on failure the bad publicity is taken normally (no
   separate "prevent" window).
-* Director Haas / Victoria Jenkins: +1 / −1 allotted click applied as next-turn clicks at the end of the opponent's / own turn
-  (`ExtraClicksEffect`); MCA Austerity Policy's "lose [click] when the Runner's next turn begins" is a −1 allotted click.
-* Mark Yale gains for agenda counters spent through a scored agenda's ability (the first ability with an agenda counter cost is
-  assumed) and through its own ability.
-* Jeeves Model Bioroids counts clicks per action kind via `onActionTaken` (basic actions 1 click, purge 3, click abilities their
-  click cost); double operations count 1.
-* Sundew: "the first time the Runner spends [click]" = first click action (or click-played event) of the Runner's turn; the
-  2-credit payment applies when the first run of the turn on its server starts during that first action.
+* (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: Director Haas / Victoria Jenkins change the allotted clicks while
+  active (`clicksPerTurn`); MCA Austerity Policy makes the Runner lose [click] when their next turn begins; Mark Yale gains for
+  every agenda counter spent (`AgendaCounterSpent`); Jeeves Model Bioroids sums the clicks spent per action (`ClicksSpent`, a
+  double operation spends 2); Sundew reacts to the first click spent (any action, ability or bioroid break) and to a run on its
+  server beginning during that action; Ibrahim Salem's forfeit is not asked when rezzed ignoring all costs.)
 * Genetics Pavilion caps draws at 2 per Runner turn ignoring draw bonuses; Blacklist blocks the generic effects/purposes only (a
   card-specific `moveTo` out of the heap is not intercepted). The News Now Hour greys current events in the play menu only.
 * Warden Fatuma, Lt. Todachine 2 (−1 access on HQ/R&D only while tagged, never below 1), Ibrahim Salem (forfeit as an on-rez
-  effect; still asked when rezzed ignoring costs), Lakshmi Smartfabrics (protection lasts while Lakshmi is active this turn),
+  effect), Lakshmi Smartfabrics (protection lasts while Lakshmi is active this turn),
   IT Department (strength bonus fixed at use time), Full Immersion RecStudio (trash cost bonus only while rezzed), Bioroid Work
   Crew (usable in the Corp's turn, like jinteki), Mumbad Construction Co. (moves to rezzed Corp cards only), Toshiyuki Sakai (no
   install event for the swapped card), Trojan follows jinteki (the Corp loses 2 credits).

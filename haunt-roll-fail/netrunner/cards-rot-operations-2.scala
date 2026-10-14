@@ -70,7 +70,7 @@ object RotOperationCardsB {
     object WetworkRefit extends RotCondition("11071") {
         override def candidates(self : Card)(implicit g : Game) = g.rezzedIce.%(c => g.has(c, "Bioroid"))
         override def hostPrompt = "Wetwork Refit: choose a rezzed piece of bioroid ice"
-        override def extraSubroutines(self : Card, ice : Card)(implicit g : Game) = hosting(self, ice).$(Sub("Do 1 core damage (Wetwork Refit)", DamageEffect("core", 1)))
+        def sub = Sub("Do 1 core damage (Wetwork Refit)", DamageEffect("core", 1))
     }
 
     object HastyRelocation extends RotOp("11074") {
@@ -142,7 +142,7 @@ object RotOperationCardsB {
     }
 
     object LoadTesting extends RotOp("12031") {
-        override def effects(self : Card)(implicit g : Game) = $(ExtraClicksEffect(Runner, -1))
+        override def effects(self : Card)(implicit g : Game) = $(FxLoseClicksAtTurnBeginsEffect(Runner, 1))
     }
 
     object Replanting extends RotOp("12033") {
@@ -362,7 +362,7 @@ object RotOperationCardsB {
 
     object HunterSeeker extends RotOp("13051") {
         override def playReq(self : Card)(implicit g : Game) = g.regLast("stolen") > 0
-        override def effects(self : Card)(implicit g : Game) = trashOne(runnerCards, "Hunter Seeker: choose an installed card to trash")
+        override def effects(self : Card)(implicit g : Game) = trashOne(runnerCards ++ g.installedCards(Corp), "Hunter Seeker: choose an installed card to trash")
     }
 
     object NetWatchlist extends RotOp("14023") {

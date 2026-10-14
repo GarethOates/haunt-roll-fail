@@ -135,6 +135,8 @@ abstract class RI(code : String) extends NC(code) {
 case class RotSubAction(card : Card, k : Int) extends CardAction
 case class RotIcePurpose(card : Card, k : Int) extends CardPurpose
 case class RotServerAction(card : Card, server : Server, k : Int) extends CardAction
+case class RotGrailPlaceAction(card : Card, codes : $[String]) extends CardAction
+case class RotGrailAddAction(card : Card, code : String, front : Boolean) extends CardAction
 
 
 object RotIceCards {

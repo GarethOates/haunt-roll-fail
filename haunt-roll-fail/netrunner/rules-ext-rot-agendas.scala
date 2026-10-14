@@ -447,7 +447,7 @@ abstract class RAg(code : String) extends Startup(code) {
     def onArchivesAccess(self : Card)(implicit g : Game) : $[ForcedAction] = $                        // access ability that also applies in Archives
 
     // ---- helpers ----------------------------------------------------------------------------------------------------------
-    def corpScored(self : Card)(implicit g : Game) = g.zone(self) == ScoredZone(Corp)
+    def corpScored(self : Card)(implicit g : Game) = g.zone(self) == ScoredZone(Corp) || (self.code == "09021" && g.zone(self) == PlayZone(Corp))
 
     def scoredAnywhere(self : Card)(implicit g : Game) = g.zone(self).is[ScoredZone]
 

@@ -130,10 +130,7 @@ object RotAssetCardsA {
     object DirectorHaas extends RA("03010") {
         override def executive = true
         override def asAgendaPoints = 2
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnEnds(Runner) => $(ExtraClicksEffect(Corp, 1))
-            case _ => $
-        }
+        override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = f.isCorp.?(1).|(0)
     }
 
     object HaasArcologyAI extends RA("03011") {
@@ -431,16 +428,14 @@ object RotAssetCardsA {
     object MarkYale extends RA("07009") {
         def withCounters(implicit g : Game) = g.scored(Corp).%(c => g.counter(c, "agenda") > 0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case AbilityUsed(Corp, c, _) if g.zone(c) == ScoredZone(Corp) =>
-                val n = g.impl(c).abilities(c)./~(_.costs.of[CounterCost].%(_.kind == "agenda")./(_.n)).starting.|(0)
-                (n > 0).$(MessageEffect(Corp, "gains " + n + " credits for spending agenda counters (Mark Yale)"), gain(Corp, n))
+            case AgendaCounterSpent(_, n) if n > 0 => $(MessageEffect(Corp, "gains " + n + " credit" + (n != 1).??("s") + " for spending agenda counters (Mark Yale)"), gain(Corp, n))
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = $(
             Ability("gain 2 credits", $(TrashSelfCost), $(gain(Corp, 2))),
             Ability("spend an agenda counter to gain 2 credits", $, $(ChooseCardEffect(Corp, withCounters, RAMarkYalePurpose(self), "Mark Yale: choose an agenda to remove an agenda counter from", false)), ok = withCounters.any, reason = "no agenda counters"))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.single.foreach(c => g.push(AddCounterEffect(c, "agenda", -1), gain(Corp, 2), MessageEffect(Corp, "gains 1 credit for spending an agenda counter (Mark Yale)"), gain(Corp, 1)))
+            cards.single.foreach(c => g.push(AddCounterEffect(c, "agenda", -1), gain(Corp, 2)))
             NextAction
         }
     }
@@ -671,10 +666,7 @@ object RotAssetCardsA {
     object VictoriaJenkins extends RA("09011") {
         override def executive = true
         override def asAgendaPoints = 2
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnEnds(Corp) => $(ExtraClicksEffect(Runner, -1))
-            case _ => $
-        }
+        override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = f.isRunner.?(-1).|(0)
     }
 
     object RealityThreedee extends RA("09012") {

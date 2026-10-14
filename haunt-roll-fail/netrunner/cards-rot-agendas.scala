@@ -96,10 +96,7 @@ object RotAgendaCards {
 
     object MandatoryUpgrades extends RAg("02011") {
         override def onScore(self : Card)(implicit g : Game) = g.active.isCorp.$(MessageEffect(Corp, "gains 1 additional click per turn from Mandatory Upgrades"), GainClicksEffect(Corp, 1))
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Corp) if corpScored(self) => $(MessageEffect(Corp, "uses Mandatory Upgrades"), GainClicksEffect(Corp, 1))
-            case _ => $
-        }
+        override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = (f.isCorp && corpScored(self)).?(1).|(0)
     }
 
     object RestructuredDatapool extends RAg("02016") {
@@ -464,7 +461,7 @@ object RotAgendaCards {
 
     object ImprovedTracers extends RAg("09005") {
         override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = (corpScored(self) && g.has(ice, "Tracer")).?(1).|(0)
-        override def traceBonus(self : Card)(implicit g : Game) = (corpScored(self) && g.run.exists(r => !r.ended && r.phase == EncounterPhase)).?(1).|(0)
+        override def traceBonus(self : Card)(implicit g : Game) = (corpScored(self) && g.fxResolvingSubs.any).?(1).|(0)
     }
 
     object RebrandingTeam extends RAg("09006") {

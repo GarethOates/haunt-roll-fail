@@ -62,21 +62,18 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
 * Yusuf / Musaazi "any virus counter": the break spends a counter of any installed card (the Runner chooses when several
   cards have counters); the pump is a normal `Pump` while the breaker hosts a counter, otherwise an ability that spends a
   counter of another card.
-* Harbinger: when trashed from play it is installed facedown from the heap; the facedown card still counts its 1 MU.
+* Harbinger: when trashed from play it is installed facedown from the heap (facedown programs use no MU since the merge).
 * LLDS Energy Regulator: there is no trash-prevention window; when the Corp trashes installed hardware, LLDS offers to pay 3
   or trash itself and the hardware is reinstalled (its "when trashed" effects have already been queued).
 * Net Shield: usable once per turn (instead of "only on the first net damage of the turn").
-* Tracker: the prevented subroutine is the first unbroken subroutine of the first rezzed ice with unbroken subroutines
-  encountered during the Tracker run (chosen at encounter time, so it counts as broken); Mass-Driver likewise marks the
-  first 3 subroutines of the next encountered ice as broken.
-* Copycat is an optional "after you pass a rezzed piece of ice" trigger rather than a paid ability.
+* (Fixed in the fix-misc pass: Tracker prevents the first subroutine that would resolve during its run; Mass-Driver's 3
+  subroutines do not resolve but are not broken; Endless Hunger breaks "End the run" subroutines only.)
+* Copycat is an optional "after you pass a rezzed piece of ice" trigger, as printed (jinteki: a paid ability).
 * Sneakdoor Prime A/B change the attacked server when the Runner approaches the server (instead of on "pre-successful-run").
-* Endless Hunger breaks any subroutine of ice that has an "end the run" subroutine (jinteki does not enforce the restriction
-  at all).
 * Faust: the grip card for the break is chosen right after the break.
 * Surveillance Network Key (1 and 2): reveal the cards the Corp draws during its action phase.
 * Wari / Paintbrush offer Barrier, Code Gate and Sentry; Panchatantra offers every other ice subtype of the card pool.
-* Aumakua gains its counter when a run with an access ends without stealing or trashing (approximates "finish breaching").
+* Aumakua gains its counter whenever a breach ends without stealing or trashing (fix-misc pass: `BreachEnded`).
 * Progenitor's purge protection remembers the hosted program while it has virus counters; counters spent through a cost are
   not seen, so a program that spent all its counters before a purge still keeps 1.
 * Customized Secretary hosts the revealed programs as uninstalled hosted cards (like the other `uninstalled` hosts, they are

@@ -12,32 +12,31 @@ adds a few helpers (`encounterIce`, `runOnThisServer`, `fullyBroke`, `runnerCanI
 All cards are implemented. Identities without abilities: Nova Initiumia, Ampère (deck-building restrictions are not
 validated). Partial / simplified:
 
-* **Matryoshka** (eternal): copies are hosted in a `StashZone` (not shown by the UI); the break ability is offered as
-  "break all remaining subroutines for X credits + turn 1 hosted copy facedown" (the engine also lists single-sub
-  options at the same cost). Copies are turned faceup at the start of the Runner's turn.
+* **Matryoshka** (eternal): copies are hosted in a `StashZone`; the break ability costs 1 credit per subroutine and turns 1
+  hosted copy facedown per use (fix-misc pass); the engine offers X = 1 (any subroutine) or X = all remaining, not an
+  arbitrary subset of 2 or more. Copies are turned faceup at the start of the Runner's turn.
 * **Asmund Pudlat**: hosted cards live in a `StashZone` (not installed, not displayed by the UI); the start-of-turn
   prompt lists them. They are trashed when Asmund leaves play.
 * **Tsakhia "Bankhar" Gantulga** (eternal): implemented; the chosen server is kept as a turn flag and the first
   encounter with ice protecting it replaces the subroutines with "Do 1 net damage" via an impl wrapper.
-* **Nanuq**: removed from the game when trashed or when an agenda is scored/stolen; other "uninstall" routes
-  (returned to grip) are not covered.
+* **Nanuq**: removed from the game instead of moving anywhere else (trash, returned to the grip, moved to the stack:
+  FixRules), and when an agenda is scored/stolen.
 * **Reprise**: "stole an agenda this turn" uses the new `stolen` register.
-* **Spark of Inspiration**: the set-aside cards stay in the stack (listed in the log), the stack is shuffled afterwards.
+* **Spark of Inspiration**: the revealed cards are set aside (hosted on the event) and shuffled back (fix-misc pass).
 * **Concerto**: hosted credits are usable for anything during its run (engine semantics of run credits).
 * **Hostile Architecture / Yakov Avdakov**: "installed card trashed by the Runner" / "trashed from this server" are
   detected with a snapshot of the installed Corp cards taken at the previous event (`lastServerOf`, `wasInstalled`);
   "except during installation" uses the `installing` flag of the ext rules.
 * **Djupstad Grid, Nanisivik Grid, ZATO City Grid**: "limit 1 region per server" / "remote server only" not enforced.
-* **Anvil**: "cannot break this ice's printed subroutines" is an encounter-scoped flag applied to all break actions
-  (including bioroid breaks).
+* **Anvil**: "cannot break this ice's printed subroutines" applies to the printed subroutines only (subroutines added by
+  other cards can still be broken; fix-misc pass).
 * **Unsmiling Tsarevna**: "cannot break more than 1 printed subroutine per encounter" greys out further break options
   once a subroutine is broken (also bioroid breaks).
 * **Hafrún**: the chosen Runner card gets a run-scoped `cannot-break` flag (its `breaks` become empty).
 * **Klevetnik**: the resource is blanked (`DisabledImpl`) until the Corp's next turn ends (half-turn scoped flag).
-* **Hypoxia**: the -1 click is applied at the start of the Runner's next turn.
-* **Basilar Synthgland**: the extra click is gained at the start of the Runner's turn (not "allotted").
-* **Issuaq Adaptics**: a win check with the reduced threshold runs after every score (`pointsToWin` is unchanged);
-  "did not install or advance this turn" uses the turn flags `installed` / `advanced`.
+* **Hypoxia** / **Basilar Synthgland**: -1 / +1 allotted click (fix-misc pass: `ExtraClicksEffect`, `clicksPerTurn`).
+* **Issuaq Adaptics**: every win check uses the reduced threshold (FixRules `checkWin`); "did not install or advance this turn"
+  uses the turn flags `installed` / `advanced`.
 * **Superdeep Borehole**: uses `badpub` counters (not rendered by the UI counters), Corp wins when it is empty.
 * **Nightmare Archive**: -1 agenda point through `agendaPointsBonus` while in the Runner's score area.
 * **Bloop**: the additional rez cost (derez another harmonic ice) is a mandatory choice resolved right after the rez
@@ -56,29 +55,29 @@ Partial / simplified:
   "take hosted credits" ability is offered instead (as jinteki's manual ability).
 * **Bahia Bands**: the 4 hosted credits are usable for anything during its run (not only trash costs).
 * **Debbie "Downtown" Moreira**: hosted credits are usable for anything during her run.
-* **Daniela Jorge Inácio**: the additional costs are paid after the steal / trash (2 random grip cards to the bottom
-  of the stack); the upgrade can only be trashed on access with at least 2 cards in the grip; the persistent steal
-  cost after she is trashed during a run is kept as an `on-steal` flag for that run.
-* **Tucana**: persistent search after being trashed during a run via an `on-steal` flag; "remote server only" not
-  enforced; the ice is installed and rezzed paying install + rez cost - 3.
-* **Abaasy, Orca, Curupira, Umbrella** "fully breaks": the card broke the last unbroken subroutine (it is not
-  checked that it broke all of them).
-* **Banner**: prevents every "end the run" effect during that encounter (not only subroutine-sourced ones).
-* **Wage Workers**: counts the Corp's basic actions and click abilities (keyed by card copy and ability index) and
-  gains the click right after the third action of a kind.
-* **Oppo Research**: "action phase ends" sets the Corp's clicks to 0.
+* **Daniela Jorge Inácio**: the steal cost is paid after the steal (2 random grip cards to the bottom of the stack), also with
+  fewer than 2 cards in the grip (a cost question, left to the costs pass); the upgrade can only be trashed on access with
+  at least 2 cards in the grip; "stolen from this server" uses the zone the agenda was stolen from (fix-misc pass).
+* **Tucana**: "remote server only" not enforced; "scored or stolen from the root of this server" uses the zone the agenda
+  left (fix-misc pass); the ice is installed and rezzed paying a total of 3 less (as jinteki).
+* (Fixed in the fix-misc pass: "fully breaks" = every subroutine broken by that card (**Abaasy, Orca, Curupira** and the
+  other programs using jinteki's `all-subs-broken-by-card?`); **Banner** only stops "end the run" from that barrier's
+  subroutines (jack out and other ETR effects work); **Wage Workers** gives nothing after a terminal operation;
+  **Oppo Research** ends the action phase through `EndActionPhaseEffect`.)
 * **Front Company**: rezzable only during the Corp's turn; the first run of a turn cannot target a remote (run
   options greyed out); net damage when the first run on Archives begins while unprotected.
 * **A Teia**: the remote limit greys out "new remote server" options; the second install ignores all costs; the
   second card gets a turn flag `cannot-score` honoured by the score options.
-* **Mercury**: "did not break any subroutines during that run" via run flags.
+* **Mercury**: "did not break any subroutines during that run" via run flags (bioroid click-breaks count since the fix-misc
+  pass).
 * **Eru Ayase-Pessoa, Beatriz Friere Gonzalez**: the breach replacement rewrites the queued `BreachAction`.
 * **AirbladeX**: the encounter-ability prevention removes the ice's `onEncounter` effects from the queue (abilities
   gained from ZATO City Grid are triggers and cannot be prevented); net damage prevention through `preventions`.
-* **Virtual Service Agent**: "broken with a decoder" is tracked with per-encounter `broken-by` flags.
-* **Starlit Knight**: X is fixed when the encounter starts and the extra subroutines last for the run.
-* **Stegodon MK IV**: icebreakers get -2 while any ice has been derezzed during the current run.
-* **Pichação**: "gained [click] during a run this turn" uses the register `run-click-gain` (only Pichação counts).
+* **Virtual Service Agent**: the breaker of the printed subroutine is recorded (fix-misc pass).
+* **Starlit Knight**: X is fixed when the encounter starts and the extra subroutines last for the run (as jinteki; each
+  encounter adds its own).
+* **Stegodon MK IV**: icebreakers get -2 while any ice has been derezzed during the current run (as jinteki).
+* **Pichação**: every [click] gained during a run this turn counts (fix-misc pass).
 * **Chrysopoeian Skimming, Epiphany Analytica, Balanced Coverage, Federal Fundraising**: "look at" is an info
   prompt shown to that player only; Federal Fundraising arranges the top 3 cards with successive choices.
 * **Oracle Thinktank**: the Corp's click ability is offered during its action phase while the agenda is in the

@@ -204,14 +204,11 @@ object RotUpgradeCards {
     }
 
     object HeinleinGrid extends RAg("06023") {
-        // the Runner's unspent clicks are recorded during runs on this server; whenever they drop, the Runner loses all credits
-        override def triggers(self : Card, e : Event)(implicit g : Game) = if (!runHere(self)) $ else {
-            val key = g.rotRunKey + ":"
-            val st = g.state(self)
-            val now = g.clicks(Runner)
-            val before = st.memo.startsWith(key).?(st.memo.drop(key.length).toInt).|(now)
-            st.memo = key + now
-            (now < before && g.credits(Runner) > 0).$(MessageEffect(Corp, "uses Heinlein Grid"), LoseAllCreditsEffect(Runner))
+        // whenever the Runner spends (bioroid breaks, paid abilities) or loses [click] during a run on this server
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case ClicksSpent(Runner, _, cause) if runHere(self) && cause != "run" && g.credits(Runner) > 0 => $(MessageEffect(Corp, "uses Heinlein Grid"), LoseAllCreditsEffect(Runner))
+            case ClickLost(Runner, _) if runHere(self) && g.credits(Runner) > 0 => $(MessageEffect(Corp, "uses Heinlein Grid"), LoseAllCreditsEffect(Runner))
+            case _ => $
         }
     }
 
@@ -290,7 +287,6 @@ object RotUpgradeCards {
                 $(MessageEffect(Corp, "uses Valley Grid: the Runner gets -1 maximum hand size until the next Corp turn"), AddFlagEffect(Flag("rot-valley", |(self), None, "halfturn", until, $)))
             case _ => $
         }
-        override def handSize(self : Card, f : Faction)(implicit g : Game) = f.isRunner.??(-g.flagsOf("rot-valley").count(_.card.has(self)))
     }
 
     object BreakerBayGrid extends RAg("08040") {

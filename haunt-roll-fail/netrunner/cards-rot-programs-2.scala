@@ -128,6 +128,8 @@ object RotProgramCards2 {
                 val l = g.unbrokenSubs(ice).but(keep)
                 g.state(ice).brokenSubs ++= l
                 g.log(Runner, "breaks", l.num.hl, "subroutines on", ice, "(Grappling Hook)")
+                if (l.any)
+                    g.trigger(SubsBroken(ice, l, self))
                 NextAction
         }
     }
@@ -183,7 +185,7 @@ object RotProgramCards2 {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(ChooseServerForAction(Runner, self, g.servers, false, "tracker", "Tracker: choose a server"))
             case TurnEnds(Runner) => $(SetMemoEffect(self, ""))
-            case EncounterIce(ice) if thisCardRun(self) && !g.state(self).usedRun.has("tracker") && g.isRezzed(ice) && g.unbrokenSubs(ice).any => $(MarkUsedRunEffect(self, "tracker"), PreventSubsEffect(ice, 1))
+            case RunInitiated(_) if thisCardRun(self) => $(AddFlagEffect(g.runFlag("fx-tracker", |(self))))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -209,7 +211,7 @@ object RotProgramCards2 {
         override def strength(self : Card)(implicit g : Game) = virus(self)
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $()))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RunEnds(_, _, _) if g.run.exists(r => r.didAccess && !r.didSteal && !r.didTrash) => $(AddCounterEffect(self, "virus", 1))
+            case BreachEnded(_, false) => $(AddCounterEffect(self, "virus", 1))
             case Exposed(_) => $(AddCounterEffect(self, "virus", 1))
             case _ => $
         }
@@ -289,7 +291,7 @@ object RotProgramCards2 {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(2), 3, $("Code Gate")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(2), 3))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none && !g.usedThisTurn(self, "amina") => $(MarkUsedEffect(self, "amina"), MessageEffect(Runner, "uses Amina"), lose(Corp, 1))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) && !g.usedThisTurn(self, "amina") => $(MarkUsedEffect(self, "amina"), MessageEffect(Runner, "uses Amina"), lose(Corp, 1))
             case _ => $
         }
     }

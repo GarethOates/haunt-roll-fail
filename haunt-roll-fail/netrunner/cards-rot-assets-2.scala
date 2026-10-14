@@ -133,19 +133,10 @@ object RotAssetCardsB {
     }
 
     object JeevesModelBioroids extends RA("10067") {
-        override def onActionTaken(self : Card, key : String, n : Int)(implicit g : Game) = {
-            val per = key match {
-                case "purge" => 3
-                case k if k.startsWith("ability-") =>
-                    k.split('-').toList match {
-                        case _ :: code :: m :: i :: Nil =>
-                            val c = Card(code, m.toInt)
-                            g.impl(c).abilities(c).lift(i.toInt)./(_.costs.of[ClickCost]./(_.n).sum).|(1).atLeast(1)
-                        case _ => 1
-                    }
-                case _ => 1
-            }
-            (n * per >= 3 && !g.usedThisTurn(self, "jeeves")).$(MarkUsedEffect(self, "jeeves"), MessageEffect(Corp, "uses Jeeves Model Bioroids"), GainClicksEffect(Corp, 1))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case ClicksSpent(Corp, n, cause) if g.fxClicksByCause.get((Corp, cause)).|(0) + n >= 3 && !g.usedThisTurn(self, "jeeves") =>
+                $(MarkUsedEffect(self, "jeeves"), MessageEffect(Corp, "uses Jeeves Model Bioroids"), GainClicksEffect(Corp, 1))
+            case _ => $
         }
     }
 
@@ -216,7 +207,7 @@ object RotAssetCardsB {
 
     object IbrahimSalem extends RA("10109") {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
-        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
+        override def onRez(self : Card)(implicit g : Game) = (!g.fxRezIgnoredCost).$(ChooseForfeitEffect)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.hand(Runner).any =>
                 $(ChooseOneEffect(Corp, "Ibrahim Salem: name a card type", $("Event", "Hardware", "Program", "Resource")./(k => Alt(k, $(RAIbrahimAction(self, k))))))
@@ -440,7 +431,7 @@ object RotAssetCardsB {
 
     object MCAAusterityPolicy extends RA("12111") {
         override def abilities(self : Card)(implicit g : Game) = $(
-            Ability("the Runner loses 1 click next turn; place 1 power counter", click(), $(ExtraClicksEffect(Runner, -1), AddCounterEffect(self, "power", 1)), click = true, once = once("mca")),
+            Ability("the Runner loses 1 click next turn; place 1 power counter", click(), $(FxLoseClicksAtTurnBeginsEffect(Runner, 1), AddCounterEffect(self, "power", 1)), click = true, once = once("mca")),
             Ability("gain 4 clicks", $(ClickCost(1), CounterCost("power", 3), TrashSelfCost), $(GainClicksEffect(Corp, 4)), click = true))
     }
 
@@ -844,10 +835,14 @@ object RotAssetCardsB {
 
     object Sundew extends RA("25092") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ActionTaken(Runner, _) if g.active.isRunner && g.reg("rot-runner-clicks") == 0 => $(MessageEffect(Corp, "uses Sundew"), gain(Corp, 2))
-            case Played(Runner, _) if g.active.isRunner && g.phase == "action" && g.run.none && g.reg("rot-runner-clicks") == 0 => $(MessageEffect(Corp, "uses Sundew"), gain(Corp, 2))
-            case RunInitiated(s) if thisServer(self, s) && g.active.isRunner && g.reg("rot-runner-clicks") == 1 && g.reg("runs") == 1 && !g.usedThisTurn(self, "sundew") =>
-                $(MarkUsedEffect(self, "sundew"), MessageEffect(Corp, "pays 2 credits (Sundew)"), LoseCreditsEffect(Corp, 2))
+            // the click spent on the basic run action: the run has already begun when the event is fired
+            case ClicksSpent(Runner, _, cause) if g.reg("fx-click-spend-events-Runner") == 0 =>
+                $(MessageEffect(Corp, "uses Sundew"), gain(Corp, 2)) ++
+                (!cause.startsWith("lose-click")).$(SetMemoEffect(self, "action:" + g.turn)) ++
+                (cause == "run" && g.run.exists(r => !r.ended && thisServer(self, r.server))).$(MarkUsedEffect(self, "sundew-paid"), MessageEffect(Corp, "pays 2 credits (Sundew: a run on its server began during that action)"), LoseCreditsEffect(Corp, 2))
+            // a run on this server begins later during that action (a run event, a click ability): no other click spent since
+            case RunInitiated(s) if thisServer(self, s) && g.state(self).memo == "action:" + g.turn && g.reg("fx-click-spend-events-Runner") == 1 && !g.usedThisTurn(self, "sundew-paid") =>
+                $(MarkUsedEffect(self, "sundew-paid"), MessageEffect(Corp, "pays 2 credits (Sundew: a run on its server began during that action)"), LoseCreditsEffect(Corp, 2))
             case _ => $
         }
     }

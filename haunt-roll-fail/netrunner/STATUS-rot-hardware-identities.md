@@ -80,9 +80,10 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   play-only credits (Cybsoft MacroDrive, Cyberfeeder's virus installs, Public Terminal) are a 1-credit discount that consumes the
   hosted credit. Weyland BWBI's credit is spent automatically when advancing ice. Māui's credits pay for anything during HQ runs.
   Patchwork is a once-per-turn ability (trash 1 grip card: the next play/install this turn costs 2 less), not an interrupt.
-* **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3).
-  Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size, but the limit is only
-  re-checked when a Runner card leaves play. Apex's facedown programs are offset as well.
+* **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3),
+  and a virus / Caïssa program that fits in the unused restricted MU can be installed without trashing (fix-misc pass).
+  Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size and the limit is
+  checked whenever it is exceeded (fix-misc pass). Facedown programs use no MU.
 * **Apex.** Only the basic install action is blocked for non-virtual resources (installs from card effects are not). Facedown cards
   can't be turned faceup by any card implemented so far.
 * **Adam.** The 3 directives (of the 4 Directive resources in the database) are installed as extra copies `Card(code, 100+i)`

@@ -26,6 +26,7 @@ case class PinholePurpose(card : Card) extends CardPurpose
 case class DeepDiveAction(card : Card, first : Boolean) extends CardAction
 case class DeepDivePurpose(card : Card, first : Boolean) extends CardPurpose
 case class DeepDiveSecondAction(card : Card) extends CardAction
+case class DeepDiveEndAction(card : Card) extends CardAction
 case class IntoTheDepthsAction(card : Card, n : Int, done : $[String]) extends CardAction
 case class IntoTheDepthsInstallAction(card : Card) extends CardAction
 case class RiggingUpPurpose(card : Card) extends CardPurpose
@@ -238,27 +239,42 @@ object MSCards {
         override def canPlay(self : Card)(implicit g : Game) = $(HQ, RnD, Archives).forall(s => g.successfulRunsThisTurn.has(s)) && g.deck(Corp).any
         override def onPlay(self : Card)(implicit g : Game) = $(DeepDiveAction(self, true))
         override def perform(a : CardAction)(implicit g : Game) = a match {
+            // the top 8 cards of R&D are set aside (faceup, hosted on Deep Dive without being installed) until the end
             case DeepDiveAction(self, first) =>
-                val l = g.deck(Corp).take(8).but(g.state(self).target).sortBy(_.title)
-                if (l.any) {
-                    g.log(Corp, "sets aside the top", l.num.cards, "of R&D:", l./(g.cardElem).comma)
-                    g.push(ChooseCardEffect(Runner, l, DeepDivePurpose(self, first), "Deep Dive: choose a set-aside card to access", false))
+                if (first) {
+                    val top = g.deck(Corp).take(8)
+                    top.foreach { c =>
+                        g.moveTo(c, StashZone(self))
+                        g.state(c).seen = true
+                    }
+                    if (top.any)
+                        g.log(Runner, "sets aside the top", top.num.cards, "of R&D:", top.sortBy(_.title)./(g.cardElem).comma)
                 }
+                val l = g.stashed(self).but(g.state(self).target).sortBy(_.title)
+                if (l.any)
+                    g.push(ChooseCardEffect(Runner, l, DeepDivePurpose(self, first), "Deep Dive: choose a set-aside card to access", false))
                 else
-                    g.push(ShuffleDeckEffect(Corp))
+                    g.push(DeepDiveEndAction(self))
                 NextAction
             case DeepDiveSecondAction(self) =>
-                if (g.clicks(Runner) >= 1 && g.deck(Corp).take(8).but(g.state(self).target).any)
-                    g.push(OptionalEffect(Runner, "Deep Dive: spend [click] to access another set-aside card?", $(LoseClicksEffect(Runner, 1), DeepDiveAction(self, false)), $(ShuffleDeckEffect(Corp))))
+                if (g.clicks(Runner) >= 1 && g.stashed(self).but(g.state(self).target).any)
+                    g.push(OptionalEffect(Runner, "Deep Dive: spend [click] to access another set-aside card?", $(LoseClicksEffect(Runner, 1), DeepDiveAction(self, false)), $(DeepDiveEndAction(self))))
                 else
-                    g.push(ShuffleDeckEffect(Corp))
+                    g.push(DeepDiveEndAction(self))
+                NextAction
+            case DeepDiveEndAction(self) =>
+                val l = g.stashed(self)
+                l.foreach(c => g.moveTo(c, DeckZone(Corp)))
+                if (l.any)
+                    g.log(Corp, "shuffles the", l.num.cards, "set aside by Deep Dive back into R&D")
+                g.push(ShuffleDeckEffect(Corp))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
             case DeepDivePurpose(self, first) =>
                 cards.foreach { c =>
                     g.state(self).target = |(c)
-                    val next : ForcedAction = first.?(DeepDiveSecondAction(self)).|(ShuffleDeckEffect(Corp))
+                    val next : ForcedAction = first.?(DeepDiveSecondAction(self)).|(DeepDiveEndAction(self))
                     g.push(AccessCardsEffect(RnD, $(c), false), next)
                 }
                 NextAction
@@ -269,7 +285,8 @@ object MSCards {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(RunAnyServerEffect(|(self), g.servers))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SuccessfulRun(s) if thisCardRun(self) && g.ice(s).any => $(IntoTheDepthsAction(self, g.ice(s).num.atMost(3), $))
+            // "for each time you passed a piece of ice during this run" (passing the same ice twice counts twice), up to 3
+            case SuccessfulRun(s) if thisCardRun(self) && g.fxPassedThisRun.any => $(IntoTheDepthsAction(self, g.fxPassedThisRun.num.atMost(3), $))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -600,9 +617,9 @@ object MSCards {
 
     object ObSuperheavyLogistics extends Ext("33057") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Trashed(c, Corp, _) if g.owner(c).isCorp && g.lastTrashedRezzed && (c.data.isAsset || c.data.isUpgrade || c.data.isIce) && !g.usedThisTurn(self, "ob") && c.data.cost.exists(_ >= 1) =>
+            case Trashed(c, Corp, _) if g.owner(c).isCorp && g.lastTrashedRezzed && !g.installing && (c.data.isAsset || c.data.isUpgrade || c.data.isIce) && !g.usedThisTurn(self, "ob") && c.data.cost.exists(_ >= 1) =>
                 val cost = c.data.cost.|(0) - 1
-                $(MarkUsedEffect(self, "ob"), OptionalEffect(Corp, "Ob Superheavy Logistics: search R&D for a card with rez cost " + cost + " to install and rez?", $(ObAction(self, cost)), $))
+                $(OptionalEffect(Corp, "Ob Superheavy Logistics: search R&D for a card with rez cost " + cost + " to install and rez?", $(MarkUsedEffect(self, "ob"), ObAction(self, cost)), $))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {

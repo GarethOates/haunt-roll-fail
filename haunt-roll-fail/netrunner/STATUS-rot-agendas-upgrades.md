@@ -75,24 +75,22 @@ apply; the order is the `with` order in `game.scala`).
 * **Simone Diego / Dedicated Technician Team / Khondi Plaza** recurring credits: Simone refunds 1 credit after a basic advance
   of a card in its server, DTT refunds the ice install cost after an action-phase install protecting its server (up to its
   credits), Khondi lowers the rez cost of ice protecting its server by its hosted credits and spends them (Mahkota pattern).
-* **Heinlein Grid** is automatic: during a run on its server, whenever the Runner's unspent clicks drop between two events
-  they lose all credits.
+* **Heinlein Grid**: whenever the Runner spends (bioroid break, paid ability) or loses [click] during a run on its server
+  (fix-misc pass: `ClicksSpent` / `ClickLost`).
 * **Personality Profiles**: "installs a card from the heap" uses the heap snapshot; "searches the stack" is detected
   heuristically (cards left the stack from below the top, or its order changed, since the previous event).
 * **Labyrinthine Servers** is a pre-emptive "the Runner cannot jack out this run" ability, not an interrupt.
 * **Tyr's Hand** un-breaks the last broken subroutine of the encountered bioroid ice protecting its server (instead of an
   interrupt before the break).
 * **Tori Hanzō** is a Corp-side net damage prevention offered once per run on its server (not only on the first instance).
-* **Improved Tracers** trace bonus applies to traces started during an encounter (the source of a trace is not tracked).
-* **Valley Grid** hand-size penalty lasts while Valley Grid stays active (the hook is on the card).
-* **Mandatory Upgrades** grants the extra click at "when your turn begins" (after the turn-start window); losing it when the
-  agenda leaves the score area is not modelled.
-* **Mandatory Seed Replacement** is a sequence of at most 6 swaps; **Accelerated Beta Test** / **Bacterial Programming** do
-  not track shuffles during the effect; Bacterial Programming on steal does not remove R&D cards moved to HQ from the
-  current access list.
-* **Unorthodox Predictions** prevents breaking (`preventsBreak`) until the turn counter changes (next Corp turn).
-* **Will-o'-the-Wisp** candidates are the installed icebreakers that broke a subroutine this run (`SubsBroken`; bioroid
-  click-breaks are not counted). **Mason Bellamy** also only sees `SubsBroken` breaks.
+* (Fixed in the fix-misc pass: **Improved Tracers** adds 1 to traces of subroutines; **Valley Grid**'s -1 hand size lasts
+  until the Corp's next turn even if it leaves play; **Mandatory Upgrades** is +1 allotted click while scored; **Mandatory Seed
+  Replacement** swaps until the Corp stops (bounded by 3 swaps per installed ice); **Mason Bellamy** sees bioroid
+  click-breaks.)
+* **Accelerated Beta Test** / **Bacterial Programming** do not track shuffles during the effect; Bacterial Programming on
+  steal does not remove R&D cards moved to HQ from the current access list.
+* **Unorthodox Predictions** prevents breaking until the Corp's next turn begins (as printed; jinteki does not enforce it).
+* **Will-o'-the-Wisp** candidates are the installed icebreakers that broke a subroutine this run.
 * **Warroid Tracker / Overseer Matrix** fire once per trashed card. Overseer Matrix does not fire for its own trash.
 * **Daruma** trashes itself after the second choice; root-to-root swaps do not re-check the one agenda/asset per root rule.
 * **Evidence Collection 1-3** have no in-game effect; **Corporate Oversight A/B** and Evidence Collection / Hired Help are not

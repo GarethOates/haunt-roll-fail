@@ -27,13 +27,12 @@ Vikram 1.0 (partial), Viktor 1.0, Viktor 2.0, Viper, Wotan, Zed 1.0, Zed 2.0.
 
 Jinteki (49): Aiki, Aimor, Anansi, Ashigaru, Bloom, Bullfrog, Cell Portal, Chetana, Chiyashi, Chrysalis, Chum,
 Clairvoyant Monitor, Cortex Lock, Crick, Data Mine, DNA Tracker, Envelope, Gemini, Harvester, Himitsu-Bako,
-Inazuma, It's a Trap!, Kakugo, Kitsune, Komainu, Lockdown, Mamba, Marker, Metamorph, Mganga, Mind Game
-(partial), Mirāju, Mlinzi, Neural Katana, Otoroshi, Pup, Sadaka, Sand Storm, Sensei, Shinobi, Shiro, Snowflake,
+Inazuma, It's a Trap!, Kakugo, Kitsune, Komainu, Lockdown, Mamba, Marker, Metamorph, Mganga, Mind Game, Mirāju, Mlinzi, Neural Katana, Otoroshi, Pup, Sadaka, Sand Storm, Sensei, Shinobi, Shiro, Snowflake,
 Susanoo-no-Mikoto, Thimblerig, Tsurugi, Upayoga, Wall of Thorns, Whirlpool, Yagura.
 
 NBN (39): Archangel, Authenticator, Bandwidth, Data Hound, Data Loop, Data Raven, Data Ward, Endless EULA, Flare,
 Free Lunch, Gutenberg, Herald, Hydra, Information Overload, Interrupt 0 (approximated), IP Block, Jua (partial),
-Little Engine, Matrix Analyzer, Muckraker, News Hound, Pachinko, Peeping Tom, Resistor, RSVP (partial), Sandman,
+Little Engine, Matrix Analyzer, Muckraker, News Hound, Pachinko, Peeping Tom, Resistor, RSVP, Sandman,
 Slot Machine, Snoop, Special Offer, SYNC BRE, Thoth, TL;DR, TMI, Troll, Turnpike, Universal Connectivity Fee,
 Uroboros, Virgo, Waiver.
 
@@ -58,15 +57,12 @@ Tyrant, Veritas, Watchtower, Wendigo (partial), Woodcutter, Wormhole.
   `breakAllowed` and a `SubsBroken` trigger). The effect stops early if Interrupt 0 is derezzed or trashed
   during the run.
 - **Tithonium**: the alternative rez cost (forfeit an agenda) is not offered. Only the normal rez cost is used.
-- **RSVP**: only break abilities that cost credits are blocked. Pumps and other credit spending still work.
-- **Mind Game**: the extra jack-out cost (add an installed card to the bottom of the stack) only applies to
-  the jack-out offered right after the redirect.
-- **Excalibur, Uroboros, Lockdown, Gyri Labyrinth**: the turn restrictions ("no other run", "no draws",
-  hand size) are enforced by the hooks of *rezzed* rotated ice (`RI.allowsRun` / `RI.drawBonus` /
-  `handSize`). If no rotated ice is rezzed any more, the restriction lifts.
-- **Grail ice** (Galahad, Lancelot, Merlin, Excalibur): each revealed grail adds its printed subroutine from a
-  fixed table for the encounter.
-- **Data Hound, Waiver**: the Runner's trace boost is measured as the credits they spent during the trace.
+- (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: **RSVP** blocks every credit payment of the Runner for the rest of
+  the run (breaks, pumps, paid abilities, trash and steal costs, trace boosts, psi bids, "pay or ..." choices); **Mind Game**'s
+  jack-out cost applies to every jack out for the rest of the run; **Excalibur, Uroboros, Lockdown, Gyri Labyrinth**
+  restrictions last for their duration even if the ice leaves play; **grail ice** add the printed subroutines of the
+  revealed grail cards (read from their implementations) for the rest of the run, in front or at the end (Corp's choice);
+  **Data Hound, Waiver** use trace strength - the Runner's real link strength.)
 - **Archangel, Chrysalis, Herald, Sapper** (encounter on access): the ice is temporarily placed rezzed as the
   outermost ice of the attacked server for the forced encounter, then put back where it came from.
 - **Formicary**: when the Runner approaches a server, the Corp is offered "rez Formicary and move it"

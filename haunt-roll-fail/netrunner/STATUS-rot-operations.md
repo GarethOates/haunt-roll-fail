@@ -86,19 +86,18 @@ Accounts, 25119 SEA Source, 25136 Beanstalk Royalties, 25137 Oversight AI, 25147
 * **Bad Times / MCA Informant** are moved to the Runner's play area (`PlayZone(Runner)`) so that the Runner-side hooks apply
   (memory -2; MCA's "[click], 2 credits: trash the host" ability for the Runner). MCA's additional tag is a real tag added when
   hosted and removed when MCA leaves play (the Runner can also remove it normally).
-* **Wetwork Refit**'s core damage subroutine is added after the printed subroutines (not before).
-* **Oversight AI / Bioroid Efficiency Research** react to `SubsBroken` (icebreakers); breaking all subroutines with bioroid click
-  abilities is not detected.
-* **Media Blitz** copies the chosen agenda's triggers and static cost/strength/hand-size modifiers (implementations that check
-  they are in the Corp's score area stay silent).
-* **Reclamation Order / Localized Product Line** take all copies (no "how many" prompt). **Death and Taxes** gains automatically.
-  **Hunter Seeker / Observe and Destroy / Hellion Beta Test / Best Defense / Self-Growth Program** target Runner cards only.
-  **Load Testing** is -1 allotted click for the Runner's next turn. **Riot Suppression**'s core damage is not preventable (cost).
-  **Accelerated Diagnostics** ignores Double/Triple `canPlay` click checks and drops leading click costs of other sets' operations.
+* (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: **Wetwork Refit**'s subroutine is the first one; **Oversight AI /
+  Bioroid Efficiency Research** see bioroid click-breaks (they emit `SubsBroken`); **Media Blitz** has the agenda's text: its
+  triggers, paid abilities and static modifiers are evaluated with Media Blitz as the card, and the agenda base classes treat
+  a Media Blitz in play as scored (`RAg.corpScored`, `Startup.inCorpScore`); **Reclamation Order / Localized Product Line** ask
+  how many copies; **Hunter Seeker / Observe and Destroy / Hellion Beta Test** can trash any installed card (Best Defense and
+  Self-Growth Program are Runner-only as printed); **Load Testing**: the Runner loses [click] when the next turn begins.)
+* **Death and Taxes** gains automatically (jinteki's default "always" auto-resolution). **Riot Suppression**'s core damage is a
+  cost (not preventable, as jinteki). **Accelerated Diagnostics** ignores Double/Triple `canPlay` click checks and drops
+  leading click costs of other sets' operations.
 * Alliance influence reductions (Heritage Committee, Product Recall, Salem's Hospitality, Consulting Visit) are not modelled by the
   deck validator. "Name a card" (Targeted Marketing, Salem's Hospitality) lists every Runner card title (~1000 options).
-* `CreditsGained.source` is the first card in the Corp's play area, so a lingering current can be reported as the source of a
-  credit gain (affects only The Zwicky Group).
+* `CreditsGained.source` is the card whose ability / "when scored" ability / operation is resolving (fix-misc pass).
 
 ## Shared-file edits (all additive, one term each)
 

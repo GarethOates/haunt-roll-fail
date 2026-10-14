@@ -37,10 +37,10 @@ Runner: Isolation, Demolisher, Chisel, Stargate, Utae, Climactic Showdown (parti
 to trash ice, the resource stays in play until the end of the turn to grant the access bonus, then is removed
 from the game), Fencer Fueno, The Nihilist, Trickster Taka (partial: hosted credits are usable for anything
 during a run, not only programs), Az McCaffrey, Always Have a Backup Plan, Blueberry Diesel, Flip Switch,
-Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove (partial:
-"first click" is checked as "4 clicks remaining"), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /
-Code Gate / Sentry offered), Rezeki, The Artist, Direct Access (partial: identities are not disabled during the
-run), Rejig, Whistleblower (partial: the resource is trashed when the run ends instead of immediately, the named
+Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove ("first click" = no
+action or click ability yet this turn, fix-misc pass), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /
+Code Gate / Sentry offered), Rezeki, The Artist, Direct Access (both identities lose all
+abilities during its run, fix-misc pass), Rejig, Whistleblower (partial: the resource is trashed when the run ends instead of immediately, the named
 agenda is stolen through an access ability "steal ignoring all costs").
 
 Corp: MirrorMorph (partial: like jinteki, the reward is "gain 1 credit or gain [click]"; action kinds are the
@@ -65,8 +65,8 @@ Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricat
 root of this server" restriction of the on-trash install is not enforced), Drafter, Tyr, NEXT Activation Command,
 Scapenet, Tranquility Home Grid ("remote server only" not enforced on install), Flower Sermon, Prana Condenser
 (prevents net damage from any source; one use per damage instance), Engram Flush, Konjin, Hyoubu Precog
-Manifold, Kakurenbo, GameNET (partial: triggers on any credit loss / payment by the Runner during a run, the
-"Corp card ability" source is not tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station
+Manifold, Kakurenbo, GameNET (partial: triggers on credit losses of the Runner during a run and, since
+the fix-misc pass, on credits paid for steal costs; the "Corp card" source of a loss is not checked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station
 (partial: "limit 1 remote server" not enforced), Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
 Argus Crackdown, Cyberdex Sandbox, False Lead, NAPD Cordon.
 
@@ -161,7 +161,8 @@ Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26
 
 * Stealth credit restrictions (Afterimage, Penrose, Mu Safecracker) and credit sources restricted to card types
   (Trickster Taka, Paladin Poemu, Mantle) are relaxed: hosted credits are usable during runs.
-* "Instead of breaching" effects set `Run.preventAccess`, so the log says "is prevented from breaching".
+* "Instead of breaching" effects set `Run.preventAccess`; the replacement is logged once (the "is prevented from breaching"
+  line is no longer added, fix-misc pass).
 * Access bonuses granted at "breach" time by several cards resolve in trigger order ("Pretty" Mary).
 * Game Over's prevention lets the Runner choose the cards to keep before trashing the others.
 * The Wizard's Chest / Gachapon reveal the set-aside cards in the log (they are faceup).

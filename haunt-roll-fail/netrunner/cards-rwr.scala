@@ -440,7 +440,7 @@ object RWRCards {
             BreakAbility($(CreditCost(1), CounterCost("power", 1)), 0, $("Barrier"), |("break X barrier subroutines (X credits, 1 power counter)"), $, true))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 2))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.has(ice, "Code Gate") && g.unbrokenSubs(ice).none => $(AddCounterEffect(self, "power", 1))
+            case SubsBroken(ice, l, b) if b == self && g.has(ice, "Code Gate") && g.fxFullyBroke(ice, l, b) => $(AddCounterEffect(self, "power", 1))
             case _ => $
         }
     }

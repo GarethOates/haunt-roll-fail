@@ -51,16 +51,14 @@ Not modelled because the engine has no hook for it (and adding one would need ed
 * **Trash prevention** — Dummy Box, Sacrificial Construct: no effect; Fall Guy: only its "[trash]: gain 2" ability.
 * **Wireless Net Pavilion** — the extra 2 credits on the Corp's basic "trash a resource" action are not charged
   (`TrashResourceAction` is handled by the core before the extension rules see it).
-* **The Black File** — the power counters / removal work; "the Corp cannot win except by flatline" is not enforced
-  (`checkWin` cannot be intercepted).
-* **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
+* (Fixed in the fix-misc pass: **The Black File** — the Corp cannot win on agenda points while it has fewer than 3 power
+  counters; **Paparazzi** — the Runner is tagged (`Game.tagged`).)
 * **Chrome Parlor** — the engine does not record the source of damage: no effect.
 * **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
 
 Approximations:
 
-* **Aeneas Informant** — the "reveal and gain 1" offer for each accessed card with a trash cost that was not trashed
-  is made when the run ends instead of right after that access.
+* **Aeneas Informant** — offered right after the access (fix-misc pass).
 * **Inside Man / Ice Analyzer** — runner installs pay without a purpose, so the restricted credits are moved to the
   pool with a "take" ability that is only usable while holding hardware / a program during your turn.
 * **Crash Space** — the hosted credits pay the 2 credits of the remove-tag action as a block ([click] + 2 hosted
@@ -68,17 +66,16 @@ Approximations:
 * **Hernando Cortez** — the additional cost is modelled as a rez-cost increase (same credits, same timing).
 * **Network Exchange** — the install-cost hook does not see the target server, so ice costs 1 more whenever any ice
   is already installed (instead of "not in the innermost position").
-* **Jackpot!** — offered whenever an agenda is stolen; takes all hosted credits (not "any number").
-* **Keros Mcintyre** — "you derez" is approximated by "ice derezzed during your turn".
+* **Jackpot!** — offered whenever an agenda is stolen; takes any number of hosted credits (fix-misc pass).
+* **Keros Mcintyre** — "you derez": ice derezzed while a Runner card's ability or event resolves (fix-misc pass; derezzes by
+  Runner triggered abilities are not recognised).
 * **Muertos Gang Member** — the "when uninstalled" rez is offered when it is trashed.
-* **Street Magic** — subroutines resolved through it are marked broken so that the encounter does not fire them a
-  second time (no `SubsBroken` event).
+* **Street Magic** — the chosen order is used when the unbroken subroutines resolve; nothing is broken (fix-misc pass).
 * **Levy Advanced Research Lab** — the other revealed cards go to the bottom in their current order (no reorder prompt).
 * **Psych Mike** — counts cards accessed from R&D this turn (normally equal to "during that run").
 * **Salvaged Vanadis Armory** — offered right after each damage event (rather than in the next paid ability window).
-* **Bazaar** — does not check that the hardware was installed from the grip.
-* **Hunting Grounds** — facedown programs installed by it count against MU (engine-wide `memoryUsed` counts every
-  installed program).
+* **Bazaar** — only hardware installed from the grip (fix-misc pass).
+* **Hunting Grounds** — facedown programs use no MU (since the merge).
 * **DJ Fenris** — the hosted identity is a pseudo card (`Card(code, 0)`) hosted faceup; its triggers and static
   abilities are active through the normal hosted-card rules; it is removed from the game when Fenris leaves play.
 

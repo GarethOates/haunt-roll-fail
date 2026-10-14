@@ -94,7 +94,7 @@ object RotResourceCards1 {
 
     object AeneasInformant extends RR("12044") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Accessed(c) if c.data.trashCost.any && !g.zone(c).is[DiscardZone] => $(AtRunEndEffect($(AeneasCheckAction(self, c))))
+            case Accessed(c) if c.data.trashCost.any && !g.zone(c).is[DiscardZone] => $(MarkUsedRunEffect(self, "aeneas:" + c.code + ":" + c.n))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -106,10 +106,7 @@ object RotResourceCards1 {
     }
 
     object AksharaSareen extends RR("10046") {
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(f) => $(MessageEffect(f, "gets 1 additional [click] (Akshara Sareen)"), GainClicksEffect(f, 1))
-            case _ => $
-        }
+        override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = 1
     }
 
     object AlgoTrading extends RR("11029") {
@@ -204,7 +201,7 @@ object RotResourceCards1 {
 
     object Bazaar extends RR("10065") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Installed(Runner, c) if c.data.isHardware && g.hand(Runner).exists(x => x.title == c.title && g.runnerInstallableNow(x, 0)) =>
+            case Installed(Runner, c) if c.data.isHardware && g.rhInstallFrom.get(c).has(HandZone(Runner)) && g.hand(Runner).exists(x => x.title == c.title && g.runnerInstallableNow(x, 0)) =>
                 $(OptionalEffect(Runner, "Bazaar: install another copy of " + g.promptTitle(c) + " from the grip?", $(MessageEffect(Runner, "uses Bazaar to install another copy"), ChooseCardEffect(Runner, g.hand(Runner).%(x => x.title == c.title), BazaarPurpose(self), "Bazaar: choose a copy to install", false)), $))
             case _ => $
         }
@@ -840,12 +837,15 @@ object RotResourceCards1 {
     object Jackpot extends RR("21090") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(AddCounterEffect(self, "credit", 1))
-            case AgendaStolen(_) if g.isInstalled(self) && g.counter(self, "credit") > 0 => $(OptionalEffect(Runner, "Jackpot!: take all hosted credits and trash it?", $(JackpotAction(self)), $))
+            case AgendaStolen(_) if g.isInstalled(self) && g.counter(self, "credit") > 0 => $(OptionalEffect(Runner, "Jackpot!: trash it to take hosted credits?", $(JackpotAction(self)), $))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case JackpotAction(self) =>
-                g.push(TakeCreditsEffect(Runner, self, g.counter(self, "credit")), TrashEffect(self, Runner, false))
+                g.push(ChooseNumberEffect(Runner, self, 0, g.counter(self, "credit"), "jackpot", "Jackpot!: how many hosted credits to take?"))
+                NextAction
+            case NumberPickedAction(self, n, "jackpot") =>
+                g.push(TakeCreditsEffect(Runner, self, n), TrashEffect(self, Runner, false))
                 NextAction
         }
     }
@@ -905,7 +905,7 @@ object RotResourceCards1 {
 
     object KerosMcintyre extends RR("12065") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Derezzed(c) if c.data.isIce && g.active.isRunner && unused(self, "keros") => $(mark(self, "keros"), MessageEffect(Runner, "gains 2 credits (Keros Mcintyre)"), gain(Runner, 2))
+            case Derezzed(c) if c.data.isIce && g.fxRunnerResolving && unused(self, "keros") => $(mark(self, "keros"), MessageEffect(Runner, "gains 2 credits (Keros Mcintyre)"), gain(Runner, 2))
             case _ => $
         }
     }

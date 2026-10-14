@@ -21,6 +21,7 @@ import Helpers._
 
 // card specific actions and purposes
 case class ThePriceAction(card : Card) extends CardAction
+case class WageWorkersAction(card : Card) extends CardAction
 case class ChrysoPurpose(card : Card) extends CardPurpose
 case class HermesPurpose(card : Card) extends CardPurpose
 case class ArissanaPurpose(card : Card) extends CardPurpose
@@ -94,6 +95,7 @@ object TAICards {
     object Banner extends PT("34005") {
         override def abilities(self : Card)(implicit g : Game) = {
             val ice = encounterIce.%(i => g.has(i, "Barrier") && g.iceStrength(i) <= g.breakerStrength(self))
+            // only subroutines of that barrier are prevented from ending the run (rules-ext-ph-tai.scala: EndRunEffect while one of its subroutines resolves)
             $(Ability("subroutines on the encountered barrier cannot end the run this encounter", c(2), ice.$./(i => AddFlagEffect(g.encounterFlag("no-etr", i))), ok = ice.any, reason = "not encountering a barrier of lower or equal strength"))
         }
     }
@@ -313,8 +315,9 @@ object TAICards {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case PichacaoAction(self) =>
-                val first = g.reg("run-click-gain") == 0
-                g.regInc("run-click-gain")
+                // "the first time you gained [click] during a run this turn": every click gain during a run counts (FixRules)
+                val first = g.reg("fx-run-click-gain") == 0
+                g.regInc("fx-run-click-gain")
                 g.clicks += Runner -> (g.clicks(Runner) + 1)
                 g.log(Runner, "gains", 1.clicks, "(Pichacao)")
                 if (!first) {
@@ -414,7 +417,14 @@ object TAICards {
     }
 
     object WageWorkers extends PT("34033") {
-        override def onActionTaken(self : Card, key : String, n : Int)(implicit g : Game) = (n == 3 && g.isRezzed(self)).$(MessageEffect(Corp, "uses Wage Workers"), GainClicksEffect(Corp, 1))
+        override def onActionTaken(self : Card, key : String, n : Int)(implicit g : Game) = (n == 3 && g.isRezzed(self)).$(WageWorkersAction(self))
+        // jinteki: no payoff after a terminal operation (the action phase has ended)
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case WageWorkersAction(self) =>
+                if (g.reg("fx-terminal") == 0)
+                    g.push(MessageEffect(Corp, "uses Wage Workers"), GainClicksEffect(Corp, 1))
+                NextAction
+        }
     }
 
     object AblativeBarrier extends PT("34034") {
@@ -581,7 +591,7 @@ object TAICards {
     object DanielaJorgeInacio extends PT("34047") {
         override def canBeTrashedOnAccess(self : Card)(implicit g : Game) = g.hand(Runner).num >= 2
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case AgendaStolen(_) if g.isRezzed(self) && g.run.exists(r => thisServer(self, r.server)) => $(MessageEffect(Corp, "uses Daniela Jorge Inacio"), RandomToBottomEffect(Runner, 2))
+            case AgendaStolen(_) if g.isRezzed(self) && g.lastStolenFrom.exists(s => thisServer(self, s)) => $(MessageEffect(Corp, "uses Daniela Jorge Inacio"), RandomToBottomEffect(Runner, 2))
             case _ => $
         }
         override def onTrash(self : Card, by : Faction)(implicit g : Game) =
@@ -656,20 +666,22 @@ object TAICards {
     }
 
     object StarlitKnight extends PT("34053") {
+        // X is fixed when the encounter starts; each encounter during the run adds its own X subroutines for the run (jinteki)
         override def onEncounter(self : Card)(implicit g : Game) = (g.threat(4) && g.tags > 0).$(MessageEffect(Corp, "uses Starlit Knight to gain " + g.tags + " end the run subroutines"), AddFlagEffect(Flag("starlit", |(self), None, "run", g.tags, $)))
-        override def subroutines(self : Card)(implicit g : Game) = $(tagSub(1), tagSub(1)) ++ g.flagsOf("starlit").%(_.card.has(self)).starting./(_.until).|(0).times(etrSub)
+        override def subroutines(self : Card)(implicit g : Game) = $(tagSub(1), tagSub(1)) ++ g.flagsOf("starlit").%(_.card.has(self))./(_.until).sum.times(etrSub)
     }
 
     object VirtualServiceAgent extends PT("34054") {
         override def subroutines(self : Card)(implicit g : Game) = $(loseSub(1))
+        // the printed subroutine was not broken by a decoder
         override def onEncounterEnds(self : Card)(implicit g : Game) =
-            (!g.flagsOf("broken-by").exists(_.card.exists(b => g.has(b, "Decoder")))).$(MessageEffect(Corp, "uses Virtual Service Agent"), tag(1))
+            (!g.fxPrintedSubIndices(self).exists(i => g.fxBreakerOf(self, i).exists(b => g.has(b, "Decoder")))).$(MessageEffect(Corp, "uses Virtual Service Agent"), tag(1))
     }
 
     object OppoResearch extends PT("34055") {
         override def canPlay(self : Card)(implicit g : Game) = g.regLast("stolen") > 0 || g.regLast("runner-trash-corp") > 0
         override def onPlay(self : Card)(implicit g : Game) =
-            $(tag(2)) ++ (g.threat(3) && g.credits(Corp) >= 5).$(OptionalEffect(Corp, "Oppo Research: pay 5 credits to give the Runner 2 more tags?", $(LoseCreditsEffect(Corp, 5), tag(2)), $)) ++ $(MessageEffect(Corp, "ends the action phase (Terminal)"), LoseClicksEffect(Corp, 99))
+            $(tag(2)) ++ (g.threat(3) && g.credits(Corp) >= 5).$(OptionalEffect(Corp, "Oppo Research: pay 5 credits to give the Runner 2 more tags?", $(LoseCreditsEffect(Corp, 5), tag(2)), $)) ++ $(EndActionPhaseEffect)
     }
 
     object YourDigitalLife extends PT("34056") {
@@ -763,7 +775,7 @@ object TAICards {
         }
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaScored(_) if g.isRezzed(self) && g.lastScoredFrom.exists(s => thisServer(self, s)) && g.deck(Corp).exists(_.data.isIce) => search(self)
-            case AgendaStolen(_) if g.isRezzed(self) && g.run.exists(r => thisServer(self, r.server)) && g.deck(Corp).exists(_.data.isIce) => search(self)
+            case AgendaStolen(_) if g.isRezzed(self) && g.lastStolenFrom.exists(s => thisServer(self, s)) && g.deck(Corp).exists(_.data.isIce) => search(self)
             case _ => $
         }
         override def onTrash(self : Card, by : Faction)(implicit g : Game) =

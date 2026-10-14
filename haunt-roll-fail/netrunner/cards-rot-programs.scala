@@ -139,7 +139,7 @@ abstract class Bird(code : String, iceType : String, breakCost : Int, breakN : I
     override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(breakCost), breakN, $(iceType)))
     override def pumps(self : Card)(implicit g : Game) = $(Pump(c(pumpCost), pumpN))
     override def abilities(self : Card)(implicit g : Game) = {
-        val ice = encounteredIce.%(i => g.has(i, iceType) && broke(self) && g.unbrokenSubs(i).none)
+        val ice = encounteredIce.%(i => g.has(i, iceType) && g.fxAllBrokenBy(i, self))
         $(Ability("derez the encountered " + iceType.toLowerCase + " and return to the grip", c(2), ice.$./~(i => $(DerezEffect(i), ReturnToHandEffect(self))), ok = ice.any && g.isInstalled(self), reason = "needs an encountered " + iceType.toLowerCase + " with all subroutines broken by this program"))
     }
 }

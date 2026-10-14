@@ -144,7 +144,7 @@ object RotEventCards1 {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(runOn(self, HQ))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SuccessfulRun(HQ) if thisCardRun(self) => $(ReplaceBreachEffect, MessageEffect(Runner, "rearranges the ice (Escher)"), EscherAction(self, 6))
+            case SuccessfulRun(HQ) if thisCardRun(self) => $(ReplaceBreachEffect, MessageEffect(Runner, "rearranges the ice (Escher)"), EscherAction(self, 3 * g.allIce.num))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -717,7 +717,7 @@ object RotEventCards1 {
     }
 
     object CorporateScandal extends RE("10025") {
-        override def onPlay(self : Card)(implicit g : Game) = $(MessageEffect(Runner, "the Corp is considered to have 1 additional bad publicity (Corporate Scandal)"), BadPubEffect(1))
+        override def onPlay(self : Card)(implicit g : Game) = $(FxAdditionalBadPubEffect(1))
     }
 
     object PopulistRally extends RE("10026") {

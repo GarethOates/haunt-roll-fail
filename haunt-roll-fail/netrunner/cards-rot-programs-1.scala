@@ -281,7 +281,7 @@ object RotProgramCards1 {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Barrier")))
         override def strength(self : Card)(implicit g : Game) = g.counter(self, "power")
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none => $(AddCounterEffect(self, "power", 1))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) => $(AddCounterEffect(self, "power", 1))
             case _ => $
         }
     }
@@ -311,7 +311,7 @@ object RotProgramCards1 {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(2), 1, $("Sentry")))
         override def strength(self : Card)(implicit g : Game) = g.counter(self, "power")
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none => $(AddCounterEffect(self, "power", 1))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) => $(AddCounterEffect(self, "power", 1))
             case _ => $
         }
     }

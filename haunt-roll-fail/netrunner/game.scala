@@ -337,7 +337,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
     with StartupRules with SU21Rules with PHTAIRules with RWRRules
-    with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules {
+    with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules with FixRules {
 
     implicit def implicitGame : Game = this
 
@@ -460,7 +460,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def allActive : $[Card] = activeCards(active) ++ activeCards(active.opponent)
 
-    def subtypes(c : Card) : $[String] = c.data.subtypes ++ state(c).extraSubtypes
+    def subtypes(c : Card) : $[String] = c.data.subtypes ++ state(c).extraSubtypes ++ fxHostedSubtypes(c)
 
     def has(c : Card, subtype : String) = subtypes(c).has(subtype)
 
@@ -582,7 +582,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def memoryUsed : Int = installedCards(Runner).%(isProgram).%!(c => state(c).facedown)./(c => c.data.memory.|(0)).sum
     def memoryFree : Int = memoryTotal - memoryUsed
 
-    def handSize(f : Faction) : Int = 5 + allActive./(c => impl(c).handSize(c, f)).sum - f.isRunner.??(coreDamage)
+    def handSize(f : Faction) : Int = 5 + allActive./(c => impl(c).handSize(c, f)).sum - f.isRunner.??(coreDamage) + fxHandSizeMod(f)
 
     def advancementRequirement(c : Card) : Int = (c.data.advancementCost.|(0) + allActive./(x => impl(x).advancementRequirementMod(x, c)).sum + (!isActive(c)).??(impl(c).advancementRequirementMod(c, c))).atLeast(0)
 
@@ -610,7 +610,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def trashCost(c : Card) : |[Int] = c.data.trashCost./(t => (t + allActive./(x => impl(x).trashCostMod(x, c)).sum).atLeast(0))
 
-    def tagged = tags > 0
+    def tagged = tags > 0 || fxConsideredTagged
 
     def canPay(f : Faction, costs : $[Cost], self : |[Card] = None) : Boolean = costs.forall {
         case CreditCost(n) => availableCredits(f, self) >= n
@@ -680,7 +680,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def triggerEffects(e : Event) : $[ForcedAction] = {
         val ext = phTriggers(e)
         val order = $(active, active.opponent)
-        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e) ++ rotIceTriggers(e) ++ rotResourceTriggers(e) ++ rotHardwareTriggers(e) ++ ext ++ rotEventTriggers(e) ++ rotOperationTriggers(e) ++ rotAssetTriggers(e) ++ rotAgendaTriggers(e)
+        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e) ++ rotIceTriggers(e) ++ rotResourceTriggers(e) ++ rotHardwareTriggers(e) ++ ext ++ rotEventTriggers(e) ++ rotOperationTriggers(e) ++ rotAssetTriggers(e) ++ rotAgendaTriggers(e) ++ fixTriggers(e)
     }
 
     // trigger an event: collect triggered abilities and push them to the queue (active player first); true if any
@@ -752,7 +752,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def performInternal(a : Action, soft : Void) : Continue = {
         val pf = performRotHardware orElse performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
-            performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse performRotAssets orElse performRotAgendas
+            performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse performRotAssets orElse performRotAgendas orElse performFixes
 
         a match {
             case NextAction => nextStep

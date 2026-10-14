@@ -221,7 +221,7 @@ object URCards {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(2), 2, $("Barrier")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(2), 2))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none && !g.usedThisTurn(self, "makler") => $(MarkUsedEffect(self, "makler"), gain(Runner, 1))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) && !g.usedThisTurn(self, "makler") => $(MarkUsedEffect(self, "makler"), gain(Runner, 1))
             case _ => $
         }
     }

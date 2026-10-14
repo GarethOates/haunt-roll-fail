@@ -515,7 +515,7 @@ trait EffectRules { game : Game =>
                         location += a -> IceZone(sb)
                         location += b -> IceZone(sa)
                     }
-                    log("Swapped", a, "and", b)
+                    log("Swapped", hiddenCorpElem(a), "and", hiddenCorpElem(b))
                 case _ =>
             }
             NextAction

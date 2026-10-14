@@ -65,7 +65,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     case DeckZone(f) => false
                     case DiscardZone(Corp) => v.isCorp || g.state(c).seen
                     case DiscardZone(Runner) => true
-                    case RootZone(_) | IceZone(_) => v.isCorp || g.isRezzed(c) || g.state(c).seen
+                    case RootZone(_) | IceZone(_) => v.isCorp || g.isRezzed(c) || g.state(c).seen || g.fxRunnerKnows(c)
                     // cards set aside on an identity (Ayla) are known to their owner only
                     case HostedZone(h) if g.zone(h).is[IdentityZone] => g.owner(c) == v || g.state(c).seen
                     case HostedZone(h) => g.owner(c) == v || (g.owner(c).isCorp && (g.isRezzed(c) || g.state(c).seen)) || (g.owner(c).isRunner && !g.state(c).facedown)

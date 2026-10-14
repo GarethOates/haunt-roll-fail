@@ -426,7 +426,7 @@ abstract class Startup(val code : String) extends CardImpl {
 
     def thisCardRun(self : Card)(implicit g : Game) = g.run.exists(_.source.has(self))
 
-    def inCorpScore(self : Card)(implicit g : Game) = g.zone(self) == ScoredZone(Corp)
+    def inCorpScore(self : Card)(implicit g : Game) = g.zone(self) == ScoredZone(Corp) || (self.code == "09021" && g.zone(self) == PlayZone(Corp))
 
     def inRunnerScore(self : Card)(implicit g : Game) = g.zone(self) == ScoredZone(Runner)
 

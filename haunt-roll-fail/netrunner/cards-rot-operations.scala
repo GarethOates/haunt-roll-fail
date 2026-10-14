@@ -315,9 +315,19 @@ object RotOperationCardsA {
         override def chosenOp(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 val copies = g.discard(Corp).%(_.title == c.title)
-                g.pushAll($(RevealCardsEffect(Corp, copies), MessageEffect(Corp, "adds " + copies.num + " cop" + (copies.num != 1).?("ies").|("y") + " from Archives to HQ")) ++ copies./(AddToHandEffect(_)))
+                g.push(ChooseNumberEffect(Corp, p.card, 0, copies.num, "reclaim:" + c.code, "Reclamation Order: how many copies of " + c.title.filter(_ < 128) + " to reveal and add to HQ?"))
             }
             NextAction
+        }
+        override def performOp(a : CardAction)(implicit g : Game) = a match {
+            case NumberPickedAction(self, n, key) if key.startsWith("reclaim:") =>
+                val title = Cards(key.drop(8)).title
+                val copies = g.discard(Corp).%(_.title == title)
+                val l = (copies.%(c => g.state(c).seen) ++ copies.%!(c => g.state(c).seen)).take(n)
+                if (copies.any)
+                    g.pushAll($(RevealCardsEffect(Corp, copies), MessageEffect(Corp, "adds " + l.num + " cop" + (l.num != 1).?("ies").|("y") + " from Archives to HQ")) ++ l./(AddToHandEffect(_)))
+                NextAction
+            case _ => NextAction
         }
     }
 
@@ -667,16 +677,25 @@ object RotOperationCardsA {
         def raw(t : Card) = CardImpls(t.code)
         override def playReq(self : Card)(implicit g : Game) = scoredAgendas(Runner).any
         override def effects(self : Card)(implicit g : Game) = $(ChooseCardEffect(Corp, scoredAgendas(Runner), MediaBlitzPurpose(self), "Media Blitz: choose an agenda in the score area of the Runner", false))
-        override def chosenOp(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.single.foreach(c => g.push(SetTargetEffect(p.card, |(c))))
-            NextAction
+        override def triggers(self : Card, e : Event)(implicit g : Game) = copied(self)./~(t => raw(t).triggers(self, e))
+        override def abilities(self : Card)(implicit g : Game) = copied(self)./~(t => raw(t).abilities(self))
+        override def handSize(self : Card, f : Faction)(implicit g : Game) = copied(self)./(t => raw(t).handSize(self, f)).|(0)
+        override def link(self : Card)(implicit g : Game) = copied(self)./(t => raw(t).link(self)).|(0)
+        override def memory(self : Card)(implicit g : Game) = copied(self)./(t => raw(t).memory(self)).|(0)
+        override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = copied(self)./(t => raw(t).iceStrengthMod(self, ice)).|(0)
+        override def breakerStrengthMod(self : Card, b : Card)(implicit g : Game) = copied(self)./(t => raw(t).breakerStrengthMod(self, b)).|(0)
+        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = copied(self)./(t => raw(t).rezCostMod(self, card)).|(0)
+        override def installCostMod(self : Card, card : Card)(implicit g : Game) = copied(self)./(t => raw(t).installCostMod(self, card)).|(0)
+        override def playCostMod(self : Card, card : Card)(implicit g : Game) = copied(self)./(t => raw(t).playCostMod(self, card)).|(0)
+        override def trashCostMod(self : Card, card : Card)(implicit g : Game) = copied(self)./(t => raw(t).trashCostMod(self, card)).|(0)
+        override def advancementRequirementMod(self : Card, agenda : Card)(implicit g : Game) = copied(self)./(t => raw(t).advancementRequirementMod(self, agenda)).|(0)
+        override def performOp(a : CardAction)(implicit g : Game) = copied(a.card)./(t => raw(t).perform(a)).|(NextAction)
+        override def chosenOp(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
+            case MediaBlitzPurpose(_) =>
+                cards.single.foreach(c => g.push(SetTargetEffect(p.card, |(c))))
+                NextAction
+            case _ => copied(p.card)./(t => raw(t).chosen(p, cards)).|(NextAction)
         }
-        override def triggers(self : Card, e : Event)(implicit g : Game) = copied(self)./~(t => raw(t).triggers(t, e))
-        override def handSize(self : Card, f : Faction)(implicit g : Game) = copied(self)./(t => raw(t).handSize(t, f)).|(0)
-        override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = copied(self)./(t => raw(t).iceStrengthMod(t, ice)).|(0)
-        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = copied(self)./(t => raw(t).rezCostMod(t, card)).|(0)
-        override def installCostMod(self : Card, card : Card)(implicit g : Game) = copied(self)./(t => raw(t).installCostMod(t, card)).|(0)
-        override def advancementRequirementMod(self : Card, agenda : Card)(implicit g : Game) = copied(self)./(t => raw(t).advancementRequirementMod(t, agenda)).|(0)
     }
 
     object TheAllSeeingI extends RotOp("09022") {
@@ -757,9 +776,18 @@ object RotOperationCardsA {
         override def chosenOp(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 val copies = g.deck(Corp).%(_.title == c.title)
-                g.pushAll($(RevealCardsEffect(Corp, copies), MessageEffect(Corp, "adds " + copies.num + " cop" + (copies.num != 1).?("ies").|("y") + " from R&D to HQ")) ++ copies./(AddToHandEffect(_)))
+                g.push(ChooseNumberEffect(Corp, p.card, 0, copies.num, "lpl:" + c.code, "Localized Product Line: how many copies of " + c.title.filter(_ < 128) + " to add to HQ?"))
             }
             NextAction
+        }
+        override def performOp(a : CardAction)(implicit g : Game) = a match {
+            case NumberPickedAction(self, n, key) if key.startsWith("lpl:") =>
+                val title = Cards(key.drop(4)).title
+                val l = g.deck(Corp).%(_.title == title).take(n)
+                if (l.any)
+                    g.pushAll($(RevealCardsEffect(Corp, l), MessageEffect(Corp, "adds " + l.num + " cop" + (l.num != 1).?("ies").|("y") + " from R&D to HQ")) ++ l./(AddToHandEffect(_)))
+                NextAction
+            case _ => NextAction
         }
     }
 
@@ -933,7 +961,7 @@ object RotOperationCardsA {
         override def effects(self : Card)(implicit g : Game) = $(TraceEffect(2, $(HellionBetaAction(self)), $(BadPubEffect(1))))
         override def performOp(a : CardAction)(implicit g : Game) = a match {
             case HellionBetaAction(self) =>
-                val l = runnerCards.%(c => !c.data.isProgram)
+                val l = (runnerCards ++ g.installedCards(Corp)).%(c => !c.data.isProgram || g.state(c).facedown)
                 if (l.any)
                     g.push(ChooseCardsEffect(Corp, l, 2.atMost(l.num), 2, TrashPurpose(Corp), "Hellion Beta Test: choose 2 installed non-program cards to trash"))
                 NextAction
@@ -943,7 +971,7 @@ object RotOperationCardsA {
     object ObserveAndDestroy extends RotOp("11056") {
         override def playReq(self : Card)(implicit g : Game) = g.tagged && g.credits(Runner) < 6
         override def additionalCosts(self : Card)(implicit g : Game) = $(RemoveTagsEffect(1))
-        override def effects(self : Card)(implicit g : Game) = trashOne(runnerCards, "Observe and Destroy: choose an installed card to trash")
+        override def effects(self : Card)(implicit g : Game) = trashOne(runnerCards ++ g.installedCards(Corp), "Observe and Destroy: choose an installed card to trash")
     }
 
     object ServiceOutage extends RotOp("11057") {

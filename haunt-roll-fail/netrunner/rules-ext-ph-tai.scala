@@ -146,6 +146,8 @@ class DelegatingImpl(val raw : CardImpl) extends CardImpl {
     override def disablesHosted(self : Card)(implicit g : Game) = raw.disablesHosted(self)
     override def drawBonus(self : Card, f : Faction)(implicit g : Game) = raw.drawBonus(self, f)
     override def onSetup(self : Card)(implicit g : Game) = raw.onSetup(self)
+    override def hostSubtypes(self : Card)(implicit g : Game) = raw.hostSubtypes(self)
+    override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = raw.clicksPerTurn(self, f)
 }
 
 // a card that lost all its abilities (Klevetnik) or all but its printed subroutines (Hush)
@@ -425,7 +427,7 @@ trait PHTAIRules { game : Game =>
                 trigger(Played(f, c))
                 NextAction
             }
-        case EndRunEffect if hasFlag("no-etr") && run.exists(r => !r.ended) =>
+        case EndRunEffect if flagsOf("no-etr").exists(f => f.card.exists(fxResolvingSubs.has)) && run.exists(r => !r.ended) =>
             log("The run cannot end now")
             NextAction
         case a : ClickCreditAction => countAction("credit", performTurn(a))

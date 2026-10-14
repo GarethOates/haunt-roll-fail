@@ -244,7 +244,7 @@ object DFCards {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Sentry")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none && !g.usedThisTurn(self, "bukh") => $(MarkUsedEffect(self, "bukh"), gain(Runner, 2))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) && !g.usedThisTurn(self, "bukh") => $(MarkUsedEffect(self, "bukh"), gain(Runner, 2))
             case _ => $
         }
     }
@@ -278,7 +278,7 @@ object DFCards {
     }
 
     object InTheGroove extends NC("26020") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Runner) >= 4
+        override def canPlay(self : Card)(implicit g : Game) = g.active.isRunner && g.reg("actions") == 0 && g.reg("click-ability") == 0
         override def staysInPlay(self : Card)(implicit g : Game) = true
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Installed(Runner, c) if c.data.cost.exists(_ >= 1) => $(ChooseOneEffect(Runner, "In the Groove: choose one", $(Alt("Draw 1 card", $(draw(Runner, 1))), Alt("Gain 1 credit", $(gain(Runner, 1))))))

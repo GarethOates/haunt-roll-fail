@@ -38,6 +38,7 @@ case class TranquilizerAction(card : Card) extends CardAction
 case class MutualFavorPurpose(card : Card) extends CardPurpose
 case class MutualFavorInstallAction(card : Card, breaker : Card) extends CardAction
 case class TaoPurpose(card : Card) extends CardPurpose
+case class AmazeRunEndsAction(card : Card) extends CardAction
 case class PantographPurpose(card : Card) extends CardPurpose
 case class MayflyUsedAction(card : Card) extends CardAction
 case class NicoAction(card : Card) extends CardAction
@@ -576,6 +577,15 @@ object SGCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case RunEnds(s, _, true) if thisServer(self, s) && g.isRezzed(self) => $(MessageEffect(Corp, "uses AMAZE Amusements"), tag(2))
             case _ => $
+        }
+        // persistent: trashed by the Runner during a run on its server, it still gives the tags when that run ends
+        override def onTrash(self : Card, by : Faction)(implicit g : Game) =
+            (by.isRunner && g.lastTrashedRezzed && g.run.exists(r => !r.ended && g.zoneServer(g.lastTrashedFrom).has(r.server))).??(g.zoneServer(g.lastTrashedFrom).$./(s => AddFlagEffect(Flag("amaze", |(self), |(s), "run", 0, $(AmazeRunEndsAction(self)))) : ForcedAction))
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case AmazeRunEndsAction(self) =>
+                if (g.run.||(g.lastRun).exists(_.didSteal))
+                    g.push(MessageEffect(Corp, "uses AMAZE Amusements (trashed during the run)"), tag(2))
+                NextAction
         }
     }
 

@@ -414,3 +414,27 @@ The bookkeeping registers of the events, operations and assets ports are counted
 * secret spending (`SecretSpendEffect`, events), damage choice and tag avoidance (`RH.damageChoice` / `RH.avoidTags`,
   hardware), and trace-margin measuring (`MarginTraceEffect` in operations, `RememberCreditsEffect` / `TraceKickerEffect` in
   ice) each exist only once.
+
+### 8.2 Rules accuracy fixes (`rules-ext-fixes.scala`)
+
+`FixRules` (rules-ext-fixes.scala) is mixed in **last** (`... with RotAgendaRules with FixRules`), so its stackable overrides
+(`performRun`, `performAccess`, `performEffects`, `performAbilities`, `performTurn`, `performSU21`, `performPHTAI`, `performRWR`,
+`resolveRWRPurpose`, `rezCard`, `scoreAgenda`, `payCosts`, `useAbility`, `subs`, `canBreakSub`, `canRunServer`, `checkWin`,
+`isDisabled`, `extImpl`, `abilityOptions`, `windowOptions`) run before every other override and delegate the rest to `super`.
+Its own effects are handled by `performFixes` (end of the `performInternal` chain) and its bookkeeping by `fixTriggers` (end
+of `triggerEffects`). It provides, for any card:
+
+* events `ClicksSpent(f, n, cause)` (basic actions, click abilities, bioroid "lose [click]" breaks, the extra click of a
+  double card), `AgendaCounterSpent(card, n)`, `BreachEnded(server, stoleOrTrashed)`, `ClickLost` for every click loss, and
+  `SubsBroken(ice, subs, ice)` for bioroid click-breaks / Endless EULA (the ice is given as the breaker);
+* `fxFullyBroke(ice, subs, b)` / `fxAllBrokenBy(ice, b)` (every subroutine broken by `b`), `fxPrintedSubIndices(ice)`,
+  `fxNoResolve` (subroutines that do not resolve, not broken), `fxSubOrder` (resolution order), `fxResolvingSubs` (the ice
+  whose subroutine is resolving), `fxSources` (the card whose paid ability is resolving), `fxRunnerResolving`;
+* `fxPassedThisRun` / `fxPassedLastRun` (one entry per `PassIce`), `fxUsedThisRun` (programs used during the run),
+  `fxTraceLinkStrength` (the Runner's link strength in the last trace), `fxRezIgnoredCost` (inside `rezCard`);
+* hooks `CardImpl.hostSubtypes(self)` (subtypes of the host while hosted: Egret) and `CardImpl.clicksPerTurn(self, f)` (static
+  allotted clicks), lingering flags that outlast their card (`no-run`, `no-draw`, `gyri` / `rot-valley` hand size, `rsvp`,
+  `mind-game-jack-out`, `fx-tracker`, `stick-poke`, `cannot-break-printed`), `FxLoseClicksAtTurnBeginsEffect(f, n)`,
+  `FxAdditionalBadPubEffect(n)`.
+
+See `STATUS-fix-misc.md` for the cards that use them.
