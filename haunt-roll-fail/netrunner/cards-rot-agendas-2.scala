@@ -253,8 +253,8 @@ object RotAgendaCards2 {
         override def onScore(self : Card)(implicit g : Game) = $(RaMsrAction(self, 0))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case RaMsrAction(self, k) =>
-                // "rearrange any number of ice": a sequence of swaps (limited to 6)
-                if (g.allIce.num >= 2 && k < 6)
+                // "rearrange any number of ice": swaps until the Corp stops (the bound only stops endless bot loops)
+                if (g.allIce.num >= 2 && k < 3 * g.allIce.num)
                     g.push(ChooseCardsEffect(Corp, g.allIce, 0, 2, RaMsrPurpose(self, k), "Mandatory Seed Replacement: choose 2 pieces of ice to swap (none to finish)"))
                 NextAction
         }

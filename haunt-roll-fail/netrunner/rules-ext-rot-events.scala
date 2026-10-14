@@ -109,7 +109,7 @@ trait RotEventRules { game : Game =>
         // Employee Strike / Rumor Mill / Corporate Scandal leaving play
         case Trashed(c, _, _) if c.code == "09053" => $(RemoveFlagsScopeEffect("strike"))
         case Trashed(c, _, _) if c.code == "11022" => $(RemoveFlagsScopeEffect("rumor"))
-        case Trashed(c, _, _) if c.code == "10025" => $(BadPubEffect(-1))
+        case Trashed(c, _, _) if c.code == "10025" => $(FxAdditionalBadPubEffect(-1))
         case _ => $
     })
 

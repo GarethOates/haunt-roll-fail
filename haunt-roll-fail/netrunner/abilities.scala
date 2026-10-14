@@ -122,6 +122,8 @@ trait CardImpl {
     def remoteLimit(self : Card)(implicit g : Game) : Int = 99                                       // "limit N remote servers"
     def disablesHost(self : Card)(implicit g : Game) : Boolean = false                              // host card loses its abilities (Hush)
     def onActionTaken(self : Card, key : String, n : Int)(implicit g : Game) : $[ForcedAction] = $  // after the Corp finished an action of kind key for the n-th time this turn
+    def hostSubtypes(self : Card)(implicit g : Game) : $[String] = $                                 // subtypes the host of this card has while it is hosted (Egret; rules-ext-fixes.scala)
+    def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) : Int = 0                         // allotted clicks added to f's turns while active (Basilar Synthgland, Director Haas)
 }
 
 object GenericImpl extends CardImpl {

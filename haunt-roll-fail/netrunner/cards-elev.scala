@@ -327,7 +327,7 @@ object ElevCards {
                 g.moveTo(c, HandZone(Corp))
                 g.log(c, "is added to HQ")
             }
-            g.push(OptionalEffect(Runner, "Detente: access 1 card in HQ at random?", $(AccessRandomHQEffect(p.card)), $))
+            g.push(OptionalEffect(Runner, "Detente: access 1 card in HQ at random?", $(AccessRandomFromHQEffect(1, false)), $))
             NextAction
         }
         override def onTrash(self : Card, by : Faction)(implicit g : Game) = { g.uninstall(self) ; $ }
@@ -1068,9 +1068,23 @@ object ElevCards {
 
     object Biawak extends Startup("35074") {
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && g.scored(Corp).exists(_.data.isAgenda)).?(-10).|(0)
+        // the rez is affordable with the forfeit discount (rezCostMod); after rezzing the Corp chooses to forfeit an agenda or to
+        // pay the 10 credits the forfeit covered (only when it can); nothing when rezzed ignoring all costs
         override def onRez(self : Card)(implicit g : Game) = {
             val agendas = g.scored(Corp).%(_.data.isAgenda)
-            agendas.any.$(ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Biawak: choose an agenda to forfeit (paid 10 credits of the rez cost)", false))
+            if (g.fxRezIgnoredCost || agendas.none)
+                $
+            else {
+                val full = (self.data.cost.|(0) + g.allActive.%(_ != self)./(x => g.impl(x).rezCostMod(x, self)).sum).atLeast(0)
+                val extra = full - (full - 10).atLeast(0)
+                val forfeit = ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Biawak: choose an agenda to forfeit (pays 10 credits of the rez cost)", false)
+                if (extra <= 0)
+                    $
+                else if (g.canSpend(Corp, extra, Spend.rez(self)))
+                    $(ChooseOneEffect(Corp, "Biawak: pay for the rest of the rez cost", $(Alt("Forfeit an agenda", $(forfeit)), Alt("Pay " + extra + " credits", $(SpendEffect(Corp, extra, Spend.rez(self), 0, $))))))
+                else
+                    $(forfeit)
+            }
         }
         override def subroutines(self : Card)(implicit g : Game) = {
             val programs = g.installedCards(Runner).%(_.data.isProgram)
@@ -1149,7 +1163,7 @@ object ElevCards {
     }
 
     object PettyCash extends Startup("35081") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 3 && g.reg("played") == 0 && g.reg("installed") == 0 && g.reg("advanced") == 0 && g.reg("click-draw") == 0
+        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 1 && g.reg("actions") == 0 && g.reg("click-ability") == 0
         override def onPlay(self : Card)(implicit g : Game) = $(gain(Corp, 5)) ++ g.playedFrom.get(self).exists(z => !z.is[HandZone]).$(GainClicksEffect(Corp, 1))
         override def inactiveAbilities(self : Card)(implicit g : Game) =
             (g.zone(self) == DiscardZone(Corp)).$(Ability("play Petty Cash from Archives (then remove it from the game)", click(), $(PlayCardEffect(Corp, self, true, true)), click = true, ok = canPlay(self) && g.canSpend(Corp, g.playCost(self), Spend.play(self)), reason = "an action was already taken this turn"))

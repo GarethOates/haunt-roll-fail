@@ -8,24 +8,24 @@ Behaviour ported from `netrunner-src/src/clj/game/cards/*.clj`; the Startup form
 
 ### Elevation — 82/82 implemented (approximations marked *)
 Runner: Ryō "Phoenix" Ōno, Topan, Charm Offensive, Scrounge, Shred, Bling*, Gourmand, Hantu, Rising Tide, Cacophony, Rent Rioters,
-Barry "Baz" Wong, MuslihaT, Clean Getaway, Lie Low, Maintenance Access, Transfer of Wealth, Detente*, Maglectric Rapid, Sang Kancil,
+Barry "Baz" Wong, MuslihaT, Clean Getaway, Lie Low, Maintenance Access, Transfer of Wealth, Detente, Maglectric Rapid, Sang Kancil,
 Fransofia Ward, Open Market, Dewi Subrotoputri, Magdalene Keino-Chemutai, Illumination, Ritual, GAMEDRAGON Pro, Madani, Azimat,
 Chromatophores, Devadatta Drone, Principia, "Knickknack" O'Brian, Side Hustle.
 Corp: LEO Construction, Poétrï Luxury Brands, Aggressive Trendsetting, Project Ingatan, Humanoid Resources, Otto Campaign, Bumi 1.0,
 Scatter Field, Nanomanagement, Top-Down Solutions, Mercia B4LL4RD, AU Co., PT Untaian, Proprionegation, Sericulture Expansion, Byte!,
 Phật Gioan Baotixita, Empiricist, Mycoweb, Semak-samun, Peer Review, Mitra Aman, Nebula Talent Management, Synapse Global,
-Embedded Reporting, Next Big Thing, Idiosyncresis, Public Access Plaza*, Doomscroll, N-Pot, Bigger Picture, IP Enforcement*, Touch-ups,
-BANGUN, The Zwicky Group*, Greenmail, Off the Books, Anthill Excavation Contract, Plutus*, Biawak*, Kessleroid, Syailendra,
-Key Performance Indicators, Measured Response, Flyswatter, Lamplighter, Petty Cash*, Mahkota Langit Grid.
+Embedded Reporting, Next Big Thing, Idiosyncresis, Public Access Plaza, Doomscroll, N-Pot, Bigger Picture, IP Enforcement*, Touch-ups,
+BANGUN, The Zwicky Group, Greenmail, Off the Books, Anthill Excavation Contract, Plutus*, Biawak, Kessleroid, Syailendra,
+Key Performance Indicators, Measured Response, Flyswatter, Lamplighter, Petty Cash, Mahkota Langit Grid.
 
 ### Vantage Point — 66/66 implemented (approximations marked *)
-Runner: Chain Reaction, Take a Dive, The Tungsten Tailor, Corsair, Lampades, Hackerspace, Nurse Hạnh, Stick and Poke*, Vic,
+Runner: Chain Reaction, Take a Dive, The Tungsten Tailor, Corsair, Lampades, Hackerspace, Nurse Hạnh, Stick and Poke, Vic,
 Kompromat, Sell Out, Tailgate, Borrowed Goods, Rotary, Baker, Underdome Irregulars, Hiram Svensson, Aircheck, Beta Build,
-Methuselah, Touchstone, Read-Write Share, Sipa, Stowaway, Word on the Street*.
+Methuselah, Touchstone, Read-Write Share, Sipa, Stowaway, Word on the Street.
 Corp: Méliès City Luxury Line, Synchrocyclotron, Ansel 2.0, Reverb, Sleipnir, Vertigo, Caveat Emptor, realloc(), Retirement Plan,
-Perfect Recall*, Méliès U*, Lotus Haze, Esca, ezaM, Knowledge Seeker, Lionsmane, Vicsek, Cultivate, Unleash, The Red Room,
+Perfect Recall, Méliès U, Lotus Haze, Esca, ezaM, Knowledge Seeker, Lionsmane, Vicsek, Cultivate, Unleash, The Red Room,
 Editorial Division, Witch Hunt, Magistrate Revontulet, Nihilo Agent, Grubber, Lethe, Paywall, Flood the Market, Scapegoat,
-Hype Machine*, Sacrifice Zone Expansion, Luana Campos, Event Horizon, Flywheel, Tocsin, Myōshu*, Reanimation Protocol*, Vulture Fund,
+Hype Machine, Sacrifice Zone Expansion, Luana Campos, Event Horizon, Flywheel, Tocsin, Myōshu, Reanimation Protocol*, Vulture Fund,
 Flagship, Shackleton Grid, Let Them Dream.
 
 Nothing is left unimplemented.
@@ -34,27 +34,21 @@ Nothing is left unimplemented.
 * (Fixed in the credits pass, see `STATUS-fix-credits.md`: stealth-only costs of Corsair, Lampades, Baker; Aircheck's "cannot lose or
   spend credits from your credit pool"; Open Market, Mahkota Langit Grid and Azimat credits spent as credit sources; Hackerspace's
   discount only for resources installed onto it.)
-* Stick and Poke: the ice does not literally gain a subroutine; on the first encounter each turn the Runner chooses between
-  "break it with a matching icebreaker (1 credit)" (offered only if an installed breaker of the right type has enough strength) and
-  letting it resolve (1 net damage, draw 1).
-* Biawak: whenever the Corp has a scored agenda the rez costs 10 less and an agenda must be forfeited (the choice to pay 14 instead is
-  not offered). Plutus: if neither additional cost can be paid the asset is derezzed again after rezzing.
+* Plutus: if neither additional cost can be paid the asset is derezzed again after rezzing.
 * Hackerspace: hosting on it is offered in the install menu (`canHost` hook).
 * Bling: "install without spending credits" = install cost 0 at the time of install. Hosted (not installed) cards (Bling, Madani,
   Detente, Read-Write Share) live in a new `StashZone(host)` which the UI does not render yet.
-* Detente's outside-of-run access is a reduced access (steal / pay to trash / on-access abilities, no access-abilities of other cards).
-* Word on the Street forces the Corp to add it to their score area when scoring an agenda installed this turn (the Corp cannot decline
-  to score). Myōshu checks only the *last* scored agenda of the turn for "not installed this turn".
-* Petty Cash "no action finished yet": 3+ clicks and no play/install/advance/draw registered (clicking for credits is not registered).
-* The Zwicky Group: credit gains count as "through an agenda or operation" when an operation is resolving or an agenda's scoring
-  abilities are resolving (`scoringAgenda`); other sources (ice, assets) are excluded, but agenda abilities used later (e.g. Next Big Thing)
-  are not detected.
-* Public Access Plaza tags when trashed by the Runner (the engine resets the rezzed flag before `onTrash`).
+* (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: Stick and Poke grants a real first subroutine for the encounter; Biawak's
+  forfeit is optional (pay the 10 credits instead) and not asked when rezzed ignoring costs; Detente's access uses the normal
+  access machinery; Word on the Street is added to the score area *before* the agenda is scored (its -1 counts for that win check);
+  Myōshu looks at every agenda scored this turn; Petty Cash = no action (basic action or click ability) finished yet; The Zwicky
+  Group sees the real source of a credit gain (an agenda's paid or "when scored" ability, a resolving operation); Hype Machine
+  counts agendas scored / stolen, not points; Méliès U's hidden face is not a visible counter and starts random.)
+* Public Access Plaza tags when trashed by the Runner even if unrezzed (as jinteki).
 * IP Enforcement follows the printed text (remove X tags only; the Clojure version also charges X credits).
 * Perfect Recall's protection is stored per run and checked through the hook `protectsFromAccess`; it stops if Perfect Recall leaves play.
-* Hype Machine's discount keys on agenda *points* scored/stolen this turn (0-point agendas would not count).
-* Méliès U: the secretly chosen server is stored as a counter on the identity (`melies`); the Ask that chooses it is only shown to the Corp
-  but the counter is visible to a client that inspects the identity.
+* Méliès U: the secret choice is a journal action (like psi bids, hidden by the UI only); it is stored in the identity's memo (not
+  drawn on the board), and the face before the first choice is random (`MeliesSetupAction`).
 * Reanimation Protocol: if the Corp cannot afford (install + rez - 10), the ice is only installed.
 * Dividends use `lastScoredAdvancement` (recorded before the agenda leaves play); "excess" = counters - current requirement.
 * Chromatophores keeps its host in `chromatophoreHosts` (the engine resets host links before `onTrash`).

@@ -86,7 +86,8 @@ object SU21Cards {
     object EnPassant extends Ext("31003") {
         override def canPlay(self : Card)(implicit g : Game) = g.successfulRunsThisTurn.any
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.lastRun.$./~(r => g.ice(r.server).drop(r.position)).%(c => !g.isRezzed(c))
+            // the ice passed during the last run (PassIce events of that run), still installed and unrezzed
+            val l = g.fxPassedLastRun.distinct.%(c => g.isInstalled(c) && c.data.isIce && !g.isRezzed(c))
             l.any.$(ChooseCardEffect(Runner, l, TrashPurpose(Runner), "En Passant: choose an unrezzed piece of ice passed during the last run", true))
         }
     }
@@ -219,7 +220,7 @@ object SU21Cards {
         override def onPlay(self : Card)(implicit g : Game) = $(RunAnyServerEffect(|(self), g.servers))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if thisCardRun(self) && !g.state(self).usedRun.has("inside-job") =>
-                $(MarkRunUsedEffect(self, "inside-job"), MessageEffect(Runner, "bypasses the ice (Inside Job)"), BypassEffect)
+                $(MarkRunUsedEffect(self, "inside-job"), MessageEffect(Runner, "uses Inside Job"), BypassEffect)
             case _ => $
         }
     }
@@ -376,7 +377,9 @@ object SU21Cards {
     object Egret extends Ext("31032") {
         override def mustBeHosted(self : Card)(implicit g : Game) = true
         override def hostRequirement(self : Card, host : Card)(implicit g : Game) = host.data.isIce && g.isRezzed(host)
-        override def onInstall(self : Card)(implicit g : Game) = g.state(self).host.$./~(h => $("Barrier", "Code Gate", "Sentry")./(s => AddSubtypeEffect(h, s)))
+        // static: the host has the three subtypes while Egret is hosted on it (FixRules.fxHostedSubtypes)
+        override def hostSubtypes(self : Card)(implicit g : Game) = $("Barrier", "Code Gate", "Sentry")
+        override def onInstall(self : Card)(implicit g : Game) = g.state(self).host.$./(h => MessageEffect(Runner, "uses Egret: " + g.asciiTitle(h) + " gains Barrier, Code Gate and Sentry"))
     }
 
     object GordianBlade extends Ext("31033") {
@@ -642,9 +645,12 @@ object SU21Cards {
 
     object DailyBusinessShow extends Ext("31063") {
         override def drawBonus(self : Card, f : Faction)(implicit g : Game) = (f.isCorp && g.isRezzed(self) && g.reg("drawn-Corp") == 0).?(1).|(0)
+        // the first draw of the turn: the first rezzed copy asks once for one card per rezzed copy (jinteki)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case CardsDrawn(Corp, l) if g.isRezzed(self) && g.reg("drawn-Corp") == l.num && !g.usedThisTurn(self, "dbs") && l.num > 1 =>
-                $(MarkUsedEffect(self, "dbs"), ChooseCardEffect(Corp, l, BottomOfDeckPurpose(Corp), "Daily Business Show: choose a drawn card to add to the bottom of R&D", false))
+            case CardsDrawn(Corp, l) if g.isRezzed(self) && g.reg("drawn-Corp") == l.num && !g.usedThisTurn(self, "dbs") =>
+                val all = g.installedCards(Corp).%(c => c.title == self.title && g.isRezzed(c))
+                val k = all.num.atMost(l.num)
+                (all.starting.has(self) && k > 0).$(MarkUsedEffect(self, "dbs"), ChooseCardsEffect(Corp, l, k, k, BottomOfDeckPurpose(Corp), "Daily Business Show: choose " + k + " drawn card" + (k != 1).??("s") + " to add to the bottom of R&D"))
             case _ => $
         }
     }

@@ -82,9 +82,10 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   Patchwork is an interrupt of the basic play / install actions (fixed, see `STATUS-fix-prevention.md`); its once-per-turn
   ability (trash 1 grip card: the next play/install this turn costs 2 less) remains for installs by card effects and to make a
   card affordable.
-* **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3).
-  Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size, but the limit is only
-  re-checked when a Runner card leaves play. Facedown programs use no MU (engine-wide).
+* **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3),
+  and a virus / Caïssa program that fits in the unused restricted MU can be installed without trashing (fix-misc pass).
+  Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size and the limit is
+  checked whenever it is exceeded (fix-misc pass). Facedown programs use no MU (engine-wide).
 * **Apex.** Non-virtual resources cannot be installed by any path (facedown installs excepted) (see `STATUS-fix-restrictions.md`). Facedown cards
   can't be turned faceup by any card implemented so far.
 * **Adam.** The 3 directives (of the 4 Directive resources in the database) are installed as extra copies `Card(code, 100+i)`

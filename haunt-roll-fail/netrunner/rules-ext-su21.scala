@@ -81,9 +81,7 @@ trait SU21Rules { game : Game =>
         // Test Run: the installed program returns to the top of the stack at the end of the turn
         case TurnEnds(Runner) =>
             installedCards(Runner).%(c => state(c).choice == "test-run")./(c => MoveEffect(c, DeckZone(Runner), true))
-        // Steelskin Scarring trashed from the grip by damage
-        case DamageDone(_, _) =>
-            lastDamaged.%(_.code == "33004")./(c => OptionalEffect(Runner, "Steelskin Scarring: draw 2 cards?", $(DrawEffect(Runner, 2)), $))
+        // (Steelskin Scarring trashed from the grip by damage: its on-trash hook is called for damage discards in rules-ext-ph-tai.scala)
         // Light the Fire!: cards in the root of the attacked remote lose all abilities during the run, trash them when the run is successful
         case RunInitiated(s) if s.isRemote && run.exists(r => r.source.exists(_.code == "33009")) =>
             $(SetRunFlagEffect("disable-root"))

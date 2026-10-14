@@ -250,7 +250,7 @@ object RotProgramCards3 {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(2), 1, $("Barrier")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.has(ice, "Barrier") && g.unbrokenSubs(ice).none => $(MessageEffect(Runner, "uses Ankusa to add the barrier to HQ"), ReturnToHandEffect(ice))
+            case SubsBroken(ice, l, b) if b == self && g.has(ice, "Barrier") && g.fxFullyBroke(ice, l, b) => $(MessageEffect(Runner, "uses Ankusa to add the barrier to HQ"), ReturnToHandEffect(ice))
             case _ => $
         }
     }
@@ -342,7 +342,7 @@ object RotProgramCards3 {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Code Gate")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none && !g.usedThisTurn(self, "inv") => $(MarkUsedEffect(self, "inv"), SetTargetEffect(self, |(ice)))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) && !g.usedThisTurn(self, "inv") => $(MarkUsedEffect(self, "inv"), SetTargetEffect(self, |(ice)))
             case PassIce(ice) if g.state(self).target.has(ice) =>
                 val l = g.allIce.but(ice)
                 $(SetTargetEffect(self, None)) ++ l.any.$(OptionalEffect(Runner, "Inversificator: swap the passed ice with another piece of ice?", $(ChooseCardEffect(Runner, l, InversificatorPurpose(self, ice), "Inversificator: choose a piece of ice to swap with", false)), $))
@@ -359,7 +359,7 @@ object RotProgramCards3 {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(2), 1, $("Code Gate")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(ice, _, b) if b == self && g.unbrokenSubs(ice).none => $(SetTargetEffect(self, |(ice)))
+            case SubsBroken(ice, l, b) if b == self && g.fxFullyBroke(ice, l, b) => $(SetTargetEffect(self, |(ice)))
             case EncounterIce(ice) if g.state(self).target.exists(_ != ice) => $(MassDriverAction(self, ice))
             case RunEnds(_, _, _) if g.state(self).target.any => $(SetTargetEffect(self, None))
             case _ => $

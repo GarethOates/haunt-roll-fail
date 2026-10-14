@@ -125,6 +125,7 @@ trait RotIceRules { game : Game =>
             if (l.any) {
                 state(c).brokenSubs ++= l
                 log(Runner, "breaks", l.num.hl, "subroutines on", c)
+                trigger(SubsBroken(c, l, c))
             }
             NextAction
 

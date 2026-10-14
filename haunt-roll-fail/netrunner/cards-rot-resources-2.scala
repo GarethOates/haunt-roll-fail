@@ -223,7 +223,7 @@ object RotResourceCards2 {
     }
 
     object Paparazzi extends RR("08087") {
-        // "you are tagged" is not modelled by the engine
+        // "you are tagged": Game.tagged (FixRules.fxConsideredTagged); all meat damage is prevented (forced interrupt)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PreventionInterrupt("meat", 1, n) => $(MessageEffect(Runner, "prevents " + n + " meat damage (Paparazzi)"), Prevent.allDamage)
             case _ => $
@@ -312,8 +312,8 @@ object RotResourceCards2 {
     }
 
     object RachelBeckman extends RR("06060") {
+        override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = f.isRunner.?(1).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(MessageEffect(Runner, "gets 1 additional [click] (Rachel Beckman)"), GainClicksEffect(Runner, 1))
             case TagsGained(_) if g.isInstalled(self) => $(MessageEffect(Runner, "trashes Rachel Beckman (tagged)"), TrashEffect(self, Runner, false))
             case Installed(Runner, c) if c == self && g.tagged => $(MessageEffect(Runner, "trashes Rachel Beckman (tagged)"), TrashEffect(self, Runner, false))
             case _ => $
@@ -518,8 +518,11 @@ object RotResourceCards2 {
                     g.push(ChooseOneEffect(Runner, "Street Magic: choose the next subroutine to resolve", l./(i => Alt(g.promptText("Subroutine " + (i + 1) + ": " + g.subs(ice).lift(i)./(_.label).|("?")), $(StreetMagicFireAction(self, ice, i, l.but(i)))))))
                 NextAction
             case StreetMagicFireAction(self, ice, i, rest) =>
-                g.state(ice).brokenSubs :+= i
-                g.push(FireSubAction(ice, i), StreetMagicAction(self, ice, rest))
+                g.fxSubOrder += ice -> (g.fxSubOrder.get(ice).|($) :+ i)
+                if (rest.num > 1)
+                    g.push(StreetMagicAction(self, ice, rest))
+                else
+                    g.fxSubOrder += ice -> (g.fxSubOrder(ice) ++ rest)
                 NextAction
         }
     }
@@ -625,7 +628,9 @@ object RotResourceCards2 {
     }
 
     object TheBlackFile extends RR("10099") {
-        // "the Corp cannot win except by flatline": RestrictionRules.corpCannotWin; the win is checked again when it leaves
+        // "the Corp cannot win except by flatline": RestrictionRules.corpCannotWin; the win is checked again when it leaves play
+        // (removed from the game by its own ability, or trashed)
+        override def onTrash(self : Card, by : Faction)(implicit g : Game) = $(CheckWinAction)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(BlackFileAction(self))
             case _ => $

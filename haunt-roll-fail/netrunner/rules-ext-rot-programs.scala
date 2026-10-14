@@ -64,9 +64,9 @@ trait RotProgramRules { game : Game =>
             NextAction
 
         case PreventSubsEffect(ice, n) =>
-            val l = unbrokenSubs(ice).take(n)
+            val l = subs(ice).indices.$.take(n)
             if (l.any) {
-                state(ice).brokenSubs ++= l
+                fxNoResolve ++= l./(i => (ice, i))
                 log(l.num.hl, "subroutine" + (l.num != 1).??("s"), "on", ice, "will not resolve")
             }
             NextAction

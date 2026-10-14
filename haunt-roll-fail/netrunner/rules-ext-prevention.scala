@@ -284,7 +284,7 @@ trait PreventionRules extends EffectRules with RunRules with AbilityRules with T
 
     def breakInterruptible(ice : Card) : Boolean = has(ice, "Bioroid") && (zone(ice) match {
         case IceZone(s) =>
-            root(s).exists(c => !isRezzed(c) && breakRezInterrupts.has(c.code) && credits(Corp) >= rezCost(c)) || {
+            root(s).exists(c => !isRezzed(c) && breakRezInterrupts.has(c.code) && canSpend(Corp, rezCost(c), Spend.rez(c)) && rezBlock(c).none) || {
                 val ctx = new PreventCtx("break")
                 ctx.source = |(ice)
                 ctx.subs = $(0)
@@ -302,7 +302,7 @@ trait PreventionRules extends EffectRules with RunRules with AbilityRules with T
         ctx.by = Runner
         ctx.action = |(a)
         val rez : $[Card] = zone(ice) match {
-            case IceZone(s) => root(s).%(c => !isRezzed(c) && breakRezInterrupts.has(c.code) && credits(Corp) >= rezCost(c))
+            case IceZone(s) => root(s).%(c => !isRezzed(c) && breakRezInterrupts.has(c.code) && canSpend(Corp, rezCost(c), Spend.rez(c)) && rezBlock(c).none)
             case _ => Nil
         }
         ctx.side = active

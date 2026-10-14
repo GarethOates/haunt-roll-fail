@@ -63,16 +63,13 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
   counter of another card.
 * Harbinger: when trashed from play it is installed facedown from the heap (facedown programs use no MU; Blacklist does not
   stop it, since the card never really reaches the heap).
-* Tracker: the prevented subroutine is the first unbroken subroutine of the first rezzed ice with unbroken subroutines
-  encountered during the Tracker run (chosen at encounter time, so it counts as broken); Mass-Driver likewise marks the
-  first 3 subroutines of the next encountered ice as broken.
-* Copycat is an optional "whenever you pass a piece of ice" trigger (as printed), offered after passing rezzed ice.
-* Endless Hunger breaks any subroutine of ice that has an "end the run" subroutine (jinteki does not enforce the restriction
-  at all).
+* (Fixed in the fix-misc pass: Tracker prevents the first subroutine that would resolve during its run; Mass-Driver's 3
+  subroutines do not resolve but are not broken; Endless Hunger breaks "End the run" subroutines only.)
+* Copycat is an optional "after you pass a rezzed piece of ice" trigger, as printed (jinteki: a paid ability).
 * Faust: the grip card for the break is chosen right after the break.
 * Surveillance Network Key (1 and 2): reveal the cards the Corp draws during its action phase.
 * Wari / Paintbrush offer Barrier, Code Gate and Sentry; Panchatantra offers every other ice subtype of the card pool.
-* Aumakua gains its counter when a run with an access ends without stealing or trashing (approximates "finish breaching").
+* Aumakua gains its counter whenever a breach ends without stealing or trashing (fix-misc pass: `BreachEnded`).
 * Progenitor's purge protection remembers the hosted program while it has virus counters; counters spent through a cost are
   not seen, so a program that spent all its counters before a purge still keeps 1.
 * Customized Secretary hosts the revealed programs as uninstalled hosted cards (like the other `uninstalled` hosts, they are

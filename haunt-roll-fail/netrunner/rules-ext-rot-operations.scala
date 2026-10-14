@@ -258,8 +258,7 @@ trait RotOperationRules { game : Game =>
             NextAction
 
         case RecordTraceMarginAction =>
-            val boost = runnerTraceBoost
-            rotTraceMargin = (traceStrength - (link + boost)).atLeast(0)
+            rotTraceMargin = (traceStrength - fxTraceLinkStrength).atLeast(0)
             log("The trace strength exceeds the link strength by", rotTraceMargin.hl)
             NextAction
 

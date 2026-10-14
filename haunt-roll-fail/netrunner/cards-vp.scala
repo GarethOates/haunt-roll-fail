@@ -36,12 +36,20 @@ case class ReallocPurpose(card : Card) extends CardPurpose
 case class PerfectRecallPurpose(card : Card) extends CardPurpose
 case class MeliesChoiceAction(self : Faction, card : Card, n : Int) extends BaseAction("Melies U: secretly choose a server")(n match { case 1 => "HQ" ; case 2 => "R&D" ; case _ => "Archives" }) with SelfPerform {
     def perform(soft : Void)(implicit g : Game) = {
-        g.state(card).counters += "melies" -> n
+        // kept in the identity's memo (not a counter: counters are drawn on the board for both players)
+        g.state(card).memo = n.toString
         g.log(Corp, "secretly chooses a server (Melies U)")
         NextAction
     }
 }
 case class MeliesChooseAction(card : Card) extends CardAction
+case class MeliesSetupAction(card : Card) extends CardAction
+case class MeliesRandomAction(card : Card, shuffled : $[Int]) extends ShuffledAction[Int] with SelfPerform {
+    def perform(soft : Void)(implicit g : Game) = {
+        g.state(card).memo = shuffled.headOption.|(1).toString
+        NextAction
+    }
+}
 case class MeliesTrashAction(card : Card) extends CardAction
 case class LotusPurpose(card : Card) extends CardPurpose
 case class EzamPurpose(card : Card) extends CardPurpose
@@ -135,18 +143,14 @@ object VPCards {
     }
 
     object StickAndPoke extends Startup("36008") {
+        // the first encounter each turn: the ice gains "[Stick] Do 1 net damage. The Runner draws 1 card." as its first
+        // subroutine for that encounter (an encounter-scoped flag read by FixRules.subs)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(ice) if !g.usedThisTurn(self, "stick") => $(MarkUsedEffect(self, "stick"), StickAndPokeAction(self, ice))
+            case EncounterIce(ice) if g.reg("fx-encounters") == 0 => $(AddFlagEffect(Flag("stick-poke", |(ice), None, "encounter", 0, $)))
             case _ => $
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
-            case StickAndPokeAction(self, ice) =>
-                val str = g.iceStrength(ice)
-                val canBreak = g.installedCards(Runner).exists(b => g.isActive(b) && g.impl(b).breaks(b).exists(br => (br.subtypes.none || br.subtypes.exists(t => g.has(ice, t))) && g.impl(ice).canBreakWith(ice, b)) && g.breakerStrength(b) >= str)
-                g.push(ChooseOneEffect(Runner, "Stick and Poke: the ice gains a subroutine (do 1 net damage, the Runner draws 1 card)", $(
-                    Alt("Break it with a matching icebreaker (1 credit)", $(LoseCreditsEffect(Runner, 1)), canBreak && g.credits(Runner) >= 1),
-                    Alt("Let the subroutine resolve", $(net(1), draw(Runner, 1))))))
-                NextAction
+            case StickAndPokeAction(self, ice) => NextAction
         }
     }
 
@@ -376,14 +380,16 @@ object VPCards {
     object WordOnTheStreet extends Startup("36025") {
         override def agendaPointsBonus(self : Card)(implicit g : Game) = inCorpScore(self).?(-1).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case AgendaScored(_) if g.isInstalled(self) => $(WotsAction(self, g.lastScoredInstalledTurn == g.turn))
+            // an agenda installed this turn: Word on the Street was already added to the score area as an additional cost
+            // to score (FixRules.scoreAgenda, before the agenda is scored); otherwise trash it, gain 4 and draw 1
+            case AgendaScored(_) if g.isInstalled(self) && g.lastScoredInstalledTurn != g.turn => $(WotsAction(self, false))
             case _ => $
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case WotsAction(self, true) =>
                 g.uninstall(self)
                 g.moveTo(self, ScoredZone(Corp))
-                g.log(self, "is added to the Corp's score area as an agenda worth -1 agenda point")
+                g.log(Corp, "adds", self, "to the score area as an agenda worth -1 agenda point (additional cost to score)")
                 NextAction
             case WotsAction(self, false) =>
                 g.trashCard(self, Runner, false)
@@ -483,19 +489,25 @@ object VPCards {
 
     object MeliesU extends Startup("36036") {
         def face(n : Int) = n match { case 1 => "Tenure Floors: Melies U" ; case 2 => "Subsurface Labs: Melies U" ; case _ => "Disposal Grounds: Melies U" }
-        def chosenServer(self : Card)(implicit g : Game) : Server = g.counter(self, "melies") match { case 2 => RnD ; case 3 => Archives ; case _ => HQ }
+        def chosenIndex(self : Card)(implicit g : Game) : Int = g.state(self).memo match { case "2" => 2 ; case "3" => 3 ; case _ => 1 }
+        def chosenServer(self : Card)(implicit g : Game) : Server = chosenIndex(self) match { case 2 => RnD ; case 3 => Archives ; case _ => HQ }
+        // before the first turn the hidden face is chosen at random (jinteki :pre-first-turn)
+        override def onSetup(self : Card)(implicit g : Game) = $(MeliesSetupAction(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnEnds(Corp) => $(MeliesChooseAction(self))
-            case TurnEnds(Runner) if !flipped(self) => $(gain(Corp, 1))
+            case ActionPhaseEnds(Runner) if !flipped(self) => $(gain(Corp, 1))
             case TurnBegins(Corp) if flipped(self) => $(SetCounterEffect(self, "flip", 0), MessageEffect(Corp, "flips the identity back to Melies U: Only the Brightest"))
             case SuccessfulRun(s) if s.isCentral && !flipped(self) =>
-                val n = g.counter(self, "melies").atLeast(1)
+                val n = chosenIndex(self)
                 $(SetCounterEffect(self, "flip", 1), MessageEffect(Corp, "flips the identity to " + face(n))) ++ (s == chosenServer(self) && g.deck(Corp).any).$(OptionalEffect(Corp, "Melies U: trash the top card of R&D to add 1 card from Archives to HQ?", $(MeliesTrashAction(self)), $))
             case _ => $
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case MeliesChooseAction(self) =>
                 Ask(Corp).group("Melies U: secretly choose a server").add($(1, 2, 3)./(n => MeliesChoiceAction(Corp, self, n)))
+            case MeliesSetupAction(self) =>
+                g.log(Corp, "reveals the three hidden faces of Melies U: Tenure Floors, Subsurface Labs and Disposal Grounds")
+                ShuffleTake[Int]($(1, 2, 3), 1, MeliesRandomAction(self, _), "Melies U")
             case MeliesTrashAction(self) =>
                 g.push(MillEffect(Corp, 1))
                 if (g.discard(Corp).any || g.deck(Corp).any)
@@ -709,7 +721,7 @@ object VPCards {
     }
 
     object HypeMachine extends Startup("36055") {
-        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && (g.reg("scored-points") > 0 || g.reg("stolen-points") > 0)).?(-6).|(0)
+        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && (g.reg("scored") > 0 || g.reg("stolen") > 0)).?(-6).|(0)
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.serverOf(self)./(s => g.root(s).%(c => c != self && g.isAdvanceable(c))).|($)
             $(Ability("place 1 advancement counter on a card in this server", $(TrashSelfCost), $(ChooseCardEffect(Corp, l, AdvancePurpose(1), "Hype Machine: choose a card", false)), ok = g.isRezzed(self) && l.any, reason = "no advanceable card in this server"))
@@ -803,7 +815,7 @@ object VPCards {
     }
 
     object Myoshu extends Startup("36061") {
-        override def canPlay(self : Card)(implicit g : Game) = g.reg("scored-points") > 0 && g.lastScoredInstalledTurn != g.turn
+        override def canPlay(self : Card)(implicit g : Game) = g.reg("fx-scored-not-installed-this-turn") > 0
         override def onPlay(self : Card)(implicit g : Game) = $(MyoshuAction(self))
         override def agendaPointsBonus(self : Card)(implicit g : Game) = inCorpScore(self).?(2).|(0)
         override def performCard(a : CardAction)(implicit g : Game) = a match {

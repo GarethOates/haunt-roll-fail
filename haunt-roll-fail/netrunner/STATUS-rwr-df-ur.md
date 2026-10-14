@@ -35,10 +35,10 @@ Business As Usual, Isaac Liberdade, The Powers That Be.
 
 Runner: Isolation, Demolisher, Chisel, Stargate, Utae, Climactic Showdown (fixed: removed from the game when the turn
 begins, the access bonus is a turn-lasting game effect, see `STATUS-fix-prevention.md`), Fencer Fueno, The Nihilist, Trickster Taka, Az McCaffrey, Always Have a Backup Plan, Blueberry Diesel, Flip Switch,
-Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove (partial:
-"first click" is checked as "4 clicks remaining"), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /
-Code Gate / Sentry offered), Rezeki, The Artist, Direct Access (partial: identities are not disabled during the
-run), Rejig, Whistleblower (partial: the resource is trashed when the run ends instead of immediately, the named
+Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove ("first click" = no
+action or click ability yet this turn, fix-misc pass), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /
+Code Gate / Sentry offered), Rezeki, The Artist, Direct Access (both identities lose all
+abilities during its run, fix-misc pass), Rejig, Whistleblower (partial: the resource is trashed when the run ends instead of immediately, the named
 agenda is stolen through an access ability "steal ignoring all costs").
 
 Corp: MirrorMorph (partial: like jinteki, the reward is "gain 1 credit or gain [click]"; action kinds are the
@@ -60,8 +60,8 @@ Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricat
 Scapenet, Tranquility Home Grid, Flower Sermon, Prana Condenser
 (prevents net damage from any source; one use per damage instance), Engram Flush, Konjin, Hyoubu Precog
 Manifold, Kakurenbo, GameNET (partial: triggers on payments of "pay N credits" choices of Corp card abilities during
-a run (`CreditsPaid` with `Spend.corpAbility`) and on any credit loss of the Runner during a run, whose source is not
-tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station, Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
+a run (`CreditsPaid` with `Spend.corpAbility`), on credits paid for steal costs (fix-misc pass) and on any credit loss of the
+Runner during a run, whose source is not tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station, Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
 Argus Crackdown, Cyberdex Sandbox, False Lead, NAPD Cordon.
 
 Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26096, 26112, 26117, 26127.
@@ -153,8 +153,8 @@ Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26
 
 ## Simplifications
 
-
-* "Instead of breaching" effects set `Run.preventAccess`, so the log says "is prevented from breaching".
+* "Instead of breaching" effects set `Run.preventAccess`; the replacement is logged once (the "is prevented from breaching"
+  line is no longer added, fix-misc pass).
 * Access bonuses granted at "breach" time by several cards resolve in trigger order ("Pretty" Mary).
 * Game Over's prevention lets the Runner choose the cards to keep before trashing the others.
 * The Wizard's Chest / Gachapon reveal the set-aside cards in the log (they are faceup).

@@ -20,15 +20,12 @@ Project Atlas, Corporate Town, Archer, Hortum, Ice Wall, Punitive Counterstrike,
 Subliminal Messaging.
 
 Partially implemented / simplified:
-* **Egret** — the host keeps the three subtypes until the host leaves play even if Egret is trashed alone (card state is reset
-  before `onTrash`, so the host is unknown then).
-* **En Passant** — "ice passed during the last run" is approximated by the unrezzed ice of the last run's server at positions
-  the Runner moved past (`lastRun.position`).
-* **Daily Business Show** — the extra draw applies to the first draw of the turn (register `drawn-Corp == 0`); with several
-  rezzed DBS each one asks for one card to put on the bottom (jinteki asks once for n cards).
+* (Fixed in the fix-misc pass, `STATUS-fix-misc.md`: **Egret**'s subtypes are a static effect of the hosted Egret
+  (`hostSubtypes`); **En Passant** uses the ice actually passed during the last run (`PassIce` events); **Daily Business
+  Show** asks once, for one card per rezzed copy.)
 * **Sneakdoor Beta** — fixed: the server is changed to HQ when the run would be declared successful (`RunWouldSucceed`, see
   `STATUS-fix-prevention.md`).
-* **Ayla** — the 4 set-aside cards are hosted on the identity (not shown in the UI yet); the `[click]` ability works.
+* **Ayla** — the 4 set-aside cards are hosted on the identity (drawn under it for their owner); the `[click]` ability works.
 * **Atman** — the break option is simply absent (not greyed out) when the ice strength differs.
 * **Oaktown Renovation** — installed faceup by marking it rezzed+seen (so its advance trigger is active).
 * **Corporate Town / Archer** — the forfeit happens right after the rez (`ForfeitEffect`) instead of as a cost before it; the rez
@@ -48,24 +45,18 @@ Backroom Machinations, Vladisibirsk City Grid, Ob Superheavy Logistics, Azef Pro
 Maskirovka, Stavka, Extract, Mutually Assured Destruction, Trust Operation.
 
 Partially implemented / simplified:
-* **Deep Dive** — the 8 cards are not physically set aside: the Runner chooses among the (sorted) top 8 cards of R&D and
-  accesses it in place; the second access excludes the first card; R&D is shuffled at the end.
-* **Into the Depths** — "times you passed ice" = number of ice protecting the server at the time of the successful run (max 3).
-* **Steelskin Scarring** — the "trashed from grip or stack" trigger fires for damage (via `lastDamaged`) and for trashes through
-  `trashCard`; discarding it at end of turn / milling does not trigger it.
-* **Ob Superheavy Logistics** — fires on any Corp-caused trash of a rezzed asset/upgrade/ice (`lastTrashedRezzed`), including the
-  trash of an asset replaced during an install (jinteki excludes "during installation").
+* (Fixed in the fix-misc pass: **Deep Dive** sets the 8 cards aside (hosted faceup on the event, not in R&D) and shuffles
+  them back; **Into the Depths** counts the `PassIce` events of the run; **Steelskin Scarring** draws once (the duplicate
+  damage trigger is gone) and also triggers on mill / random / card-effect trashes from the grip (not on the end-of-turn
+  discard, which is not a trash); **Ob Superheavy Logistics** ignores trashes during an installation and is once per turn only
+  when used.)
 * **Azef Protocol** — the "trash another installed card" additional cost is paid right after scoring (and scoring is blocked
   without another installed card via `preventsScoring`).
-* **Light the Fire!** — "cards in the root lose all abilities" is implemented for triggered abilities (`isDisabled` filter in
-  `Game.trigger`); static modifiers (e.g. SanSan) of those cards still apply during the run.
+* **Light the Fire!** — cards in the root lose all abilities through the `DisabledImpl` wrapper (static modifiers included).
 * **Mitosis** — "cannot score or rez this turn" uses per-card `usedTurn` markers (`cannot-score`, `cannot-rez`), which are
   cleared at the start of the next turn.
-* **Anemone** — the HQ card trashed as a cost goes to Archives facedown (`DiscardPurpose`).
-* **Hakarl 1.0** — "cannot use paid abilities printed on bioroid ice" blocks the `runnerAbilities` of all bioroid ice via the
-  register `no-bioroid-abilities` (greyed out in the encounter prompt).
-* **Trieste** — blocks every Runner card's break abilities on the chosen ice (identity abilities such as Quetzal's still work,
-  like jinteki).
+* **Anemone**, **Hakarl 1.0**, **Trieste**: as jinteki (the HQ card trashed as a cost goes facedown; bioroid ice paid abilities
+  blocked for the turn; Runner card breaks blocked, identity abilities allowed).
 * **Mystic Maemi** — the end-of-turn choice is forced only when hosted credits >= 3; "take 1 credit" paid ability included.
 
 ### urbp (7/7 implemented)

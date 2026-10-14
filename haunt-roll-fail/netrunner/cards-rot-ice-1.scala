@@ -305,13 +305,12 @@ object RotIceCards1 {
         override def subroutines(self : Card)(implicit g : Game) = $(etrSub, etrSub, etrSub)
     }
 
-    // Data Hound / Waiver: the Runner's trace boost is measured as the credits spent (RememberCreditsEffect before the trace)
+    // Data Hound / Waiver: X = trace strength - the Runner's link strength (link + boost, recorded by FixRules)
     object DataHound extends RI("02096") {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Trace[2]: look at the top X cards of the stack (X = trace strength - link), trash 1 of them, the Runner rearranges the rest", CopyAbilityEffect($(RememberCreditsEffect(self, Runner), TraceEffect(2, $(RotSubAction(self, 1)), $)))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
-                val boost = g.runnerTraceBoost
-                val x = (g.traceStrength - g.link - boost).atLeast(0)
+                val x = (g.traceStrength - g.fxTraceLinkStrength).atLeast(0)
                 val l = g.deck(Runner).take(x)
                 if (l.num > 1)
                     g.push(LookAtEffect(Corp, l, "Data Hound: the top " + l.num + " cards of the stack"), ChooseCardEffect(Corp, l, TrashPurpose(Corp), "Data Hound: choose a card to trash", false), ArrangeTopEffect(Runner, Runner, l.num - 1))
@@ -476,14 +475,12 @@ object RotIceCards1 {
         override def subroutines(self : Card)(implicit g : Game) = $(powerCounterSub(self), powerCounterSub(self))
     }
 
-    // grail ice: when encountered, reveal up to 2 grail ice from HQ; their subroutines are added for the encounter
+    // grail ice: when encountered, reveal up to 2 grail ice from HQ; the printed subroutines of each revealed card (read from
+    // its own implementation) are added for the remainder of the run, in front of or after this ice's subroutines (jinteki)
     abstract class Grail(code : String) extends RI(code) {
-        def grailSub(c : Card)(implicit g : Game) : Sub = c.code match {
-            case "06011" => etrSub
-            case "06051" => trashProgramSub
-            case "06091" => netSub(2)
-            case "29017" => Sub("The Runner cannot make another run this turn", AddFlagEffect(g.turnFlag("no-run", None)))
-            case _ => etrSub
+        def grailSubs(code : String)(implicit g : Game) : $[Sub] = {
+            val c = Card(code, 0)
+            g.impl(c).subroutines(c)
         }
         def ownSub(self : Card)(implicit g : Game) : Sub
         override def onEncounter(self : Card)(implicit g : Game) = {
@@ -491,16 +488,29 @@ object RotIceCards1 {
             l.any.$(ChooseCardsEffect(Corp, l, 0, 2, RotIcePurpose(self, 1), name + ": reveal up to 2 grail ice from HQ to add their subroutines"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            if (cards.any) {
-                g.push(RevealCardsEffect(Corp, cards))
-                g.state(p.card).memo = cards./(_.code).join(",")
-            }
+            if (cards.any)
+                g.push(RevealCardsEffect(Corp, cards), RotGrailPlaceAction(p.card, cards./(_.code)))
             NextAction
         }
-        override def subroutines(self : Card)(implicit g : Game) =
-            g.state(self).memo.split(',').toList.%(_ != "")./(code => grailSub(Card(code, 0))) :+ ownSub(self)
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case RotGrailPlaceAction(self, codes) =>
+                codes.starting.foreach { code =>
+                    val t = Cards(code).title.filter(_ < 128)
+                    g.push(ChooseOneEffect(Corp, name + ": add the subroutine of " + t + " where?", $(
+                        Alt("In front of the subroutines", $(RotGrailAddAction(self, code, true))),
+                        Alt("After the subroutines", $(RotGrailAddAction(self, code, false))))), RotGrailPlaceAction(self, codes.drop(1)))
+                }
+                NextAction
+            case RotGrailAddAction(self, code, front) =>
+                g.state(self).memo = (g.state(self).memo.split(',').toList.%(_ != "") :+ (front.?("F").|("E") + code)).join(",")
+                NextAction
+            case _ => super.perform(a)
+        }
+        override def subroutines(self : Card)(implicit g : Game) = {
+            val l = g.state(self).memo.split(',').toList.%(_.length > 1)
+            l.%(_.startsWith("F"))./~(e => grailSubs(e.drop(1))) ++ $(ownSub(self)) ++ l.%(_.startsWith("E"))./~(e => grailSubs(e.drop(1)))
+        }
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterEnds(c) if c == self && g.state(self).memo != "" => $(clearMemo(self))
             case RunEnds(_, _, _) if g.state(self).memo != "" => $(clearMemo(self))
             case _ => $
         }
@@ -559,7 +569,6 @@ object RotIceCards1 {
 
     object GyriLabyrinth extends RI("04110") {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("The Runner's maximum hand size is reduced by 2 until the start of your next turn", CopyAbilityEffect($(MessageEffect(Corp, "uses Gyri Labyrinth: the Runner's maximum hand size is reduced by 2"), AddFlagEffect(Flag("gyri", |(self), None, "halfturn", g.halfTurn, $))))))
-        override def handSize(self : Card, f : Faction)(implicit g : Game) = (f.isRunner && g.isRezzed(self)).?(-2 * g.flagsOf("gyri").%(_.card.has(self)).num).|(0)
     }
 
     object HadriansWall extends RI("25132") {

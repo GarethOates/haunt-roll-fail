@@ -28,7 +28,7 @@ abstract class PT(c : String) extends SG(c) {
 
     // this breaker just broke the last unbroken subroutine of the ice
     def fullyBroke(self : Card, e : Event)(implicit g : Game) = e match {
-        case SubsBroken(ice, _, b) => b == self && g.unbrokenSubs(ice).none
+        case SubsBroken(ice, l, b) => b == self && g.fxFullyBroke(ice, l, b)
         case _ => false
     }
 
@@ -49,6 +49,7 @@ case class AsmundSearchAction(card : Card, remaining : Int) extends CardAction
 case class AsmundPurpose(card : Card, remaining : Int) extends CardPurpose
 case class AsmundCheckAction(card : Card) extends CardAction
 case class SparkAction(card : Card) extends CardAction
+case class SparkEndAction(card : Card) extends CardAction
 case class WorldTreePurpose(card : Card) extends CardPurpose
 case class WorldTreeInstallPurpose(card : Card) extends CardPurpose
 case class MatryoshkaHostPurpose(card : Card) extends CardPurpose
@@ -309,17 +310,29 @@ object PHCards {
             case SparkAction(self) =>
                 val d = g.deck(Runner)
                 val before = d.takeWhile(c => !c.data.isProgram)
+                val revealed = d.take(before.num + 1)
+                revealed.foreach { c =>
+                    g.moveTo(c, StashZone(self))
+                    g.state(c).seen = true
+                }
                 d.drop(before.num).starting match {
                     case Some(p) =>
-                        g.log(Runner, "sets aside", (before :+ p)./(g.cardElem).comma)
+                        g.log(Runner, "reveals and sets aside", revealed./(g.cardElem).comma)
                         if (runnerCanInstall(p, 10))
-                            g.push(OptionalEffect(Runner, "Spark of Inspiration: install the program paying 10 credits less?", $(RunnerInstallDiscountEffect(p, 10), ShuffleDeckEffect(Runner)), $(ShuffleDeckEffect(Runner))))
+                            g.push(OptionalEffect(Runner, "Spark of Inspiration: install the program paying 10 credits less?", $(RunnerInstallDiscountEffect(p, 10), SparkEndAction(self)), $(SparkEndAction(self))))
                         else
-                            g.push(ShuffleDeckEffect(Runner))
+                            g.push(SparkEndAction(self))
                     case None =>
-                        g.log(Runner, "sets aside the whole stack and finds no program")
-                        g.push(ShuffleDeckEffect(Runner))
+                        g.log(Runner, "reveals and sets aside the whole stack and finds no program")
+                        g.push(SparkEndAction(self))
                 }
+                NextAction
+            case SparkEndAction(self) =>
+                val l = g.stashed(self)
+                l.foreach(c => g.moveTo(c, DeckZone(Runner)))
+                if (l.any)
+                    g.log(Runner, "shuffles the", l.num.cards, "set aside by Spark of Inspiration back into the stack")
+                g.push(ShuffleDeckEffect(Runner))
                 NextAction
         }
     }
@@ -332,10 +345,7 @@ object PHCards {
 
     object BasilarSynthgland extends PT("33086") {
         override def onInstall(self : Card)(implicit g : Game) = $(core(2))
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => $(MessageEffect(Runner, "has 1 additional allotted click (Basilar Synthgland)"), GainClicksEffect(Runner, 1))
-            case _ => $
-        }
+        override def clicksPerTurn(self : Card, f : Faction)(implicit g : Game) = f.isRunner.?(1).|(0)
     }
 
     object FluxCapacitor extends PT("33087") {
@@ -353,7 +363,7 @@ object PHCards {
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
         override def onTrash(self : Card, by : Faction)(implicit g : Game) = $(RemoveFromGameEffect(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case AgendaScored(_) | AgendaStolen(_) if g.isInstalled(self) => $(RemoveFromGameEffect(self))
+            case AgendaScored(_) | AgendaStolen(_) if g.isInstalled(self) && !g.isDisabled(self) => $(RemoveFromGameEffect(self))
             case _ => $
         }
     }
@@ -413,7 +423,7 @@ object PHCards {
             val faceup = g.stashed(self).%(c => !g.state(c).facedown)
             encounterIce.%(_ => faceup.any)./~ { ice =>
                 val n = g.unbrokenSubs(ice).num
-                (n > 0).$(BreakAbility(c(n), 0, $(), |("break all " + n + " subroutines (" + n + " credits, turn 1 hosted copy facedown)"), $(MatryoshkaFlipAction(self))))
+                (n > 0).$(BreakAbility(c(1), 0, $(), |("break X subroutines (X credits, turn 1 hosted copy facedown)"), $(MatryoshkaFlipAction(self)), perSub = true))
             }
         }
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
@@ -506,7 +516,7 @@ object PHCards {
     object Hypoxia extends PT("33101") {
         override def canPlay(self : Card)(implicit g : Game) = g.tagged
         override def onPlay(self : Card)(implicit g : Game) =
-            $(core(1), AddFlagEffect(Flag("hypoxia", None, None, "halfturn", g.halfTurn, $(MessageEffect(Runner, "gets -1 allotted click (Hypoxia)"), LoseClicksEffect(Runner, 1)))), RemoveFromGameEffect(self))
+            $(core(1), ExtraClicksEffect(Runner, -1), RemoveFromGameEffect(self))
     }
 
     object DjupstadGrid extends PT("33102") {
@@ -754,8 +764,8 @@ object PHCards {
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.foreach { c =>
                 g.trashCard(c, Corp, false)
-                g.addFlag(g.encounterFlag("cannot-break", p.card))
-                g.log("The subroutines of", p.card, "cannot be broken this encounter")
+                g.addFlag(g.encounterFlag("cannot-break-printed", p.card))
+                g.log("The printed subroutines of", p.card, "cannot be broken this encounter")
             }
             NextAction
         }

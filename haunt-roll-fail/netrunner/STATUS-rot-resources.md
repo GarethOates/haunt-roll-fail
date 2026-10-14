@@ -51,21 +51,22 @@ see `STATUS-fix-prevention.md`.)
 
 Not modelled because the engine has no hook for it (and adding one would need edits to shared files):
 
-* **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
+* (Fixed in the fix-misc pass: **Paparazzi** — the Runner is tagged (`Game.tagged`); its meat damage prevention is a forced
+  interrupt of the prevention pass. The Black File is enforced by the restrictions pass.)
 * **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
 
 Approximations:
 
 * **Hernando Cortez** — the additional cost is modelled as a rez-cost increase (same credits, same timing).
-* **Jackpot!** — offered whenever an agenda is stolen.
-* **Keros Mcintyre** — "you derez" is approximated by "ice derezzed during your turn".
+* **Jackpot!** — offered whenever an agenda is stolen; takes any number of hosted credits (fix-misc pass).
+* **Keros Mcintyre** — "you derez": ice derezzed while a Runner card's ability or event resolves (fix-misc pass; derezzes by
+  Runner triggered abilities are not recognised).
 * **Muertos Gang Member** — the "when uninstalled" rez is offered when it is trashed.
-* **Street Magic** — subroutines resolved through it are marked broken so that the encounter does not fire them a
-  second time (no `SubsBroken` event).
+* **Street Magic** — the chosen order is used when the unbroken subroutines resolve; nothing is broken (fix-misc pass).
 * **Levy Advanced Research Lab** — the other revealed cards go to the bottom in their current order (no reorder prompt).
 * **Psych Mike** — counts cards accessed from R&D this turn (normally equal to "during that run").
 * **Salvaged Vanadis Armory** — offered right after each damage event (rather than in the next paid ability window).
-* **Bazaar** — does not check that the hardware was installed from the grip.
+* **Bazaar** — only hardware installed from the grip (fix-misc pass).
 * **DJ Fenris** — the hosted identity is a pseudo card (`Card(code, 0)`) hosted faceup; its triggers and static
   abilities are active through the normal hosted-card rules; it is removed from the game when Fenris leaves play.
 

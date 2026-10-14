@@ -60,16 +60,16 @@ generic mechanics each set introduced are in the set status files; the engine si
 
 | Set | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| System Gateway (sg) | 77 | 77 | Bran 1.0, Tao's swap | `cards-sg.scala` | this file |
-| Elevation (elev) | 82 | 82 | 8 (Bling, Detente, Public Access Plaza, IP Enforcement, The Zwicky Group, Plutus, Biawak, Petty Cash) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| Vantage Point (vp) | 66 | 66 | 7 (Stick and Poke, Word on the Street, Perfect Recall, Melies U, Hype Machine, Myoshu, Reanimation Protocol) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| System Update 2021 (su21) | 82 | 82 | 10 (Egret, En Passant, Daily Business Show, Ayla, Atman, Oaktown Renovation, Corporate Town / Archer, Marilyn Campaign, Reina Roja) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
-| Midnight Sun (ms) | 65 | 65 | 12 (Deep Dive, Into the Depths, Steelskin Scarring, Ob Superheavy Logistics, Azef Protocol, Light the Fire!, Mitosis, Anemone, Hakarl 1.0, Trieste, Mystic Maemi, ...) | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| System Gateway (sg) | 77 | 77 | none (see `STATUS-fix-misc.md`) | `cards-sg.scala` | this file |
+| Elevation (elev) | 82 | 82 | 3 (Bling, IP Enforcement (printed text), Plutus) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Vantage Point (vp) | 66 | 66 | 1 (Reanimation Protocol) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| System Update 2021 (su21) | 82 | 82 | 3 (Atman, Corporate Town / Archer, Marilyn Campaign) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| Midnight Sun (ms) | 65 | 65 | 3 (Azef Protocol, Mitosis, Mystic Maemi) | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Uprising Booster Pack (urbp) | 7 | 7 | 2 (Cayambe Grid, Megaprix Qualifier) | `cards-ms.scala` | `STATUS-su21-ms.md` |
-| Parhelion (ph) | 63 | 63 | ~22 (Matryoshka, Asmund Pudlat, Nanuq, Hostile Architecture, Anvil, Klevetnik, Issuaq Adaptics, Superdeep Borehole, Bloop, ...) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
-| The Automata Initiative (tai) | 65 | 65 | ~19 (Daniela Jorge Inacio, Tucana, Banner, Wage Workers, Front Company, A Teia, AirbladeX, Starlit Knight, ...) | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| Parhelion (ph) | 63 | 63 | ~10 (Matryoshka (X = 1 or all), Hostile Architecture, Klevetnik, Bloop, ...) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| The Automata Initiative (tai) | 65 | 65 | ~6 (Daniela Jorge Inacio steal cost, Mercury, Jaguarundi / Attini / Pulse, ...) | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | Rebellion Without Rehearsal (rwr) | 65 | 65 | 7 (Sebastiao Souza Pessoa, Boi-tata, Manuel Lattes de Moura, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation) | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
-| Downfall (df) | 65 | 65 | 4 (In the Groove, Direct Access, Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Downfall (df) | 65 | 65 | 2 (Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 | Uprising (ur) | 58 | 58 | 1 (GameNET); 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 
 Preset decks (`Decks.presets`, 48): 7 System Gateway starters, 15 su21/ms decks (decks.scala), 8 Startup decks
@@ -86,18 +86,18 @@ them by name.
 
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| ICE | 211 | 211 | ~14 (Tithonium, Mind Game, the grail ice, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
-| Programs | 164 | 164 | ~13 (Hivemind, Tracker, Mass-Driver, Copycat, Customized Secretary, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
-| Resources | 164 | 164 | ~11 (Paparazzi's "you are tagged", Starlight Crusade Funding, Salvaged Vanadis Armory; approximations: DJ Fenris, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
-| Events | 148 | 148 | ~18 (Escher, Corporate Scandal, Cold Read, Apocalypse / Reboot faceup flip, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
-| Operations | 146 | 146 | ~25 (Surveillance Sweep, Net Watchlist, Enhanced Login Protocol, Media Blitz, Oversight AI, "name a card" lists, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
-| Assets | 144 | 144 | ~21 (Director Haas / Victoria Jenkins clicks, Jeeves, Sundew, Genetics Pavilion, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
-| Agendas | 114 | 114 | ~12 (Mandatory Upgrades / Seed Replacement, Accelerated Beta Test, Bacterial Programming, Personality Profiles, Unorthodox Predictions, Evidence Collection 1-3 no effect, ...) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Upgrades | 79 | 79 | ~6 (Armored Servers break cost, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Hardware | 101 | 101 | ~14 (MemStrips / Knobkierie / Deep Red, Ekomind, Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| ICE | 211 | 211 | ~5 (Tithonium, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
+| Programs | 164 | 164 | ~9 (Hivemind, Copycat, Customized Secretary, Progenitor, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| Resources | 164 | 164 | ~8 (Starlight Crusade Funding, Salvaged Vanadis Armory, DJ Fenris, Hernando Cortez, Keros Mcintyre, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
+| Events | 148 | 148 | ~8 (Rebirth (no format), Apocalypse / Reboot faceup flip, Prey, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Operations | 146 | 146 | ~10 (Surveillance Sweep, Enhanced Login Protocol, "name a card" lists, Death and Taxes, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
+| Assets | 144 | 144 | ~12 (Genetics Pavilion, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
+| Agendas | 114 | 114 | ~8 (Accelerated Beta Test, Bacterial Programming, Personality Profiles, Evidence Collection 1-3 no effect, ...) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Upgrades | 79 | 79 | ~4 (Armored Servers break cost, Will-o'-the-Wisp, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Hardware | 101 | 101 | ~10 (Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | Identities | 90 | 90 | ~13 (Adam, SSO Industries, Seidr, Archives Interface, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design timing, ...) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| **Total rotated** | **1,361** | **1,361** | **~176** | | |
-| **All cards** | **2,056** | **2,056** | ~280 (current sets ~104 + rotated ~176) | | |
+| **Total rotated** | **1,361** | **1,361** | **~87** | | |
+| **All cards** | **2,056** | **2,056** | ~127 (current sets ~40 + rotated ~87) | | |
 
 The prevention / interrupt / timing pass (2026-10-14, `rules-ext-prevention.scala`, `STATUS-fix-prevention.md`) replaced the
 continuation-style prevention abilities by real windows and fixed the timing of ~40 cards (trash prevention, tag / damage /
@@ -295,8 +295,11 @@ Initiumia / Ampere, draft identities, agenda factions, alliance influence). Deta
   encounter do not open a window); a player who declined a set of options is not asked again
   for the same options until something happens. In a hotseat (both humans in one browser) only the active
   player's prompt is visible, so the off-turn window is effectively unavailable there (use online play).
-* Brân 1.0 installs the chosen ice directly inside itself (jinteki installs at Brân's index).
-* Tāo's ice swap keeps the run position by index.
+* The rules accuracy pass of `STATUS-fix-misc.md` replaced many card approximations with the exact behaviour (real granted
+  subroutines, bioroid click-breaks as "subroutines broken" events, allotted clicks, lingering restrictions that outlast their
+  ice, ...). Brân 1.0 installs the ice directly inward from itself (= jinteki's index) and Tāo's swap keeps the Runner's position
+  (as jinteki); swaps no longer name unrezzed ice in the log. (AMAZE Amusements' persistence is the prevention pass's
+  `PersistentEffect`.)
 * Traces and psi games are exercised by later-set cards (Winchester, Punitive Counterstrike, Konjin, Letheia Nisei,
   See How They Run) and were played in the QA online games (see Tested).
 * Prevention / interrupts: damage, tags, bad publicity, end the run, jack out, trash (installed Runner cards), "when
@@ -313,8 +316,8 @@ Initiumia / Ampere, draft identities, agenda factions, alliance influence). Deta
 * Online play: both clients (and the spectator) race to append framework milestones and shuffle results; the losers
   get `HTTP 409` (players) / `HTTP 500` (spectator, read-only) in the console. This is the HRF framework's design and
   harmless (the journal stays consistent, replays are identical).
-* Cards accessed while installed and left in place are not remembered as "seen" by the Runner's UI (they are drawn
-  as card backs again after the run).
+* Cards accessed while installed and left in place stay visible to the Runner's UI until they move (`fxRunnerKnows`; they
+  are not "seen", so a later trash from there still goes to Archives facedown).
 * The framework logs `NetworkError` exceptions in headless Chrome for every game (also Coup): they come from the
   shell (font loading), not from the plugin.
 * `cards-data*.scala` and `webp2/netrunner/images` are produced by the asset agent; `question-mark.png`,

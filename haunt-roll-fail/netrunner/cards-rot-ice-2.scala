@@ -143,7 +143,7 @@ object RotIceCards2 {
             PsiEffect($(net(1), TrashEffect(self, Corp, false)), $(net(2), TrashEffect(self, Corp, false)))))
     }
 
-    // Mind Game: the additional jack out cost is only applied to the jack out offered by the subroutine
+    // Mind Game: the additional jack out cost applies to every jack out for the remainder of the run (run flag, FixRules)
     object MindGame extends RI("11092") {
         override def subroutines(self : Card)(implicit g : Game) = $(psi("redirect the run to another server", $(RotSubAction(self, 1))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -153,12 +153,7 @@ object RotIceCards2 {
                 }
                 NextAction
             case ServerPickedAction(self, Some(s), "mind-game") =>
-                val l = g.runnerInstalled
-                g.push(
-                    choose("jack out?", $(
-                        Alt("Add an installed card to the bottom of the stack and jack out", $(ChooseCardEffect(Runner, l, BottomOfDeckPurpose(Runner), "Mind Game: choose an installed card", false), JackOutEffect), l.any && g.run.exists(!_.cannotJackOut)),
-                        Alt("Continue the run", $()))),
-                    RotServerAction(self, s, 1))
+                g.push(AddFlagEffect(g.runFlag("mind-game-jack-out", |(self))), JackOutOfferEffect, RotServerAction(self, s, 1))
                 NextAction
             case ServerPickedAction(_, _, _) => NextAction
             case RotServerAction(self, s, 1) =>
@@ -748,13 +743,12 @@ object RotIceCards2 {
         def effect(self : Card)(implicit g : Game) = tag(1)
     }
 
-    // Waiver: the Runner's boost is measured as the credits spent (RememberCreditsEffect before the trace)
+    // Waiver: the difference = trace strength - the Runner's link strength (link + boost, recorded by FixRules)
     object Waiver extends RI("10091") {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Trace[5]: reveal the grip and trash each card with a cost lower than or equal to the difference", CopyAbilityEffect($(RememberCreditsEffect(self, Runner), TraceEffect(5, $(RotSubAction(self, 1)), $(clearMemo(self)))))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
-                val boost = g.runnerTraceBoost
-                val delta = g.traceStrength - g.link - boost
+                val delta = g.traceStrength - g.fxTraceLinkStrength
                 val l = g.hand(Runner).%(c => c.data.cost.|(0) <= delta)
                 g.push(RevealCardsEffect(Runner, g.hand(Runner)), TrashCardsEffect(l, Corp), clearMemo(self))
                 NextAction

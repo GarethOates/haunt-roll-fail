@@ -213,8 +213,8 @@ object RotEventCards2 {
         override def creditsUsableForRun(self : Card)(implicit g : Game) = thisCardRun(self)
         override def onPlay(self : Card)(implicit g : Game) = $(runAny(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RunEnds(_, _, _) if thisCardRun(self) && g.runnerInstalledOf("Program").any =>
-                $(ChooseCardEffect(Runner, g.runnerInstalledOf("Program"), ColdReadPurpose(self), "Cold Read: choose an installed program used during the run to trash", false))
+            case RunEnds(_, _, _) if thisCardRun(self) && g.runnerInstalledOf("Program").exists(g.fxUsedThisRun.contains) =>
+                $(ChooseCardEffect(Runner, g.runnerInstalledOf("Program").%(g.fxUsedThisRun.contains), ColdReadPurpose(self), "Cold Read: choose an installed program used during the run to trash", false))
             case _ => $
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -721,7 +721,7 @@ object RotEventCards2 {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Accessed(c) if thisCardRun(self) && g.run.exists(_.successful) && !c.data.isAgenda && !g.state(self).usedRun.has("burn") && g.state(self).memo == "" =>
                 $(MarkUsedRunEffect(self, "burn"), SetMemoEffect(self, c.code), MessageEffect(Runner, "removes the accessed card from the game (Watch the World Burn)"), RfgAccessedEffect(c))
-            case Accessed(c) if g.state(self).memo != "" && c.code == g.state(self).memo && !g.zone(c).is[DiscardZone] =>
+            case Accessed(c) if g.state(self).memo != "" && c.title == Cards(g.state(self).memo).title && !g.zone(c).is[DiscardZone] =>
                 $(MessageEffect(Runner, "removes the accessed card from the game (Watch the World Burn)"), RfgAccessedEffect(c))
             case _ => $
         }
@@ -808,7 +808,7 @@ object RotEventCards2 {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(runAny(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(ice) if thisCardRun(self) && g.run.exists(r => r.position == 1 && r.ice.has(ice)) => $(MessageEffect(Runner, "bypasses the innermost ice (Spear Phishing)"), BypassEffect)
+            case EncounterIce(ice) if thisCardRun(self) && g.run.exists(r => r.position == 1 && r.ice.has(ice)) => $(MessageEffect(Runner, "uses Spear Phishing"), BypassEffect)
             case _ => $
         }
     }
