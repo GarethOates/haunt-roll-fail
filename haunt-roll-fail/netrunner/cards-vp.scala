@@ -916,7 +916,7 @@ case class MeliesRecurAction(card : Card) extends CardAction
 
 object StartupDecks {
     val presets : $[Deck] = $(
-        Deck("Elevation Anarch (Ryo)", Runner, "35001", $(
+        Deck("Elevation Anarch Ryo", Runner, "35001", $(
             "35003" -> 2, // Charm Offensive
             "35004" -> 2, // Scrounge
             "35005" -> 2, // Shred
@@ -940,7 +940,7 @@ object StartupDecks {
             "30005" -> 1, // Buzzsaw
             "30026" -> 2, // Unity
         )),
-        Deck("Elevation Criminal (MuslihaT)", Runner, "35013", $(
+        Deck("Elevation Criminal MuslihaT", Runner, "35013", $(
             "35014" -> 3, // Clean Getaway
             "35015" -> 2, // Lie Low
             "35016" -> 2, // Maintenance Access
@@ -963,7 +963,7 @@ object StartupDecks {
             "30016" -> 2, // Marjanah
             "36008" -> 1, // Stick and Poke
         )),
-        Deck("Elevation Shaper (Dewi)", Runner, "35023", $(
+        Deck("Elevation Shaper Dewi", Runner, "35023", $(
             "35025" -> 2, // Illumination
             "35026" -> 2, // Ritual
             "35027" -> 2, // GAMEDRAGON Pro
@@ -986,7 +986,7 @@ object StartupDecks {
             "30025" -> 2, // Echelon
             "36025" -> 1, // Word on the Street
         )),
-        Deck("Vantage Point Criminal (Vic)", Runner, "36009", $(
+        Deck("Vantage Point Criminal Vic", Runner, "36009", $(
             "36010" -> 3, // Kompromat
             "36011" -> 3, // Sell Out
             "36012" -> 3, // Tailgate
@@ -1005,7 +1005,7 @@ object StartupDecks {
             "36021" -> 2, // Touchstone
             "36008" -> 1, // Stick and Poke
         )),
-        Deck("Elevation HB (Poetri)", Corp, "35036", $(
+        Deck("Elevation HB Poetri", Corp, "35036", $(
             "35037" -> 3, // Aggressive Trendsetting
             "35038" -> 3, // Project Ingatan
             "36026" -> 2, // Melies City Luxury Line
@@ -1030,7 +1030,7 @@ object StartupDecks {
             "35081" -> 2, // Petty Cash
             "30075" -> 3, // Hedge Fund
         )),
-        Deck("Elevation Jinteki (AU Co.)", Corp, "35046", $(
+        Deck("Elevation Jinteki AU Co.", Corp, "35046", $(
             "35048" -> 2, // Proprionegation
             "35049" -> 3, // Sericulture Expansion
             "36037" -> 2, // Lotus Haze
@@ -1054,7 +1054,7 @@ object StartupDecks {
             "35081" -> 2, // Petty Cash
             "30075" -> 3, // Hedge Fund
         )),
-        Deck("Elevation NBN (Synapse)", Corp, "35058", $(
+        Deck("Elevation NBN Synapse", Corp, "35058", $(
             "35059" -> 3, // Embedded Reporting
             "35060" -> 2, // Next Big Thing
             "36047" -> 2, // Witch Hunt
@@ -1078,7 +1078,7 @@ object StartupDecks {
             "35082" -> 2, // Mahkota Langit Grid
             "30075" -> 3, // Hedge Fund
         )),
-        Deck("Elevation Weyland (Zwicky)", Corp, "35069", $(
+        Deck("Elevation Weyland Zwicky", Corp, "35069", $(
             "36056" -> 3, // Sacrifice Zone Expansion
             "35070" -> 3, // Greenmail
             "35071" -> 3, // Off the Books

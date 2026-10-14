@@ -14,7 +14,7 @@ import hrf.logger._
 // Preset decks built around Parhelion (ph) and The Automata Initiative (tai), filled up with System Gateway cards
 object PHTAIDecks {
     val presets : $[Deck] = $(
-        Deck("Thule Subsea (ph/tai)", Corp, "33095", $(
+        Deck("HB Thule Subsea", Corp, "33095", $(
             "33096" -> 3, // Ontological Dependence
             "34031" -> 2, // Salvo Testing
             "34032" -> 2, // Stegodon MK IV
@@ -39,7 +39,7 @@ object PHTAIDecks {
             "34036" -> 2, // M.I.C.
             "30038" -> 1, // Ansel 1.0
         )),
-        Deck("Issuaq Adaptics (ph/tai)", Corp, "33104", $(
+        Deck("Jinteki Issuaq Adaptics", Corp, "33104", $(
             "33105" -> 3, // Hybrid Release
             "34040" -> 2, // Fujii Asset Retrieval
             "30044" -> 1, // Longevity Serum
@@ -62,7 +62,7 @@ object PHTAIDecks {
             "34043" -> 2, // Phoneutria
             "34044" -> 3, // Tatu-Bola
         )),
-        Deck("A Teia (ph/tai)", Corp, "34039", $(
+        Deck("Jinteki A Teia", Corp, "34039", $(
             "33105" -> 3, // Hybrid Release
             "34040" -> 2, // Fujii Asset Retrieval
             "30044" -> 1, // Longevity Serum
@@ -85,7 +85,7 @@ object PHTAIDecks {
             "34043" -> 2, // Phoneutria
             "34044" -> 3, // Tatu-Bola
         )),
-        Deck("Epiphany Analytica (ph/tai)", Corp, "34048", $(
+        Deck("NBN Epiphany Analytica", Corp, "34048", $(
             "33112" -> 3, // Freedom of Information
             "33113" -> 3, // Post-Truth Dividend
             "34049" -> 3, // Oracle Thinktank
@@ -107,7 +107,7 @@ object PHTAIDecks {
             "34054" -> 3, // Virtual Service Agent
             "30054" -> 2, // Funhouse
         )),
-        Deck("Weyland Built to Last (ph/tai)", Corp, "30059", $(
+        Deck("Weyland Built to Last", Corp, "30059", $(
             "33120" -> 2, // Regulatory Capture
             "33121" -> 2, // Kimberlite Field
             "34057" -> 3, // Slash and Burn Agriculture
@@ -129,7 +129,7 @@ object PHTAIDecks {
             "34060" -> 3, // Valentao
             "30072" -> 3, // Palisade
         )),
-        Deck("Mercury (ph/tai)", Runner, "34010", $(
+        Deck("Criminal Mercury", Runner, "34010", $(
             "33075" -> 2, // Concerto
             "33076" -> 2, // Reprise
             "33077" -> 2, // Poison Vial
@@ -153,7 +153,7 @@ object PHTAIDecks {
             "30015" -> 1, // Carmen
             "30028" -> 2, // Jailbreak
         )),
-        Deck("Arissana Rocha Nahu (ph/tai)", Runner, "34020", $(
+        Deck("Shaper Arissana Rocha Nahu", Runner, "34020", $(
             "33084" -> 2, // Spark of Inspiration
             "33085" -> 2, // Hippocampic Mechanocytes
             "33086" -> 2, // Basilar Synthgland 2KVJ
@@ -177,7 +177,7 @@ object PHTAIDecks {
             "33094" -> 3, // Matryoshka
             "30020" -> 1, // Creative Commission
         )),
-        Deck("Loup Anarch (ph/tai)", Runner, "30001", $(
+        Deck("Anarch Loup", Runner, "30001", $(
             "33066" -> 2, // Finality
             "33067" -> 2, // Katorga Breakout
             "33068" -> 2, // Raindrops Cut Stone

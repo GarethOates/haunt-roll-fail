@@ -72,15 +72,15 @@ object ExtDecks {
     val nuvemList : $[(String, Int)] = weylandList ++ $("26063" -> 1, "30064" -> 2, "30072" -> 2, "30071" -> 1)
 
     val presets : $[Deck] = $(
-        Deck("MirrorMorph (DF/UR/RWR)", Corp, "26031", hbList),
-        Deck("Thunderbolt Armaments (RWR/DF/UR)", Corp, "34096", hbList),
-        Deck("Hyoubu Institute (DF/UR/RWR)", Corp, "26039", jintekiList),
-        Deck("GameNET (UR/DF/RWR)", Corp, "26113", nbnList),
-        Deck("Earth Station (UR/DF/RWR)", Corp, "26120", weylandList),
-        Deck("Nuvem SA (RWR/DF/UR)", Corp, "34121", nuvemList),
-        Deck("Hoshiko Shiro (UR/DF/RWR)", Runner, "26066", anarchList),
-        Deck("Sebastiao Souza Pessoa (RWR/DF/UR)", Runner, "34066", anarchList),
-        Deck("Az McCaffrey (DF/UR/RWR)", Runner, "26010", criminalList),
-        Deck("Lat (DF/UR/RWR)", Runner, "26019", shaperList),
+        Deck("HB MirrorMorph", Corp, "26031", hbList),
+        Deck("HB Thunderbolt Armaments", Corp, "34096", hbList),
+        Deck("Jinteki Hyoubu Institute", Corp, "26039", jintekiList),
+        Deck("NBN GameNET", Corp, "26113", nbnList),
+        Deck("Weyland Earth Station", Corp, "26120", weylandList),
+        Deck("Weyland Nuvem SA", Corp, "34121", nuvemList),
+        Deck("Anarch Hoshiko Shiro", Runner, "26066", anarchList),
+        Deck("Anarch Sebastiao Souza Pessoa", Runner, "34066", anarchList),
+        Deck("Criminal Az McCaffrey", Runner, "26010", criminalList),
+        Deck("Shaper Lat", Runner, "26019", shaperList),
     )
 }
