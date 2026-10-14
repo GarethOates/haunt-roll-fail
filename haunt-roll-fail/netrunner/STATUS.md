@@ -2,7 +2,7 @@
 
 ## Implemented
 
-* Plugin scaffolding: `package.scala`, `meta.scala` (name `netrunner`, Corp/Runner, bots `Basic`/`Random`, lazy card
+* Plugin scaffolding: `package.scala`, `meta.scala` (name `netrunner`, Corp/Runner, bots `Smart`/`Basic`/`Random`, lazy card
   image assets), `serialize.scala`, `styles.scala`, registration in `../common.sbt` and `../hrf.scala`.
 * Engine (`game.scala` + `rules-*.scala`): zones/servers/remotes, per-card state, pending-effect queue, events,
   registers; setup (deck choice: presets or NetrunnerDB import, shuffle, draw 5, mulligan), turn structure
@@ -48,7 +48,8 @@
   column) for common resolutions. Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown,
   unrezzed/facedown cards as backs, the opponent's hand only as the "hand" count in their header; the spectator of an
   online game sees public information only (see "Final pass").
-* Bots: `Random` (uniform over non-manual choices) and `Basic` (weighted heuristics: scores, steals, breaks, economy).
+* Bots: `Smart` (default, `bot-smart.scala`, see "Smart bot" below), `Random` (uniform over non-manual choices) and
+  `Basic` (weighted heuristics: scores, steals, breaks, economy).
 * JVM harness `host.scala` (excluded from the JS build): bot-vs-bot games with log dumps.
 
 ## Card sets
@@ -375,6 +376,36 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   mark and clicks next turn) is 730 px of a 1000 px pane; the identity title stays under the player name (cut with an
   ellipsis beyond 36ex). The banner is not part of the scaled board area, so the board does not shrink.
 
+### Smart bot (2026-10-14)
+
+`netrunner/bot-smart.scala`, registered in `meta.scala` as `Smart` and made the default bot (`Meta.defaultBot`, quick
+games); `Basic` and `Random` are still selectable. One `EvalBot` score per offered action on a common scale (10 = one
+credit, 100 = one agenda point), from generic data only, so it plays any deck:
+* card text keywords, cached per code (`SmartProfile`): one-shot gains, credits loaded on resources / assets, "when your
+  turn begins" income, recurring credits, click gains, draws, run events, +MU / +link, tag punishment, damage, traps;
+  the engine's own implementations: icebreaker `breaks` / `pumps` (with surcharges, `canBreakWith`, `preventsBreak`,
+  `breakAllowed`), ice `subs`, ability costs and effect lists (`GainCreditsEffect`, `TakeCreditsEffect`, `DrawEffect`,
+  `DamageEffect`, `TagsEffect`, `EndRunEffect`, `PumpBreakerEffect`, ...);
+* Runner: runs scored as pass odds x access value - break cost - harm, where known ice gets the cheapest break plan of
+  the installed breakers and unrezzed ice an estimate from the Corp's credits and the breaker types covered; access
+  value from agenda odds of HQ / R&D, known Archives agendas, advanced / unknown remote cards (traps included), trash
+  value of assets; encounters follow the cheapest plan (pump, then break ETR / harmful subroutines) or let them fire;
+  jacks out when the rest of the run is not worth it; installs breakers for missing ice types, economy first when poor;
+  removes tags when the Corp can punish them; damage adds up per run and an empty grip makes face-checking a flatline;
+  the Runner only uses public information plus the Corp cards it accessed (`SmartMemory`, per game object);
+* Corp: ice where it is needed (HQ / R&D first, then a scoring remote when agendas are in HQ), keeps credits to rez,
+  installs agendas where the Runner cannot get in (its breakers and credits against the ice the Corp can rez),
+  advances there, installs + advances + scores in one turn when it can, scores at once; economy assets in their own
+  remote, rezzed when needed (click assets) or at the last moment (end of the Runner's turn / start of its own);
+  rezzes approached ice when it protects something; trashes resources of a tagged Runner; purges at 3+ virus counters;
+* every prompt: optional effects / choices / card choices (purpose + prompt keywords), traces (bid exactly what is
+  needed when worth it), psi (random), prevention windows, discards (lowest keep value), mulligans (no ice / economy);
+  large card selections (> 12 cards) are made greedily instead of exploding every combination;
+* credits are worth less the richer a player is (avoids endless clicking for credits and stalemates); a failing heuristic
+  scores 0 instead of breaking the game (`SmartBot.errors`, 0 in all test runs).
+Decision time on the JVM (single process, 50 Smart-vs-Smart games): p50 0.35 ms, p99 3.4 ms, p99.9 6.6 ms, max 29 ms
+(first decision, JIT warm-up), the same as `Basic` (the engine's explosion of the menus dominates).
+
 ## Simplifications / known gaps
 
 * Paid ability windows follow the NSG structure (see ENGINE.md): start of turn (before and after "when your turn
@@ -658,6 +689,27 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   and over-long games counted as errors), each batch = 250 + 250 games over all presets + 250 rotated Runner presets against rotated
   Corp presets: seeds 9201-9203 (0 errors) and 9301-9303 (1 error: Faust breaking with the last grip card, fixed), then on the final
   code seeds 9401-9403 **750 games, 0 errors** plus seed 9302 again (250 games, 0 errors).
+
+### Tested: Smart bot (2026-10-14)
+
+JVM harness (`BotHost`, a variant of the merge harness with a bot per side, random preset decks over all 195 presets,
+serialization round trip of every offered / chosen action), 300 games per pairing, 0 exceptions, 0 empty asks,
+0 serialization mismatches, 0 games over the 4000-action limit (longest: turn 40), 0 Smart heuristic errors.
+Ends = Corp agendas / Runner agendas / flatline / R&D empty / other (Superdeep Borehole). "0 cr" = Runner turns
+started at 0 credits; credits = average at the start of the side's turns; agendas = scored / stolen per game.
+
+| Corp vs Runner | Corp wins | Ends | Turns | 0 cr | Runner / Corp credits | Runs per Runner turn | Agendas |
+|---|---|---|---|---|---|---|---|
+| Basic vs Basic (before) | 59.3% | 72/81/105/41/1 | 13.2 | 66.8% | 1.0 / 3.4 | 3.43 | 1.25 / 1.99 |
+| Basic vs Random (before) | 49.0% | 44/143/103/10/0 | 12.3 | 36.4% | 2.1 / 2.3 | 2.58 | 1.14 / 2.56 |
+| Random vs Basic (before) | 24.0% | 1/156/71/72/0 | 14.3 | 63.4% | 1.0 / 4.1 | 3.51 | 0.17 / 2.72 |
+| Smart vs Smart | 50.7% | 143/141/7/7/2 | 15.5 | 3.8% | 6.8 / 6.4 | 1.09 | 2.23 / 2.48 |
+| Smart vs Basic | 97.0% | 202/4/86/5/3 | 12.9 | 64.6% | 1.0 / 6.7 | 3.23 | 2.73 / 0.36 |
+| Basic vs Smart | 8.7% | 17/270/6/4/3 | 8.8 | 9.3% | 5.3 / 4.1 | 1.94 | 0.54 / 3.49 |
+| Smart vs Random | 94.0% | 146/14/136/4/0 | 12.1 | 38.8% | 2.0 / 5.7 | 2.46 | 2.34 / 0.70 |
+| Random vs Smart | 2.3% | 0/289/6/4/1 | 8.9 | 8.2% | 4.4 / 4.7 | 2.07 | 0.04 / 3.67 |
+
+`sbt -batch compile` and `sbt -batch fastOptJS` pass.
 
 ## Known bugs
 
