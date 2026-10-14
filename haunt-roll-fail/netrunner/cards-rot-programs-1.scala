@@ -229,7 +229,9 @@ object RotProgramCards1 {
     }
 
     object Faust extends Rot("08061") {
-        override def breaks(self : Card)(implicit g : Game) = g.hand(Runner).any.$(BreakAbility(NoCost, 1, $(), |("break 1 subroutine (trash 1 card from the grip)"), $(ChooseCardsEffect(Runner, g.hand(Runner), 1, 1, TrashFromHandPurpose(Runner), "Faust: choose a card in the grip to trash"))))
+        // the grip card is trashed as the cost, before the break (FinalRotRules.performRun)
+        override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(NoCost, 1, $(), |("break 1 subroutine (trash 1 card from the grip)")))
+        override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) = breaker != self || g.hand(Runner).any || g.frFaustPaid
         override def abilities(self : Card)(implicit g : Game) = $(Ability("+2 strength", $(TrashFromHandCost(1)), $(PumpBreakerEffect(self, 2, EncounterDuration)), ok = encounteredIce.any, reason = "not encountering ice"))
     }
 

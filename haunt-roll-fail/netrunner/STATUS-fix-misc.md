@@ -113,16 +113,11 @@ Sakai, Warden Fatuma (front), SSO Industries, Seidr Laboratories, Copycat (print
 ## Still approximate in this theme (and why)
 
 * (Matryoshka's arbitrary X, Daniela Jorge Inácio's steal cost and Urban Art Vernissage / Cybersand Harvester: fixed or verified in
-  the final NSG pass, see `STATUS-fix-final-nsg.md`.)
-* Acme Consulting (+1 tag "considered") uses a real tag; Gagarin's access cost is automatic; Skorpios is not an interrupt
-  (timing pass); encounter-on-access ice (Archangel, ...) are placed temporarily in the server; Hivemind counters are spent
-  only by the rotated virus programs (counter costs: costs pass); Personality Profiles' "search the stack" detection,
-  Accelerated Beta Test / Bacterial Programming shuffles, Nuvem SA's "trash from R&D", Boi-tatá, Warroid Tracker (fires per
-  trashed card), Levy AR Lab (no reorder prompt), Muertos Gang Member (only when trashed), Climactic Showdown, Whistleblower,
-  Cataloguer: unchanged.
-* HQ accesses are still drawn when the breach starts (equivalent unless HQ changes during the breach).
-* `ClickLost` is now fired for every `LoseClicksEffect`, including a few "spend [click]" choices that cards model as a click
-  loss (Adjusted Chronotype may trigger on those).
+  the final NSG pass, see `STATUS-fix-final-nsg.md`; Nuvem SA, Boi-tatá, Whistleblower and Cataloguer too.)
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Acme Consulting's tag is virtual, Gagarin's access cost is a choice, Skorpios is an interrupt, the
+  encounter-on-access ice are encountered where they are, Hivemind's counters serve every virus program, Personality Profiles,
+  Bacterial Programming, Warroid Tracker, Levy AR Lab and Muertos Gang Member are exact; HQ cards are drawn one at a time.)
+  The "spend [click]" choices use `SpendClicksEffect` (no `ClickLost`); Climactic Showdown is exact since the prevention pass.
 * Méliès U's secret choice is a journal action, hidden by the UI only (as psi bids).
 
 ## Shared-file edits

@@ -452,7 +452,7 @@ object RotIceCards1 {
         override def subroutines(self : Card)(implicit g : Game) = $(trace(6, "Trash 1 piece of hardware, do 2 meat damage and end the run", $(RotSubAction(self, 1))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
-                g.push(RunnerTrashInstalledEffect("Hardware", Corp, "Flare: choose a piece of hardware to trash"), meat(2), EndRunEffect)
+                g.push(RunnerTrashInstalledEffect("Hardware", Corp, "Flare: choose a piece of hardware to trash"), FrUnpreventableDamageEffect("meat", 2), EndRunEffect)
                 NextAction
         }
     }
@@ -464,7 +464,8 @@ object RotIceCards1 {
             case FormicaryAction(self, s) =>
                 if (!g.isRezzed(self) && g.canSpend(Corp, g.rezCost(self), Spend.rez(self)) && g.run.exists(r => !r.ended && r.server == s)) {
                     g.rezCard(self, false)
-                    g.push(MoveIceOutermostEffect(self, s), MoveIceToIndexEffect(self, 0), MoveRunnerEffect(1, false))
+                    // the Runner moves to the ice and encounters it (no approach)
+                    g.push(MoveIceOutermostEffect(self, s), MoveIceToIndexEffect(self, 0), FrEncounterNowEffect(self))
                 }
                 NextAction
         }

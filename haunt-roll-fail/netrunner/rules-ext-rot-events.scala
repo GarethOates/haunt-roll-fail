@@ -58,7 +58,8 @@ trait RotEventRules { game : Game =>
     def rotActive : Boolean = noIceRez || hasFlag("no-run") || hasFlag("no-advance") || at(PlayZone(Runner)).exists(c => c.data.has("Current"))
 
     // amounts that can be spent secretly (Government Investigations: not 2)
-    def secretAmounts(max : Int) : $[Int] = 0.to(max.atMost(credits(Runner))).$.%(n => n != 2 || !currentActive("11069"))
+    // (every credit source that can pay for the event's effect, FinalRotRules: the amount is paid when it is revealed)
+    def secretAmounts(max : Int, c : |[Card] = None) : $[Int] = 0.to(max.atMost(creditsFor(Runner, Spend.effect(c)))).$.%(n => n != 2 || !currentActive("11069"))
 
     // installed Corp cards in the root of or protecting a server
     def cardsOfServer(s : Server) : $[Card] = ice(s) ++ root(s)
@@ -253,7 +254,7 @@ trait RotEventRules { game : Game =>
             NextAction
 
         case SecretSpendEffect(c, max) =>
-            Ask(Runner).group(c.title + ": secretly spend credits").add(secretAmounts(max)./(n => SecretSpendAction(Runner, c, n)))
+            Ask(Runner).group(c.title + ": secretly spend credits").add(secretAmounts(max, |(c))./(n => SecretSpendAction(Runner, c, n)))
 
         case SecretSpendAction(f, c, n) =>
             log(f, "spends credits secretly")
@@ -307,8 +308,9 @@ abstract class RE(val code : String) extends CardImpl {
     def firstClick(implicit g : Game) = g.active.isRunner && g.reg("actions") == 0 && g.reg("click-ability") == 0
 
     // doubles: an additional click (n) as a cost
-    def doubleOk(n : Int = 1)(implicit g : Game) = g.clicks(Runner) >= n + 1
-    def doubleCost(n : Int = 1)(implicit g : Game) : $[ForcedAction] = $(LoseClicksEffect(Runner, n))
+    // Starlight Crusade Funding: the additional costs of double events are ignored
+    def doubleOk(n : Int = 1)(implicit g : Game) = g.clicks(Runner) >= n + 1 || g.frStarlight
+    def doubleCost(n : Int = 1)(implicit g : Game) : $[ForcedAction] = (!g.frStarlight).$(LoseClicksEffect(Runner, n) : ForcedAction)
 
     def centralsRun(implicit g : Game) = Server.centrals.forall(s => g.successfulRunsThisTurn.has(s))
     def centralRun(implicit g : Game) = g.successfulRunsThisTurn.exists(_.isCentral)

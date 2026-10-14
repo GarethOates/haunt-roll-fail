@@ -28,7 +28,7 @@ import netrunner.elem._
 //     CreditRules, preselected first and the only option bots take; `CreditTakeAction` = pay m credits from a source). The choice
 //     becomes a plan applied by `spendCredits` to the matching payment.
 //   * sources of effects: the effects of card triggers, "when encountered" / "when accessed" / "when rezzed" abilities, paid
-//     abilities and prevention abilities are wrapped in `FnsSourceEffect` markers; `effectSource` is the card whose ability is
+//     abilities and prevention abilities are wrapped in FixRules' `FxSourceEffect` markers; `effectSource` is the card whose ability is
 //     resolving. Credit losses fire `CreditsLostFrom(f, n, source)` (GameNET).
 //   * additional costs paid before the action: rez (`FnsExtraRezCost`: Corporate Town, Archer, Plutus, Bloop, Biawak), score
 //     (`FnsExtraScoreCost`: Azef Protocol), the Corp's basic "trash a resource" action (Sebastiao Souza Pessoa, Manuel Lattes de
@@ -51,7 +51,6 @@ case class CreditAutoAction(self : Faction) extends BaseAction(g => g.creditChoi
 case class CreditTakeAction(self : Faction, src : CreditSrc, n : Int) extends BaseAction(g => g.creditChoiceTitle)(g => "Pay " ~ n.credits ~ " from " ~ g.creditSrcElem(src)) with NotForBots
 
 // ---- effects ----------------------------------------------------------------------------------------------------------
-case class FnsSourceEffect(card : Card, on : Boolean) extends ForcedAction                    // the card's ability starts / stops resolving
 case class CreditsLostFrom(f : Faction, n : Int, source : |[Card]) extends Event              // f lost n credits because of source's ability
 case class SpendClicksEffect(f : Faction, n : Int) extends ForcedAction                       // f spends n clicks (a cost, not a loss)
 case class PayIfAbleEffect(f : Faction, n : Int, spend : Spend, otherwise : $[ForcedAction]) extends ForcedAction   // f must pay n credits if able, else the other effects (Tollbooth)
@@ -89,7 +88,7 @@ trait FnsExtraScoreCost {
 }
 
 
-trait FinalNsgRules extends PreventionRules with FixRules with RestrictionRules with CreditRules with StartupRules with RotAgendaRules { game : Game =>
+trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules with RestrictionRules with CreditRules with StartupRules with RotAgendaRules { game : Game =>
 
     // ==== credit sources ==============================================================================================
 
@@ -251,20 +250,16 @@ trait FinalNsgRules extends PreventionRules with FixRules with RestrictionRules 
 
     // ==== sources of effects ==========================================================================================
 
-    var fnsSources : $[Card] = $
+    // One marker mechanism for the whole engine: FixRules' `FxSourceEffect(card, on)` (paid abilities: FixRules.useAbility; "when
+    // scored": FixRules.scoreAgenda; card triggers: FinalRotRules.frSourced in game.scala triggerEffects). This pass adds the markers
+    // around "when encountered", "when accessed", "when rezzed" and prevention abilities.
+    def fnsSourced(c : Card, l : $[ForcedAction]) : $[ForcedAction] = frSourced(c, l)
 
-    // wrap the effects of a card's ability in source markers (empty lists stay empty)
-    def fnsSourced(c : Card, l : $[ForcedAction]) : $[ForcedAction] = l.any.??((FnsSourceEffect(c, true) +: l) :+ FnsSourceEffect(c, false))
-
-    // the card whose ability is resolving (innermost): a marked ability, a paid ability, a subroutine, an operation / event being played
-    def effectSource : |[Card] =
-        fnsSources.%(c => pending.has(FnsSourceEffect(c, false))).starting orElse fxSources.starting orElse preventSubs.starting orElse
-            (at(PlayZone(Corp)) ++ at(PlayZone(Runner))).%(c => pending.has(PlayCleanupAction(c))).starting
+    // the card whose ability is resolving (innermost): FinalRotRules.frSourceNow (a marked ability, a resolving subroutine, an
+    // operation / event being played, the accessed card, the scoring agenda); read by GameNET (CreditsLostFrom) and the damage windows
+    def effectSource : |[Card] = frSourceNow
 
     override def encounterAbility(ice : Card) : $[ForcedAction] = fnsSourced(ice, super.encounterAbility(ice))
-
-    override def useAbility(f : Faction, c : Card, a : Ability, ctx : String, costCards : $[Card]) : Continue =
-        super.useAbility(f, c, a.copy(effects = fnsSourced(c, a.effects)), ctx, costCards)
 
     // ==== additional costs ============================================================================================
 
@@ -515,7 +510,8 @@ trait FinalNsgRules extends PreventionRules with FixRules with RestrictionRules 
             creditPlan = None
             fnsExtraPaid = $
             fnsMMExtra = $
-            fnsSources = $
+            // markers whose closing marker was dropped from the queue (an ended run, ...) are forgotten
+            fxSources = fxSources.%(c => pending.has(FxSourceEffect(c, false)))
             fnsTrashCostPaid = $
             $
         case _ => $
@@ -719,13 +715,6 @@ trait FinalNsgRules extends PreventionRules with FixRules with RestrictionRules 
             }
 
         // ---- bookkeeping effects
-        case FnsSourceEffect(c, on) =>
-            if (on)
-                fnsSources = c +: fnsSources
-            else
-                fnsSources = fnsSources.diff($(c))
-            NextAction
-
         case PayIfAbleEffect(f, n, s, otherwise) =>
             if (canSpend(f, n, s))
                 push(SpendEffect(f, n, s, 0, $))
@@ -735,8 +724,9 @@ trait FinalNsgRules extends PreventionRules with FixRules with RestrictionRules 
 
         case SpendClicksEffect(f, n) =>
             if (n > 0 && clicks(f) >= n) {
-                payCosts(f, $(ClickCost(n)), None)
+                payCosts(f, $(ClickCost(n)), None)            // ClicksSpentOrLost during a run (PreventionRules.payCosts)
                 log(f, "spends", ("[click]" * n).hl)
+                reopenWindows()
                 trigger(ClicksSpent(f, n, "effect"))
             }
             NextAction

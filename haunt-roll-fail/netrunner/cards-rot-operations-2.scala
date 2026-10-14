@@ -165,11 +165,12 @@ object RotOperationCardsB {
         override def hostEffects(self : Card, h : Card)(implicit g : Game) = $(MoveEffect(self, PlayZone(Runner), false), MCATagAction(self))
         override def performOp(a : CardAction)(implicit g : Game) = a match {
             case MCATagAction(self) =>
-                g.tags += 1
-                g.log("The Runner is considered to have", 1.tags, "more (MCA Informant)")
+                g.log("The Runner is considered to have 1 additional tag (MCA Informant)")
+                // a virtual tag: counted, not taken, cannot be removed (FinalRotRules.frVirtualTags)
+                g.push(FrVirtualTagEffect(1))
                 NextAction
         }
-        override def onLeave(self : Card)(implicit g : Game) = (g.tags > 0).$(RemoveTagsEffect(1))
+        override def onLeave(self : Card)(implicit g : Game) = $(FrVirtualTagEffect(-1))
         // the Runner may trash the host resource ([click], 2 credits); MCA Informant sits in the Runner's play area so that
         // the Runner can use this ability
         override def abilities(self : Card)(implicit g : Game) = host(self).%(_ => g.zone(self) == PlayZone(Runner))./(h => Ability("trash the host resource", $(ClickCost(1), CreditCost(2)), $(TrashEffect(h, Runner, false)), click = true)).$

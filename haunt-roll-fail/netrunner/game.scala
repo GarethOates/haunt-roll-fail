@@ -340,7 +340,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
     with StartupRules with SU21Rules with PHTAIRules with RWRRules
     with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules
-    with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalNsgRules {
+    with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalRotRules with FinalNsgRules {
 
     implicit def implicitGame : Game = this
 
@@ -621,7 +621,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         case StealthCreditCost(n, s) => canSpend(f, n, spend.|(Spend.legacy(self, "")), s)
         case ClickCost(n) => clicks(f) >= n
         case TrashSelfCost => self.exists(isInstalled)
-        case VirusCost(n) => self.exists(c => counter(c, "virus") >= n)
+        case VirusCost(n) => self.exists(c => counter(c, "virus") + frHiveCounters(c) >= n)
         case CounterCost(k, n) => self.exists(c => counter(c, k) >= n)
         case TrashFromHandCost(n) => hand(f).num >= n
         case LoseClickCost(n) => clicks(f) >= n
@@ -686,7 +686,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def triggerEffects(e : Event) : $[ForcedAction] = {
         val ext = phTriggers(e)
         val order = $(active, active.opponent)
-        order./~(f => activeCards(f).%!(isDisabled)./~(c => fnsSourced(c, impl(c).triggers(c, e)))) ++ su21Triggers(e) ++ rotIceTriggers(e) ++ rotResourceTriggers(e) ++ rotHardwareTriggers(e) ++ ext ++ rotEventTriggers(e) ++ rotOperationTriggers(e) ++ rotAssetTriggers(e) ++ rotAgendaTriggers(e) ++ preventionTriggers(e) ++ fixTriggers(e) ++ finalNsgTriggers(e)
+        finalRotPreTriggers(e) ++ order./~(f => activeCards(f).%!(isDisabled)./~(c => frSourced(c, impl(c).triggers(c, e)))) ++ su21Triggers(e) ++ rotIceTriggers(e) ++ rotResourceTriggers(e) ++ rotHardwareTriggers(e) ++ ext ++ rotEventTriggers(e) ++ rotOperationTriggers(e) ++ rotAssetTriggers(e) ++ rotAgendaTriggers(e) ++ preventionTriggers(e) ++ fixTriggers(e) ++ finalRotTriggers(e) ++ finalNsgTriggers(e)
     }
 
     // trigger an event: collect triggered abilities and push them to the queue (active player first); true if any
@@ -758,7 +758,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def performInternal(a : Action, soft : Void) : Continue = {
         val pf = performRestrictions orElse performFinalNsg orElse performRotHardware orElse performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
-            performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse performRotAssets orElse performRotAgendas orElse performFixes
+            performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse performRotAssets orElse performRotAgendas orElse performFixes orElse performFinalRot
 
         restrictContinue(a match {
             case NextAction => nextStep

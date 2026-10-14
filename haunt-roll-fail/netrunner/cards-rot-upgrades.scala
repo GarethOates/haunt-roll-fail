@@ -40,6 +40,8 @@ case class RaMwanzaPayAction(card : Card, base : Int) extends CardAction
 case class RaIntakeAction(card : Card) extends CardAction
 case class RaDarumaPurpose(card : Card) extends CardPurpose
 case class RaDarumaSwapPurpose(card : Card, a : Card) extends CardPurpose
+case class RaDarumaAction(card : Card, server : Server) extends CardAction
+case class RaOverseerAction(card : Card, n : Int) extends CardAction
 case class RaArellaPurpose(card : Card) extends CardPurpose
 
 
@@ -384,7 +386,7 @@ object RotUpgradeCards {
 
     object DroneScreen extends RAg("11076") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RunInitiated(s) if thisServer(self, s) && g.tagged => $(MessageEffect(Corp, "uses Drone Screen"), TraceEffect(3, $(meat(1)), $))
+            case RunInitiated(s) if thisServer(self, s) && g.tagged => $(MessageEffect(Corp, "uses Drone Screen"), TraceEffect(3, $(FrUnpreventableDamageEffect("meat", 1)), $))
             case _ => $
         }
     }
@@ -496,7 +498,8 @@ object RotUpgradeCards {
 
     object WarroidTracker extends RAg("12068") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Trashed(c, Runner, _) if g.owner(c).isCorp && trashedFrom.exists(s => thisServer(self, s)) => $(MessageEffect(Corp, "uses Warroid Tracker"), TraceEffect(4, $(RaWarroidAction(self)), $))
+            // "Whenever the Runner trashes at least 1 card from this server": once per batch of trashes
+            case FrCorpTrashBatch(_, from) if from.exists(_.exists(s => thisServer(self, s))) => $(MessageEffect(Corp, "uses Warroid Tracker"), TraceEffect(4, $(RaWarroidAction(self)), $))
             case _ => $
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -652,11 +655,23 @@ object RotUpgradeCards {
 
     object OverseerMatrix extends RAg("21100") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Trashed(c, Runner, _) if g.owner(c).isCorp && trashedFrom.exists(s => thisServer(self, s)) && g.credits(Corp) >= 1 =>
-                $(OptionalEffect(Corp, "Overseer Matrix: pay 1 credit to give the Runner 1 tag?", $(LoseCreditsEffect(Corp, 1), MessageEffect(Corp, "uses Overseer Matrix"), tag(1)), $))
+            // once per batch of trashes: pay 1 credit per card trashed from this server to give that many tags (jinteki)
+            case FrCorpTrashBatch(_, from) if g.serverOf(self).exists(s => from.exists(_.has(s))) => $(RaOverseerAction(self, from.count(f => f == g.serverOf(self))))
             case _ => $
         }
-        override def onTrash(self : Card, by : Faction)(implicit g : Game) = persist(self, by, "rot-overseer")
+        override def performCard(a : CardAction)(implicit g : Game) = a match {
+            case RaOverseerAction(self, n) =>
+                val max = n.atMost(g.creditsFor(Corp, Spend.ability(self)))
+                if (max > 0)
+                    g.push(ChooseNumberEffect(Corp, self, 0, max, "overseer", "Overseer Matrix: pay how many credits to give the Runner that many tags?"))
+                NextAction
+            case NumberPickedAction(self, n, "overseer") =>
+                if (n > 0)
+                    g.push(SpendEffect(Corp, n, Spend.ability(self), 0, $(MessageEffect(Corp, "uses Overseer Matrix"), tag(n))))
+                NextAction
+        }
+        // persistent: the flag "fr-overseer" keeps the ability for the rest of the run (FinalRotRules.finalRotTriggers)
+        override def onTrash(self : Card, by : Faction)(implicit g : Game) = persist(self, by, "fr-overseer")
     }
 
     // ---- Reign and Reverie / Magnum Opus / System Core 2019 / Midnight Sun Booster ---------------------------------------------
@@ -672,24 +687,36 @@ object RotUpgradeCards {
         }
     }
 
+    // "you may trash this upgrade. If you do, choose 1 card in the root of another server or 1 agenda, asset, or upgrade in HQ.
+    // Swap that card with 1 card in the root of this server": the upgrade is trashed first, then the two cards are chosen
     object Daruma extends RAg("22041") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case ApproachServer(s) if thisServer(self, s) && g.root(s).but(self).any =>
-                $(OptionalEffect(Corp, "Daruma: trash it to swap a card in this server with another card?", $(ChooseCardEffect(Corp, g.root(s).but(self), RaDarumaPurpose(self), "Daruma: choose a card in this server", false)), $))
+                $(OptionalEffect(Corp, "Daruma: trash it to swap a card in the root of this server with another card?", $(TrashEffect(self, Corp, false), RaDarumaAction(self, s)), $))
             case _ => $
+        }
+        override def performCard(a : CardAction)(implicit g : Game) = a match {
+            case RaDarumaAction(self, s) =>
+                val others = g.servers.%(_ != s)./~(x => g.root(x)) ++ g.hand(Corp).%(c => c.data.isAgenda || c.data.isAsset || c.data.isUpgrade)
+                if (others.any && g.root(s).any)
+                    g.push(ChooseCardEffect(Corp, others, RaDarumaPurpose(self), "Daruma: choose a card in the root of another server or in HQ", false))
+                g.state(self).memo = s.name
+                NextAction
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
             case RaDarumaPurpose(self) =>
-                cards.single.foreach { a =>
-                    val others = g.servers.%(s => !thisServer(self, s))./~(s => g.root(s)) ++ g.hand(Corp).%(c => c.data.isAgenda || c.data.isAsset || c.data.isUpgrade)
-                    if (others.any)
-                        g.push(ChooseCardEffect(Corp, others, RaDarumaSwapPurpose(self, a), "Daruma: choose a card in the root of another server or in HQ", false))
+                g.servers.%(_.name == g.state(self).memo).foreach { s =>
+                    cards.single.foreach { b =>
+                        val l = g.root(s).but(b)
+                        if (l.any)
+                            g.push(ChooseCardEffect(Corp, l, RaDarumaSwapPurpose(self, b), "Daruma: choose a card in the root of the approached server to swap", false))
+                    }
                 }
                 NextAction
-            case RaDarumaSwapPurpose(self, a) =>
-                cards.single.foreach { b =>
+            case RaDarumaSwapPurpose(self, b) =>
+                cards.single.foreach { a =>
                     val swap = (g.zone(b) == HandZone(Corp)).?(SwapInstalledWithHandEffect(a, b) : ForcedAction).|(SwapRootEffect(a, b))
-                    g.push(TrashEffect(self, Corp, false), swap, JackOutOfferEffect)
+                    g.push(swap, JackOutOfferEffect)
                 }
                 NextAction
         }

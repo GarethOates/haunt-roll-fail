@@ -21,6 +21,7 @@ import Helpers._
 
 case class RHWyvernAction(card : Card) extends CardAction
 case class RHSyntheticPurpose(card : Card) extends CardPurpose
+case class RHHayleyPurpose(card : Card) extends CardPurpose
 case class RHCollectiveAction(card : Card, kind : String) extends CardAction
 case class RHNextAction(card : Card, remaining : Int) extends CardAction
 case class RHNextPurpose(card : Card, remaining : Int) extends CardPurpose
@@ -195,7 +196,8 @@ object RotIdentityCards1 {
 
     object NEXTDesign extends RH("03003") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Corp) if g.turn == 1 && firstTime(self, "next") => $(MarkUsedEffect(self, "next"), says(self, "install up to 3 pieces of ice"), RHNextAction(self, 3), RHNextDrawAction(self))
+            // "before taking your first turn" (FinalRotRules: FrBeforeFirstTurn, before the first turn begins)
+            case FrBeforeFirstTurn(Corp) => $(says(self, "install up to 3 pieces of ice"), RHNextAction(self, 3), RHNextDrawAction(self))
             case _ => $
         }
         override def performRH(a : CardAction)(implicit g : Game) = a match {
@@ -323,18 +325,9 @@ object RotIdentityCards1 {
         }
     }
 
-    object GagarinDeepSpace extends RH("07002") {
-        def remoteRoot(c : Card)(implicit g : Game) : Boolean = g.zone(c) match {
-            case RootZone(s) => s.isRemote
-            case HostedZone(h) => remoteRoot(h)
-            case _ => false
-        }
-        override def accessFilter(self : Card, cards : $[Card])(implicit g : Game) = cards.%(c => !remoteRoot(c) || g.credits(Runner) >= 1)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Accessed(c) if remoteRoot(c) => $(MessageEffect(Runner, "pays 1 credit to access the card (Gagarin Deep Space)"), lose(Runner, 1))
-            case _ => $
-        }
-    }
+    // "As an additional cost to access a card in the root of a remote server, the Runner must pay 1 credit": the Runner is
+    // asked before each such access (pay or do not access it; FinalRotRules.performAccess)
+    object GagarinDeepSpace extends RH("07002")
 
     object TitanTransnational extends RH("07003") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -372,7 +365,7 @@ object RotIdentityCards1 {
 
     object JintekiBiotech extends RH("08012") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Corp) if g.turn == 1 && g.state(self).memo == "" =>
+            case FrBeforeFirstTurn(Corp) if g.state(self).memo == "" =>
                 $(ChooseOneEffect(Corp, "Jinteki Biotech: choose the copy used this game", $("The Brewery", "The Tank", "The Greenhouse")./(k => Alt(k, $(SetMemoEffect(self, k))))))
             case _ => $
         }
@@ -401,9 +394,25 @@ object RotIdentityCards1 {
     object HayleyKaplan extends RH("08025") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Installed(Runner, c) if firstTime(self, "hayley") =>
-                val l = g.hand(Runner).%(x => x.data.kind == c.data.kind && g.canAffordInstall(x, 0) && g.rhModHosts(x).none && !g.rhInstallBlocked(x))
-                $(MarkUsedEffect(self, "hayley")) ++ l.any.$(says(self, "install another card of the same type")) ++ l.any.$(ChooseCardEffect(Runner, l, InstallPayingPurpose(0, None, false), "Hayley Kaplan: install another card of the same type from the grip?", true))
+                // mods (hardware that must be installed on a host) are offered with their possible hosts
+                val l = g.hand(Runner).%(x => x.data.kind == c.data.kind && !g.rhInstallBlocked(x) && (g.rhModHosts(x) match {
+                    case Some(hosts) => hosts.exists(h => g.canSpend(Runner, g.hostedInstallCost(x, |(h)), Spend.install(x, None, |(h))))
+                    case None => g.canAffordInstall(x, 0)
+                }))
+                $(MarkUsedEffect(self, "hayley")) ++ l.any.$(says(self, "install another card of the same type")) ++ l.any.$(ChooseCardEffect(Runner, l, RHHayleyPurpose(self), "Hayley Kaplan: install another card of the same type from the grip?", true))
             case _ => $
+        }
+        override def chosenRH(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
+            cards.single.foreach { x =>
+                g.rhModHosts(x) match {
+                    case Some(hosts) =>
+                        val l = hosts.%(h => g.canSpend(Runner, g.hostedInstallCost(x, |(h)), Spend.install(x, None, |(h))))
+                        if (l.any)
+                            g.push(ChooseCardEffect(Runner, l, HostInstallPurpose(x, false), "Hayley Kaplan: choose the host of " + g.promptTitle(x), false))
+                    case None => g.push(RunnerInstallPayingEffect(x, None, 0))
+                }
+            }
+            NextAction
         }
     }
 

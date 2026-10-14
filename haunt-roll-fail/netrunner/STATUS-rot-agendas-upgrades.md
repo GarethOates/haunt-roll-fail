@@ -70,28 +70,28 @@ apply; the order is the `with` order in `game.scala`).
   installed until the end of the run") and Satellite Grid's extra advancement token are enforced on every path by
   `rules-ext-restrictions.scala` (see `STATUS-fix-restrictions.md`).
 * **Navi Mumbai City Grid**: blocks `abilityOptions` and the Runner's prevention abilities (fixed, see `STATUS-fix-prevention.md`).
-* **Armored Servers** break cost: the break is gated on being able to pay (a card in the grip) and the cost is collected right
-  after the break (`SubsBroken`), per subroutine broken. (Midway Station Grid's 1 credit is now a real additional cost of
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Armored Servers**: 1 grip card per subroutine is trashed before each break.) (Midway Station Grid's 1 credit is now a real additional cost of
   icebreaker break abilities, and Simone Diego / Dedicated Technician Team / Khondi Plaza are credit sources: see
   `STATUS-fix-credits.md`.)
 * **Heinlein Grid** is a forced trigger as printed ("whenever the Runner loses or spends [click] during a run on this server");
   it reacts to the `ClicksSpentOrLost` event (click costs paid, including paid abilities and bioroid breaks, and clicks lost)
   instead of comparing clicks between events (jinteki models it as a manual once-per-run ability).
-* **Personality Profiles**: "installs a card from the heap" uses the heap snapshot; "searches the stack" is detected
-  heuristically (cards left the stack from below the top, or its order changed, since the previous event).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Personality Profiles**: installs from the heap are tracked at the install; a search is a stack shuffle while a
+  card whose printed text searches the stack resolves.)
 * (Labyrinthine Servers, Tyr's Hand and Tori Hanzō were fixed by the prevention / timing pass: see `STATUS-fix-prevention.md`.)
 * (Fixed in the fix-misc pass: **Improved Tracers** adds 1 to traces of subroutines; **Valley Grid**'s -1 hand size lasts
   until the Corp's next turn even if it leaves play; **Mandatory Upgrades** is +1 allotted click while scored; **Mandatory Seed
   Replacement** swaps until the Corp stops (bounded by 3 swaps per installed ice); **Mason Bellamy** sees bioroid
   click-breaks.)
-* **Accelerated Beta Test** / **Bacterial Programming** do not track shuffles during the effect; Bacterial Programming on
-  steal does not remove R&D cards moved to HQ from the current access list.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Bacterial Programming** on steal: the R&D accesses are the first R&D cards not accessed yet (cards moved to
+  HQ are no longer accessed); **Warroid Tracker** traces once per batch of trashes; **Overseer Matrix** once per batch, up to 1 tag per
+  card trashed from its server, its own trash included; **Daruma** is trashed before the cards are chosen.)
+* **Accelerated Beta Test** keeps the identities of the looked-at cards (as jinteki; exact).
 * **Unorthodox Predictions** prevents breaking until the Corp's next turn begins (as printed; jinteki does not enforce it).
-* **Will-o'-the-Wisp** candidates are the installed icebreakers that broke a subroutine this run.
-* **Warroid Tracker / Overseer Matrix** fire once per trashed card. Overseer Matrix does not fire for its own trash.
-* **Daruma** trashes itself after the second choice; (root-to-root swaps re-check the one agenda/asset and one region per root rules
-  since the final NSG pass, `STATUS-fix-final-nsg.md`).
-* **Evidence Collection 1-3** have no in-game effect; **Corporate Oversight A/B** and Evidence Collection / Hired Help are not
+* **Will-o'-the-Wisp** candidates are the installed icebreakers that broke a subroutine this run (as printed).
+* **Daruma**: trashed first, then the two cards are chosen (final rotated pass); root-to-root swaps re-check the one agenda/asset and
+  one region per root rules (final NSG pass, `SwapRootEffect`).
+* **Evidence Collection 1-3** have no in-game effect (campaign cards: "reveal set N"); **Corporate Oversight A/B** and Evidence Collection / Hired Help are not
   eternal-legal and are not in the presets (covered by scripted checks).
 * **NAPD Contract / Ikawah Project / Fetal AI / Utopia Fragment** steal costs use the engine `Cost` records.
 

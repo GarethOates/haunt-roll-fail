@@ -465,7 +465,7 @@ abstract class Startup(val code : String) extends CardImpl {
     }
 
     // double operations / events: additional click cost (Synchrocyclotron waives the first Corp double each turn)
-    def doubleFree(f : Faction)(implicit g : Game) = f.isCorp && g.reg("double") == 0 && g.activeCards(Corp).exists(c => c.code == "36027" && g.isRezzed(c))
+    def doubleFree(f : Faction)(implicit g : Game) = (f.isCorp && g.reg("double") == 0 && g.activeCards(Corp).exists(c => c.code == "36027" && g.isRezzed(c))) || (f.isRunner && g.frStarlight)
     def doubleCanPlay(f : Faction)(implicit g : Game) = g.clicks(f) >= 2 || doubleFree(f)
     def doubleCost(f : Faction)(implicit g : Game) : $[ForcedAction] = $(RegisterEffect("double", 1)) ++ (!doubleFree(f)).$(LoseClicksEffect(f, 1))
 

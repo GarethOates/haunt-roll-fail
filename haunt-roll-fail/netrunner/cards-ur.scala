@@ -279,7 +279,7 @@ object URCards {
     object Cordyceps extends NC("26086") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("virus" -> 2)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SuccessfulRun(s) if s.isCentral && g.counter(self, "virus") > 0 && !g.usedThisTurn(self, "cordyceps") && g.ice(s).any && g.allIce.num >= 2 =>
+            case SuccessfulRun(s) if s.isCentral && g.virusCounters(self) > 0 && !g.usedThisTurn(self, "cordyceps") && g.ice(s).any && g.allIce.num >= 2 =>
                 $(OptionalEffect(Runner, "Cordyceps: remove 1 virus counter to swap a piece of ice protecting this server with another?", $(ChooseCardEffect(Runner, g.ice(s), CordycepsPurpose(self), "Cordyceps: choose a piece of ice protecting this server", false)), $))
             case _ => $
         }
@@ -288,7 +288,7 @@ object URCards {
                 cards.single.foreach(a => g.push(ChooseCardEffect(Runner, g.allIce.but(a), CordycepsSwapPurpose(self, a), "Cordyceps: choose a piece of ice to swap with", false)))
                 NextAction
             case CordycepsSwapPurpose(self, a) =>
-                cards.single.foreach(b => g.push(MarkUsedEffect(self, "cordyceps"), AddCounterEffect(self, "virus", -1), SwapIceEffect(a, b)))
+                cards.single.foreach(b => g.push(MarkUsedEffect(self, "cordyceps"), SpendVirusEffect(self, 1, false), SwapIceEffect(a, b)))
                 NextAction
         }
     }

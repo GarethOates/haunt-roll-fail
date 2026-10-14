@@ -91,21 +91,18 @@ prevention / interrupt / timing approximation. Reference: jinteki `src/clj/game/
 
 ## Still approximate (and why)
 
-* Skorpios Defense Systems: removes a just-trashed card from the heap (not a set-aside interrupt): Runner cards reach the heap
-  through many direct `moveTo` paths (damage, discards, mills), an interrupt would need all of them routed through one effect.
-* Salvaged Vanadis Armory: offered right after the damage (the engine has no "next paid ability window after X" marker).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Skorpios Defense Systems is a set-aside interrupt of every Runner trash, resolved before the other abilities of
+  the trash; Salvaged Vanadis Armory is usable only in the next paid ability window after damage.)
 * (Fixed in the final NSG pass, see `STATUS-fix-final-nsg.md`: "when a trace is initiated" abilities are used in a "trace" window; Power Tap is a
   `TraceInitiated` trigger.)
-* Tyr's Hand: the break's `SubsBroken` event still lists the prevented subroutine (the costs are paid and the subroutine is
-  removed from the broken list right after the break); breaks performed by card effects (not the break actions) are not
-  interruptible. Only Tyr's Hand offers the "rez when a subroutine would be broken" interrupt.
-* Damage source: Runner cards' install damage and subroutine damage are attributed; other damage counts as Corp damage
-  (Prāna Condenser / Tori Hanzō / Lucky Charm check that). Unpreventable damage is not marked (costs such as Riot Suppression).
-* Patchwork: the interrupt covers the basic play / install actions; installs by card effects use its ability.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Tyr's Hand: the prevented subroutine is not in the break's `SubsBroken` event, and breaks by card effects
+  (Gbahali, Kongamato) are interruptible; damage source: every damage gets the card doing it (abilities, subroutines, operations /
+  events, accessed cards, scoring agendas); unpreventable damage and trashes are marked (Amped Up, Stim Dealer, Drone Screen,
+  Stimhack, Flare, Character Assassination, Cold Read); Patchwork also interrupts plays / installs by card effects.)
 * Jesminder Sareen, Dorm Computer, Qianju PT: forced tag avoidance as printed, applied by the hardware rules before the tag
   window opens (not a choice).
-* AirbladeX / Hunting Grounds cannot prevent "when encountered" abilities gained from ZATO City Grid (triggers).
-* Whistleblower (named agenda after trashing it) and Muertos Gang Member ("when uninstalled") are unchanged.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: AirbladeX / Hunting Grounds can prevent the "when encountered" ability granted by ZATO City Grid; Muertos Gang
+  Member reacts to every uninstall.) Whistleblower (current set) is left to the current-set pass.
 
 ## Shared-file edits
 

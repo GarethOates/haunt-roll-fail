@@ -106,7 +106,7 @@ object SGCards {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = {
-            val n = g.counter(self, "virus")
+            val n = g.virusCounters(self)
             $(Ability("gain " + (2 * n) + " credits (2 per virus counter)", $(ClickCost(1), TrashSelfCost), $(gain(Runner, 2 * n)), click = true, ok = n > 0, reason = "no virus counters"))
         }
     }
@@ -209,7 +209,7 @@ object SGCards {
                 g.addCounter(self, "virus", 1)
                 g.log("1 virus counter placed on", self)
                 g.state(self).host match {
-                    case Some(h) if g.isRezzed(h) && g.counter(self, "virus") >= 3 => g.push(DerezEffect(h))
+                    case Some(h) if g.isRezzed(h) && g.virusCounters(self) >= 3 => g.push(DerezEffect(h))
                     case _ =>
                 }
                 NextAction
@@ -287,7 +287,7 @@ object SGCards {
     object Conduit extends SG("30024") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case RunEnds(RnD, true, _) => $(OptionalEffect(Runner, "Conduit: place 1 virus counter on Conduit?", $(AddCounterEffect(self, "virus", 1)), $))
-            case SuccessfulRun(RnD) if thisCardRun(self) && g.counter(self, "virus") > 0 => $(AccessBonusEffect(RnD, g.counter(self, "virus")))
+            case SuccessfulRun(RnD) if thisCardRun(self) && g.virusCounters(self) > 0 => $(AccessBonusEffect(RnD, g.virusCounters(self)))
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = $(Ability("run R&D", click(), $(RunEffect(RnD, |(self))), click = true))

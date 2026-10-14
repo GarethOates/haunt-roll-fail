@@ -646,6 +646,8 @@ object RotIceCards2 {
 
     // Tithonium: the alternative rez cost (forfeit an agenda) is not offered
     object Tithonium extends RI("12098") {
+        // alternative cost: forfeit an agenda instead of paying the rez cost (FinalRotRules: FrRezForfeitAction offered next to the rez)
+        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && g.frAltRez.has(self)).?(-1000).|(0)
         override def subroutines(self : Card)(implicit g : Game) = $(trashProgramSub, trashProgramSub,
             Sub("Trash 1 resource and end the run", CopyAbilityEffect($(RunnerTrashInstalledEffect("Resource", Corp, "Tithonium: choose a resource to trash"), EndRunEffect))))
     }

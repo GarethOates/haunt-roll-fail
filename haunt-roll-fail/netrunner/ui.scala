@@ -88,7 +88,8 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         val owner = g.owner(c)
         val mine = viewer.contains(owner)
         g.zone(c) match {
-            case HandZone(f) => viewer.contains(f)
+            // the grip is revealed while Harishchandra Ent. applies (FinalRotRules.frGripRevealed)
+            case HandZone(f) => viewer.contains(f) || (f.isRunner && g.frGripRevealed)
             case DeckZone(f) => false
             case DiscardZone(Corp) => sees(Corp) || g.state(c).seen
             case DiscardZone(Runner) => true

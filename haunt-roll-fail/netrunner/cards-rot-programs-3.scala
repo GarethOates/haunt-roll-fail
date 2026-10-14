@@ -92,7 +92,13 @@ object RotProgramCards3 {
             case _ => $
         }
         // "Use these credits to install programs (you cannot use Sahasrara to install a program that trashes Sahasrara)."
-        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(_.data.isProgram)
+        // a program whose installation needs more memory than the other installed programs can free (so that Sahasrara would
+        // have to be trashed) cannot be paid with these credits; when they pay, Sahasrara cannot be chosen to free memory
+        // (FinalRotRules.frSahasraraLocked)
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(c => c.data.isProgram && {
+            val need = (spend.target.none && !g.impl(c).mustBeHosted(c)).??(c.data.memory.|(0)) - g.memoryFree
+            need <= 0 || g.installedCards(Runner).%(x => x != self && x.data.isProgram && !g.state(x).facedown)./(_.data.memory.|(0)).sum >= need
+        })
     }
 
     object Inti extends Rot("03048") {

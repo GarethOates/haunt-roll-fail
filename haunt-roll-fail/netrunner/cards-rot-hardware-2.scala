@@ -448,7 +448,7 @@ object RotHardwareCards2 {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("breach R&D", $(ClickCost(1), CounterCost("power", 3)), $(BreachServerEffect(RnD)), click = true, ok = g.counter(self, "power") >= 3, reason = "needs 3 power counters"))
+            $(Ability("breach R&D (not its root)", $(ClickCost(1), CounterCost("power", 3)), $(BreachNoRootEffect(RnD)), click = true, ok = g.counter(self, "power") >= 3, reason = "needs 3 power counters"))
     }
 
     object Mache extends RH("22018") {

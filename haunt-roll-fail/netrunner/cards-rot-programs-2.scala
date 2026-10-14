@@ -348,14 +348,16 @@ object RotProgramCards2 {
 
     object SurveillanceNetworkKey extends Rot("14018") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case CardsDrawn(Corp, l) if g.phase == "action" && g.active.isCorp && l.any => $(RevealCardsEffect(Corp, l))
+            // "Whenever the Corp spends [click] to draw 1 or more cards (including through a card ability), reveal the first card drawn"
+            case CardsDrawn(Corp, l) if g.frClickDrawContext && g.frClickDrawn == 0 && l.any => $(RevealCardsEffect(Corp, l.take(1)))
             case _ => $
         }
     }
 
     object SurveillanceNetworkKey2 extends Rot("14019") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case CardsDrawn(Corp, l) if g.phase == "action" && g.active.isCorp && l.any => $(RevealCardsEffect(Corp, l))
+            // "Whenever the Corp spends [click] to draw 1 or more cards (including through a card ability), reveal the first card drawn"
+            case CardsDrawn(Corp, l) if g.frClickDrawContext && g.frClickDrawn == 0 && l.any => $(RevealCardsEffect(Corp, l.take(1)))
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = {

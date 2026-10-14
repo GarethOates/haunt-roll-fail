@@ -60,7 +60,8 @@ definitions (`/Users/gareth/Developer/HRF/netrunner-src/src/clj/game/cards/*.clj
   `CheckMemoryAction` is queued when a Runner card leaves play (the Runner must trash programs while MU is
   exceeded), unique Corp cards trash other rezzed copies when rezzed (`rezCard`), unique Runner cards on install.
 * **Access** (rules-access.scala): cards from R&D are accessed in order (top first), root cards may be accessed
-  before, between or after them; HQ accesses are drawn at random when the breach starts; breaching Archives turns
+  before, between or after them; HQ accesses are drawn at random one at a time (FinalRotRules, section 8.7: each R&D access is the
+  first R&D card not accessed yet, each HQ access is drawn among the HQ cards not accessed yet); breaching Archives turns
   every card faceup (logged as a sorted set) and accesses all of them (cards without access effects automatically).
 
 ## 2. CardImpl API (abilities.scala)
@@ -356,7 +357,7 @@ not collide with another file of the package.
         with StartupRules with SU21Rules with PHTAIRules with RWRRules
         with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules
         with RotAssetRules with RotAgendaRules
-        with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalNsgRules
+        with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalRotRules with FinalNsgRules
 
 Among the card-set traits only `RotAssetRules` and `RotAgendaRules` override engine methods (the four rules-accuracy traits
 mixed in after them are described in 8.2-8.6; their composition in 8.6). They extend the core traits they refine (assets:
@@ -378,7 +379,7 @@ nothing below it sees that action. Every call through `performEffects` / `perfor
     performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse
     performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
     performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse
-    performRotAssets orElse performRotAgendas orElse performFixes
+    performRotAssets orElse performRotAgendas orElse performFixes orElse performFinalRot
 
 and the whole result is post-processed by `restrictContinue(...)` (RestrictionRules, 8.3).
 
@@ -396,10 +397,11 @@ and the whole result is post-processed by `restrictContinue(...)` (RestrictionRu
 
 **Triggers**:
 
-    cards' triggers ++ su21Triggers ++ rotIceTriggers ++ rotResourceTriggers ++ rotHardwareTriggers ++ phTriggers
-        ++ rotEventTriggers ++ rotOperationTriggers ++ rotAssetTriggers ++ rotAgendaTriggers ++ preventionTriggers ++ fixTriggers ++ finalNsgTriggers
+    finalRotPreTriggers ++ cards' triggers (each card's between FxSourceEffect markers) ++ su21Triggers ++ rotIceTriggers
+        ++ rotResourceTriggers ++ rotHardwareTriggers ++ phTriggers ++ rotEventTriggers ++ rotOperationTriggers ++ rotAssetTriggers
+        ++ rotAgendaTriggers ++ preventionTriggers ++ fixTriggers ++ finalRotTriggers ++ finalNsgTriggers
 
-(the cards' own triggers are wrapped in `FnsSourceEffect` source markers, see 8.7)
+(`FxSourceEffect` is FixRules' marker, the single source mechanism of the engine; see 8.7 / 8.8)
 
 The bookkeeping registers of the events, operations and assets ports are counted after the cards have seen the event
 (`reg(k) == 0` means "first time this turn" inside a card trigger).
@@ -439,7 +441,7 @@ the ability of `self`); the old `payCredits(f, n, self, purpose)` / `availableCr
 Credit sources: the pool (unless `poolLocked`: Aircheck), bad publicity credits of the run (`Run.credits`, set by
 `BadPublicityCreditsEffect` when the run begins), and the hosted credits of every active card whose `paysFor(self, spend)`
 (or `creditsUsableForRun` during a run, or `creditsUsableFor(self, spend.purpose)`) accepts the payment. The run flag
-`no-spend-credits` (RSVP) blocks all of them. Default payment order (deterministic; the player may choose the sources instead when two or more restricted sources could pay, 8.7): the stealth part from Stealth sources,
+`no-spend-credits` (RSVP) blocks all of them. Default payment order (deterministic; the player may choose the sources instead when two or more restricted sources could pay, 8.8): the stealth part from Stealth sources,
 bad publicity credits, credits on cards in the play area, recurring credits, other hosted credits (non-stealth before stealth),
 the pool; while a card that needs stealth credits is active (`isStealthConsumer`) the unrequired stealth credits are spent after
 the pool. Spending hosted credits fires `CreditsSpentFrom(card, n)`, bad publicity credits `BadPublicityCreditsSpent(n)`,
@@ -513,7 +515,7 @@ others and delegate everything else to `super`. Modelled on jinteki's `game.core
   `BreachBonusEffect(n)` is a turn-lasting access bonus (Climactic Showdown). Patchwork is an interrupt of `PlayCardAction` /
   `RunnerInstallAction`.
 * "When a trace is initiated" abilities (Flip Switch, Disrupter; Power Tap is a `TraceInitiated` trigger) are used in the "trace"
-  window of `FinalNsgRules` (8.7). The legacy continuation `PreventWindowAction(kind, n)` (sets the amount left of an open damage
+  window of `FinalNsgRules` (8.8). The legacy continuation `PreventWindowAction(kind, n)` (sets the amount left of an open damage
   window) still works.
 
 
@@ -544,10 +546,11 @@ See `STATUS-fix-misc.md` for the cards that use them.
 
 ### 8.6 Composition of the rules-accuracy traits (credits, restrictions, prevention, fixes)
 
-    ... with RotAssetRules with RotAgendaRules with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalNsgRules
+    ... with RotAssetRules with RotAgendaRules with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalRotRules with FinalNsgRules
 
 Scala runs the last mixed-in override first, so for a method overridden by several of them the order of execution is
-(FinalNsgRules, 8.7 ->) PreventionRules -> FixRules -> RestrictionRules -> RotAgendaRules -> RotAssetRules -> base. Why this order:
+(FinalNsgRules, 8.8 -> FinalRotRules, 8.7 ->) PreventionRules -> FixRules -> RestrictionRules -> RotAgendaRules -> RotAssetRules ->
+base. Why this order:
 
 * **PreventionRules outermost.** Its overrides suspend an action and perform it again later through `performInternal` with a
   bypass flag: `PlayCardAction` / `RunnerInstallAction` (Patchwork interrupt, `patchworkBypass`), `BreakSubAction` /
@@ -582,9 +585,71 @@ must listen to only one of them for the same click. Breach events: `BreachFinish
 Conquer) and `BreachEnded` (fixes: any breach, with "stole or trashed"; Aumakua).
 
 
-### 8.7 Final rules-accuracy pass for the current sets (`rules-ext-final-nsg.scala`, `FinalNsgRules`)
 
-`FinalNsgRules` is mixed in last (`... with FixRules with PreventionRules with FinalNsgRules`), so its stackable overrides run first,
+### 8.7 Final pass of the rotated cards (`rules-ext-final-rot.scala`, trait `FinalRotRules`)
+
+    ... with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalRotRules with FinalNsgRules
+
+`FinalRotRules` is mixed in after PreventionRules and just before `FinalNsgRules` (8.8, which extends it): its overrides (`performEffects`, `performRun`, `performAccess`, `performAbilities`,
+`performTurn`, `performCards`, `performPHTAI`, `resolvePurpose`, `rezCard`, `rezOptions`, `abilityOptions`, `payCosts`, `trashCard`,
+`accessProtected`, `restrictContinue`) run before PreventionRules' and delegate everything they do not change to `super`. Outermost
+because some mechanisms must act before a window is opened (the source and the unpreventable flag of a damage window are set when
+`PreventOpenDamageAction` is seen, before PreventionRules builds the window) or around the result of every action
+(`restrictContinue`). Actions it suspends (Patchwork for card-effect plays / installs, Armored Servers' and Faust's grip costs, the
+forfeit of Ibrahim Salem / Tithonium, the discounted rezzes) are performed again through `performInternal` with a bypass flag, so the
+inner traits see them once. Its own effects are handled by `performFinalRot` (end of the chain); game-level triggers by
+`finalRotPreTriggers` (first: Skorpios) and `finalRotTriggers` (last: bookkeeping).
+
+Mechanisms usable by any card:
+
+* **Sources.** Every card's triggered abilities resolve between `FxSourceEffect(card, true/false)` markers (game.scala
+  `triggerEffects`), like paid abilities (FixRules), so `fxSources` is the card whose triggered or paid ability is resolving.
+  `frSourceNow` = the innermost of: that card, the ice whose subroutine resolves (`preventSubs`, with the depth recorded at
+  `FireSubAction`), the operation / event resolving, the card being accessed, the scoring agenda. Every damage window gets it as its
+  source (`PreventCtx.source` / `by`): Chrome Parlor, Prana Condenser, Tori Hanzo, Lucky Charm. Keros Mcintyre's "you derez" and the
+  Zwicky Group's "through an ability" also see triggered abilities now.
+* **Unpreventable**: `FrUnpreventableDamageEffect(kind, n)` (the window's increases still apply, no prevention / forced interrupt),
+  `FrUnpreventableTrashEffect(card, by)` / `FrUnpreventableTrashPurpose(by)` / `withTrashCause("unpreventable")` (no trash window).
+* **"The next paid ability window after X"**: `frArm(key)` (armed by `DamageDone` -> "damage", an operation finishing -> "operation"),
+  `frArmed(key)` while the next window is not closed; a window opens with `PaidWindowAction` / `ActionPhaseAction` / `EncounterAction`
+  asks and closes when it is passed, an action is taken or the encounter continues.
+* **Batches**: `FrCorpTrashBatch(cards, servers)` once after the Corp cards trashed by the Runner by one effect / access (after their
+  own "when trashed" abilities).
+* **After every action** (`restrictContinue`): `FrAddedToScoreArea(card, f)` (any way an agenda enters the Runner's score area),
+  `FrUninstalled(card, zone)` (an installed Runner card left play without being trashed), The Black File leaving play -> win check,
+  Skorpios' check for Runner cards that reached the heap without an event.
+* **Skorpios** (`finalRotPreTriggers`): the Runner cards trashed since the last check are offered to the Corp (remove 1 from the game)
+  before any other ability of the event resolves, once per batch.
+* **Virtual tags**: `FrVirtualTagEffect(n)` ("considered to have n additional tags": counted, not taken, cannot be removed).
+* **Access**: HQ cards are drawn at random one at a time when each is accessed (`FrHQAccessShuffledAction`; redrawn if HQ changed
+  since the draw); R&D cards are accessed one at a time from the top (the first card not accessed yet); Gagarin's access cost is a
+  choice before the access (`FrAccessPayAction` / `FrAccessRefuseAction`).
+* **Encounters**: `PhantomEncounterEffect(ice)` encounters an uninstalled ice where it is (it is rezzed for the encounter only);
+  `FrEncounterNowEffect(ice)` (move to the ice and encounter it, no approach); `FrGrantedEncounterEffect(ice, effects)` (a "when
+  encountered" ability granted by another card goes through the encounter prevention window).
+* **Rez costs**: `frRezSurcharge` (Hernando Cortez), forfeit as an additional cost before the rez (`FrForfeitRezPurpose`), alternative
+  cost options (`FrRezForfeitAction`, Tithonium); discounted rezzes (`DiscountRezEffect`, `RezDiscountEffect`) also pay them.
+* "Spend [click]" choices use FinalNsgRules' `SpendClicksEffect` (8.8). `FrBeforeFirstTurn(f)`: "before taking your first turn" (before the first `StartTurnAction` of f); `FrStackSearched(source)`: a stack
+  shuffle while a card whose text searches the stack resolves; `frStarlight` (double events' additional costs ignored), `frGripRevealed`
+  (Harishchandra, read by the UI).
+
+See `STATUS-fix-final-rot.md` for the cards.
+
+**Merged order of the two final passes.** `... with PreventionRules with FinalRotRules with FinalNsgRules`: for every stackable
+override FinalNsgRules runs first, then FinalRotRules, then PreventionRules and the rest; every override calls `super` /
+`base` for what it does not handle. In the `performInternal` chain `performFinalNsg` is second (after `performRestrictions`: the
+credit-source choice and the additional costs suspend a user action before any other rule sees it and perform it again through
+`performInternal` with a marker) and `performFinalRot` is last (only its own effects). `restrictContinue` = FinalNsgRules' greying
+(`fnsFilter`) -> FinalRotRules' check after every action (`frAfterAction`) -> RestrictionRules' filter, and it still wraps the final
+result of every `performInternal` call. Why FinalNsgRules outside FinalRotRules: `rezCard` (the additional rez cost of Archer /
+Corporate Town / Plutus / Bloop / Biawak is queued first, and Hernando Cortez's surcharge is charged only once, when the rez really
+happens), `performRun` (the subset break is also offered for the encounter-on-access ice), `performAccess` (Gagarin's pay-or-skip
+choice comes first, then the "when accessed" abilities are wrapped as sources).
+
+### 8.8 Final rules-accuracy pass for the current sets (`rules-ext-final-nsg.scala`, `FinalNsgRules`)
+
+`FinalNsgRules` extends `FinalRotRules` and is mixed in last (`... with PreventionRules with FinalRotRules with FinalNsgRules`), so
+its stackable overrides run first (before FinalRotRules'),
 and its partial function `performFinalNsg` is the second of the `performInternal` chain (right after `performRestrictions`). Like
 PreventionRules it suspends an action and performs it again through `performInternal` afterwards (with a marker so it is not
 suspended twice), so everything inside it -- PreventionRules' interrupts (Patchwork, Tyr's Hand), FixRules' bookkeeping, the
@@ -602,9 +667,10 @@ its asks are filtered by `restrictContinue` (which it extends with its own greyi
   whose first effect is a `SpendEffect`). Patchwork's interrupt is asked first.
 * **Sources of effects.** The effects of the cards' triggers (game.scala `triggerEffects`), "when encountered" abilities
   (`encounterAbility`), "when accessed" abilities, "when rezzed" abilities, paid abilities (`useAbility`) and prevention abilities are
-  wrapped in `FnsSourceEffect(card, on)` markers; `effectSource` is the innermost card whose ability is resolving (falling back on
-  `fxSources`, the resolving subroutine `preventSubs` and the operation / event being played). Credit losses fire
-  `CreditsLostFrom(f, n, source)` after `CreditsLost` (GameNET listens to it).
+  wrapped in FixRules' `FxSourceEffect(card, on)` markers (one mechanism with FinalRotRules: the triggers are wrapped by
+  `frSourced`, paid abilities by FixRules' `useAbility`); `effectSource` is FinalRotRules' `frSourceNow` (the innermost marked card,
+  the resolving subroutine, the operation / event being played, the accessed card, the scoring agenda), so GameNET and the damage
+  windows read the same source. Credit losses fire `CreditsLostFrom(f, n, source)` after `CreditsLost` (GameNET listens to it).
 * **Additional costs paid before the action.** `FnsExtraRezCost.extraRezCost(self)` (marker trait on the card object): the effects
   that pay the cost are queued before the rez in `rezCard` (and before the prepaid rez effects `RezDiscountEffect`,
   `DiscountRezEffect`, `CorpInstallPayingEffect(.., true)`, `ServerDiscountChosenAction(.., true)`, Reanimation Protocol), then the card

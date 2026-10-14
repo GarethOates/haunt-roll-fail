@@ -86,21 +86,22 @@ them by name.
 
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| ICE | 211 | 211 | ~6 (Tithonium's alternative cost, the encounter-on-access ice Archangel / Chrysalis / Herald / Sapper, Formicary) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
-| Programs | 164 | 164 | ~8 (Hivemind, Yusuf / Musaazi, Faust, Progenitor, Customized Secretary, Panchatantra, Sahasrara edge case) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
-| Resources | 164 | 164 | ~8 (Starlight Crusade Funding, Hernando Cortez, Keros Mcintyre, Muertos Gang Member, Levy AR Lab, Psych Mike, Salvaged Vanadis Armory, DJ Fenris) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
-| Events | 148 | 148 | ~5 (Rebirth (no format), Apocalypse / Reboot faceup flip, Watch the World Burn in Archives, Push Your Luck / Rigged Results secrecy) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
-| Operations | 146 | 146 | ~9 (Surveillance Sweep, Net Watchlist (break / pump only), Enhanced Login Protocol, Bad Times / MCA Informant, Death and Taxes, Accelerated Diagnostics, "name a card" lists) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
-| Assets | 144 | 144 | ~6 (Genetics Pavilion, Ibrahim Salem, Lakshmi Smartfabrics, IT Department, Full Immersion RecStudio, Mumbad Construction Co.) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
-| Agendas | 114 | 114 | ~6 (Accelerated Beta Test, Bacterial Programming, Personality Profiles, Evidence Collection 1-3 no effect) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Upgrades | 79 | 79 | ~3 (Armored Servers break cost, Warroid Tracker, Overseer Matrix; Daruma's root swaps are checked since the final NSG pass) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Hardware | 101 | 101 | ~6 (Patchwork for card-effect installs, Q-Coherence Chip, Respirocytes, Top Hat, Maya, Archives Interface) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| Identities | 90 | 90 | ~12 (Adam, Skorpios, Gagarin, Acme, SSO Industries, Seidr, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design / Jinteki Biotech timing) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| **Total rotated** | **1,361** | **1,361** | **~69** (was ~176 before the four fix passes) | | |
-| **All cards** | **2,056** | **2,056** | ~72 (current sets 3 + rotated ~69; was ~280) | | |
+| ICE | 211 | 211 | 1 (the encounter-on-access ice are not encountered when accessed while installed) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
+| Programs | 164 | 164 | 1 (Hivemind: no choice of the counters for break / pump virus costs) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| Resources | 164 | 164 | none | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
+| Events | 148 | 148 | 1 (Rebirth: the format is inferred from the deck) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Operations | 146 | 146 | none | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
+| Assets | 144 | 144 | none | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
+| Agendas | 114 | 114 | 1 (Personality Profiles: searches recognised from the printed text of the resolving card) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Upgrades | 79 | 79 | none (Daruma's swaps re-check the root rules since the final NSG pass) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Hardware | 101 | 101 | 1 (Patchwork's prepay ability kept for affordability in the basic menus) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| Identities | 90 | 90 | none | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| **Total rotated** | **1,361** | **1,361** | **~7** (was ~176 before the four fix passes, ~70 before the final rotated pass) | | |
+| **All cards** | **2,056** | **2,056** | ~45 (current sets ~38 + rotated ~7; was ~280) | | |
 
 The counts above are after the four rules-accuracy fix passes (credits, restrictions, prevention, card-specific fixes; see
-"Rules-accuracy fix passes" below). They are approximate ("~"): an entry counts a card whose printed text is approximated or
+"Rules-accuracy fix passes" below) and the final pass of the rotated cards (`STATUS-fix-final-rot.md`, which lists the remaining ones
+with their reasons; Surveillance Network Key's reading of "spends [click] to draw" is noted there too). They are approximate ("~"): an entry counts a card whose printed text is approximated or
 partly unenforced; differences that match jinteki's own implementation, manual-only choices and UI-only secrecy are not counted.
 
 Mechanics that several rotated ports defined independently were unified in the merge (one definition each, see
@@ -155,6 +156,13 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   they needed (`ClicksSpent`, `AgendaCounterSpent`, `BreachEnded`, bioroid click-breaks as `SubsBroken`, granted / reordered /
   non-resolving subroutines, lingering restrictions, allotted clicks (`CardImpl.clicksPerTurn`), host subtypes
   (`CardImpl.hostSubtypes`), the real trace link strength).
+* **Final pass of the rotated cards** (`rules-ext-final-rot.scala`, `FinalRotRules` mixed in last, ENGINE.md 8.7,
+  `STATUS-fix-final-rot.md`): ~65 cards (rotated, plus the current-set cards that interact with them) and the generic support:
+  sources of triggered abilities (every damage window knows the card doing it), unpreventable damage / trashes, "the next paid
+  ability window after X", trash batches, Skorpios' pre-trash interrupt, the check after every action (`FrAddedToScoreArea`,
+  `FrUninstalled`, The Black File), virtual tags, HQ / R&D accessed one card at a time, uninstalled ice encountered where they are,
+  granted "when encountered" abilities in the prevention window, additional / alternative rez costs on every rez path,
+  Hivemind for every virus program, "before your first turn", spending clicks by choice.
 
 * **Final pass for the current sets** (`rules-ext-final-nsg.scala`, `FinalNsgRules`, `STATUS-fix-final-nsg.md`, ENGINE.md 8.7):
   the player chooses the credit sources when two or more restricted sources could pay (Auto = the deterministic order, preselected
@@ -637,6 +645,19 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   `RotOperationScript` 56, `RotProgramScript`, `RotMergeScript`, new `FinalNsgScript` 82); `ScriptTest`'s Bling check now uses the basic
   play action. Bot games: 300 + 300 over all presets + 200 rotated vs rotated presets, **800 games, 0 errors** (plus 750 on earlier
   builds). See `STATUS-fix-final-nsg.md`.
+
+### Tested after the final rotated pass (2026-10-14)
+
+* `sbt -batch compile` green.
+* JVM harness (scratchpad `final-rot/host`, a copy of `merge4/host` pointed at this worktree): `ScriptTest`, `FixScript` 81,
+  `PreventionScript`, `CreditScript`, `RestrictionScript`, `RotIceScript` (211 ice, 633 encounters, 0 failures), `RotAssetScript`,
+  `RotAgendaScript`, `RotEventScript`, `RotHardwareScript` 80 (Gagarin check updated: the Runner chooses to pay), `RotOperationScript`
+  56, `RotProgramScript`, `RotMergeScript`, `PresetCheck` (195 presets, 0 invalid) and the new `FinalRotScript` (91 checks, including
+  the serializer round trip of every new user action / purpose): all pass.
+* Bot games (`MergeHost`, every offered and chosen action round-tripped through the serializer; exceptions, empty asks, mismatches
+  and over-long games counted as errors), each batch = 250 + 250 games over all presets + 250 rotated Runner presets against rotated
+  Corp presets: seeds 9201-9203 (0 errors) and 9301-9303 (1 error: Faust breaking with the last grip card, fixed), then on the final
+  code seeds 9401-9403 **750 games, 0 errors** plus seed 9302 again (250 games, 0 errors).
 
 ## Known bugs
 

@@ -100,11 +100,14 @@ object RotAgendaCards2 {
     object PersonalityProfiles extends RAg("10066") {
         def punish(implicit g : Game) : $[ForcedAction] = g.hand(Runner).any.$(MessageEffect(Corp, "uses Personality Profiles"), RandomTrashFromHandEffect(Runner, 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = if (!corpScored(self)) $ else {
-            val heap : $[ForcedAction] = e match {
-                case Installed(Runner, c) if g.rotHeapPrev.has(c) => punish
+            // installs from the heap (FinalRotRules.frFromHeap; facedown installs: the heap before the event) and searches of the
+            // stack (FrStackSearched: a stack shuffle by a card whose text searches the stack)
+            e match {
+                case Installed(Runner, c) if g.frFromHeap.contains(c) => punish
+                case FacedownInstalled(c) if g.rotHeapPrev.has(c) => punish
+                case FrStackSearched(_) => punish
                 case _ => $
             }
-            heap ++ g.rotStackSearched.??(punish)
         }
     }
 
@@ -313,13 +316,8 @@ object RotAgendaCards2 {
             $(SetMemoEffect(self, g.rotRunKey), MessageEffect(Corp, "uses Armored Servers: jacking out or breaking a subroutine costs a card from the grip for the remainder of the run")),
             ok = g.run.exists(r => !r.ended) && !active(self), reason = "only during a run")))
         override def jackOutCosts(self : Card)(implicit g : Game) = active(self).$("grip")
+        // the grip cards are an additional cost paid before each break (FinalRotRules.frArmoredAsk)
         override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) = !active(self) || g.hand(Runner).any
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(_, subs, _) if active(self) && g.hand(Runner).any =>
-                val k = subs.num.atMost(g.hand(Runner).num)
-                $(ChooseCardsEffect(Runner, g.hand(Runner), k, k, TrashFromHandPurpose(Runner), "Armored Servers: choose " + k + " card" + (k > 1).??("s") + " in the grip to trash"))
-            case _ => $
-        }
     }
 
     object IllicitSales extends RAg("13043") {

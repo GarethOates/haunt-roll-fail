@@ -60,12 +60,13 @@ tests only.
   Knifed / Spooned see them.)
 * Prey: only rezzed ice (as jinteki).
 * The restrictions of Interdiction, Hacktivist Meeting, Unscheduled Maintenance, Blackmail and Cyber Threat apply to every rez /
-  install path, card effects included (see `STATUS-fix-restrictions.md`); Security Leak and The Price of Freedom restrict the basic advance
-  action (no card effect "advances" a card). A Corp window whose only option is greyed out by them still shows its "pass" button.
-* Watch the World Burn: later accesses remove cards with the same title (fix-misc pass); accesses in Archives are not removed.
-* Rebirth: the candidates are all format-legal Runner identities of the same faction (not restricted to the deck's format).
-* Apocalypse / Reboot: facedown Runner cards have no abilities and use no MU; turning them faceup again is left to manual
-  adjustment.
+  install path, card effects included (see `STATUS-fix-restrictions.md`). (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Security Leak and The Price of Freedom also
+  apply to card effects that advance; Hacktivist Meeting's trash also applies to discounted rezzes; Watch the World Burn also removes
+  copies accessed in Archives; Push Your Luck / Rigged Results spend from every source that can pay for the event.)
+  A Corp window whose only option is greyed out by them still shows its "pass" button.
+* Rebirth: the game has no declared format: the candidates are the identities of the faction legal in a format in which every card
+  of the Runner's deck is legal (final rotated pass).
+* Apocalypse / Reboot: facedown Runner cards have no abilities and use no MU; nothing turns them faceup again (as printed).
 * Push Your Luck / Rigged Results: the secret amount is hidden by the UI only (like psi bids); Government Investigations
   restricts these two cards' secret spending, not psi bids.
 

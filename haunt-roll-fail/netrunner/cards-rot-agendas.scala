@@ -195,7 +195,7 @@ object RotAgendaCards {
     object CharacterAssassination extends RAg("04014") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = g.runnerInstalledOf("Resource")
-            l.any.$(ChooseCardEffect(Corp, l, TrashPurpose(Corp), "Character Assassination: choose a resource to trash", false))
+            l.any.$(ChooseCardEffect(Corp, l, FrUnpreventableTrashPurpose(Corp), "Character Assassination: choose a resource to trash (cannot be prevented)", false))
         }
     }
 

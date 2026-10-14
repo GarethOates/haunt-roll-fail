@@ -80,7 +80,7 @@ object DFCards {
     object Chisel extends NC("26003") {
         override def mustBeHosted(self : Card)(implicit g : Game) = true
         override def hostRequirement(self : Card, host : Card)(implicit g : Game) = host.data.isIce
-        override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = g.state(self).host.has(ice).?(-g.counter(self, "virus")).|(0)
+        override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = g.state(self).host.has(ice).?(-g.virusCounters(self)).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if g.state(self).host.has(ice) => $(ChiselAction(self))
             case _ => $

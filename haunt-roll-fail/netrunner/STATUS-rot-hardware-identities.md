@@ -79,30 +79,28 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   Lockpick, Silencer, Dyson Fractal Generator, Spinal Modem, Cyberfeeder, Omni-drive, Flame-out, Ele "Smoke"; install / play credits
   of Cybsoft MacroDrive, Cyberfeeder, Public Terminal; Weyland BWBI's advance credit; Whizzard's trash credits; Making News' trace
   credits). Māui's credits pay for anything during HQ runs (the printed text).
-  Patchwork is an interrupt of the basic play / install actions (fixed, see `STATUS-fix-prevention.md`); its once-per-turn
-  ability (trash 1 grip card: the next play/install this turn costs 2 less) remains for installs by card effects and to make a
-  card affordable.
+  Patchwork is an interrupt of the basic play / install actions (prevention pass) and of the plays / installs by card effects that
+  pay a cost (final rotated pass); its once-per-turn ability (trash 1 grip card: the next play/install this turn costs 2 less) remains
+  only to make a card affordable (the basic options are greyed out when only the discount would make them affordable).
 * **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3),
   and a virus / Caïssa program that fits in the unused restricted MU can be installed without trashing (fix-misc pass).
   Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size and the limit is
   checked whenever it is exceeded (fix-misc pass). Facedown programs use no MU (engine-wide).
 * **Apex.** Non-virtual resources cannot be installed by any path (facedown installs excepted) (see `STATUS-fix-restrictions.md`). Facedown cards
-  can't be turned faceup by any card implemented so far.
+  can't be turned faceup by any card implemented so far (as printed).
 * **Adam.** The 3 directives (of the 4 Directive resources in the database) are installed as extra copies `Card(code, 100+i)`
   outside the deck. Their own abilities depend on their implementations (resources, other sets).
 * **Expose** reveals unrezzed installed cards only. The Corp's responses (Zaibatsu Loyalty) are offered by `ExposeEffect`
   (rules-ext-rot-shared.scala).
-* Skorpios works on cards already in the heap (once per turn the Corp may remove one just-trashed card from the game), not as a
-  set-aside interrupt. Gagarin charges 1 credit automatically when a remote root card is accessed (cards are not accessed while the
-  Runner has 0 credits). Acme Consulting adds a real tag for the duration of the encounter. SSO Industries counts installed
-  agendas only when rezzed (faceup), so it practically never triggers. Seidr Laboratories is a manual once-per-turn ability during runs
-  (as on jinteki). Archives Interface flips Archives faceup and offers the removal once when Archives is breached. Mind's Eye's breach
-  includes the root. Maya / Maw resolve when the access of the card is finished. Top Hat replaces the breach and accesses the chosen
-  card through a pseudo-run. Harishchandra logs the grip (revealed to the Corp in the shared log) while tagged. Kabonesa Wu removes
-  programs installed this way at the end of the Runner's turn. Hayley Kaplan doesn't offer mods that need a host. Q-Coherence Chip uses
-  the zone the trashed program left. Respirocytes checks for an empty grip on every event.
-* Cyber Bureau's and NEXT Design's "before your first turn" happens when the Corp's first turn begins (before the mandatory draw).
-  Jinteki Biotech's choice is made then as well.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Skorpios is a set-aside interrupt of every Runner trash (once per batch, before
+  the other abilities); Gagarin's access cost is a choice before the access; Acme Consulting's tag is a virtual tag; Seidr
+  Laboratories triggers on the first click lost or spent during a run each turn; Mind's Eye's breach skips the root; Harishchandra's
+  grip is shown to the Corp by the UI while tagged; Hayley Kaplan offers mods with their hosts; Cyber Bureau / NEXT Design / Jinteki
+  Biotech resolve before the first turn begins; Q-Coherence Chip is exact.)
+* As printed or as jinteki (not approximations): SSO Industries counts installed faceup agendas only; Archives Interface flips Archives
+  faceup and offers the removal once when Archives is breached (jinteki); Maya / Maw resolve when the access of the card is finished;
+  Top Hat accesses the chosen card without a breach; Kabonesa Wu removes the program at the end of the Runner's turn; Respirocytes
+  checks for an empty grip on every event.
 * **Deck building** is validated per identity by `DeckRules` (`Decks.validate`) (see `STATUS-fix-restrictions.md`): The Professor (first copy of
   each program free), Custom Biotics (no Jinteki cards), agendas of the identity's faction or neutral (any faction for the draft
   identities and Nova Initiumia / Ampere), draft identities (no copy limit, no influence limit), Nova Initiumia / Ampere (1 copy

@@ -799,7 +799,8 @@ object PHCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if g.isRezzed(self) && g.serverOf(ice).exists(s => thisServer(self, s)) && !g.isDisabled(ice) && g.impl(ice).subroutines(ice).any =>
                 val subs = g.impl(ice).subroutines(ice)
-                $(OptionalEffect(Corp, "ZATO City Grid: trash the encountered ice to resolve 1 of its subroutines?", $(ChooseOneEffect(Corp, "ZATO City Grid: choose a subroutine", subs./(s => Alt(s.label, $(TrashEffect(ice, Corp, false), s.effect))))), $))
+                // a "when encountered" ability gained by the ice: it can be prevented (Hunting Grounds, AirbladeX; FinalRotRules)
+                $(FrGrantedEncounterEffect(ice, $(OptionalEffect(Corp, "ZATO City Grid: trash the encountered ice to resolve 1 of its subroutines?", $(ChooseOneEffect(Corp, "ZATO City Grid: choose a subroutine", subs./(s => Alt(s.label, $(TrashEffect(ice, Corp, false), s.effect))))), $))))
             case _ => $
         }
     }

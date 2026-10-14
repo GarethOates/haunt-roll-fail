@@ -303,7 +303,8 @@ object RotResourceCards2 {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case PsychMikeAction(self) =>
-                val n = g.reg("rd-accessed")
+                // "for each time you accessed a card in R&D during that run" (FinalRotRules.frRdAccessedThisRun)
+                val n = g.frRdAccessedThisRun
                 if (n > 0)
                     g.push(OptionalEffect(Runner, "Psych Mike: gain " + n + " credits?", $(MessageEffect(Runner, "gains " + n + " credits (Psych Mike)"), gain(Runner, n)), $))
                 NextAction
@@ -413,17 +414,14 @@ object RotResourceCards2 {
     }
 
     object SalvagedVanadisArmory extends RR("12103") {
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case DamageDone(_, n) if n > 0 && g.isInstalled(self) && g.deck(Corp).any =>
-                $(OptionalEffect(Runner, "Salvaged Vanadis Armory: trash it to force the Corp to trash the top cards of R&D?", $(VanadisAction(self)), $))
-            case _ => $
-        }
+        // "Use this ability only during the next paid ability window after suffering any amount of damage" (FinalRotRules.frArm)
+        override def abilities(self : Card)(implicit g : Game) =
+            $(Ability("the Corp trashes the top " + g.runnerDamageThisTurn + " cards of R&D", $(TrashSelfCost), $(VanadisAction(self)), ok = g.frArmed("damage") && g.runnerDamageThisTurn > 0, reason = "only in the next paid ability window after suffering damage"))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case VanadisAction(self) =>
-                if (g.isInstalled(self)) {
-                    g.log(Runner, "uses", self, "to force the Corp to trash the top", g.runnerDamageThisTurn.cards, "of R&D")
-                    g.push(TrashEffect(self, Runner, false), MillEffect(Corp, g.runnerDamageThisTurn))
-                }
+                g.frDisarm("damage")
+                g.log(Runner, "uses", self, "to force the Corp to trash the top", g.runnerDamageThisTurn.cards, "of R&D")
+                g.push(MillEffect(Corp, g.runnerDamageThisTurn))
                 NextAction
         }
     }
@@ -487,7 +485,7 @@ object RotResourceCards2 {
     }
 
     object StarlightCrusadeFunding extends RR("04069") {
-        // the additional costs of double events are not waived (not modelled)
+        // "Ignore any additional costs on each double event you play": RE.doubleOk / doubleCost and Startup.doubleFree
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(MessageEffect(Runner, "loses [click] (Starlight Crusade Funding)"), ClickLossEffect(Runner, 1))
             case _ => $
@@ -502,7 +500,7 @@ object RotResourceCards2 {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case StimDealerAction(self) =>
                 if (g.counter(self, "power") >= 2)
-                    g.push(MessageEffect(Runner, "suffers 1 core damage (Stim Dealer)"), RemoveCountersEffect(self, "power"), DamageApplyEffect("core", 1))
+                    g.push(MessageEffect(Runner, "suffers 1 core damage (Stim Dealer)"), RemoveCountersEffect(self, "power"), FrUnpreventableDamageEffect("core", 1))
                 else
                     g.push(AddCounterEffect(self, "power", 1), MessageEffect(Runner, "gains [click] (Stim Dealer)"), GainClicksEffect(Runner, 1))
                 NextAction

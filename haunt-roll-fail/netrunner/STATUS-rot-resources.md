@@ -53,22 +53,17 @@ Not modelled because the engine has no hook for it (and adding one would need ed
 
 * (Fixed in the fix-misc pass: **Paparazzi** — the Runner is tagged (`Game.tagged`); its meat damage prevention is a forced
   interrupt of the prevention pass. The Black File is enforced by the restrictions pass.)
-* **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Starlight Crusade Funding** ignores the additional costs of double events.)
 
-Approximations:
+Approximations: none left. (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Hernando Cortez** is an additional rez cost; **Jackpot!** reacts to any agenda added to
+the score area; **Keros Mcintyre** also sees derezzes by Runner triggered abilities; **Muertos Gang Member** reacts to every
+uninstall; **Levy Advanced Research Lab** lets the Runner order the bottom cards; **Psych Mike** counts the R&D accesses of that run;
+**Salvaged Vanadis Armory** is a [trash] ability usable only in the next paid ability window after damage.)
 
-* **Hernando Cortez** — the additional cost is modelled as a rez-cost increase (same credits, same timing).
-* **Jackpot!** — offered whenever an agenda is stolen; takes any number of hosted credits (fix-misc pass).
-* **Keros Mcintyre** — "you derez": ice derezzed while a Runner card's ability or event resolves (fix-misc pass; derezzes by
-  Runner triggered abilities are not recognised).
-* **Muertos Gang Member** — the "when uninstalled" rez is offered when it is trashed.
-* **Street Magic** — the chosen order is used when the unbroken subroutines resolve; nothing is broken (fix-misc pass).
-* **Levy Advanced Research Lab** — the other revealed cards go to the bottom in their current order (no reorder prompt).
-* **Psych Mike** — counts cards accessed from R&D this turn (normally equal to "during that run").
-* **Salvaged Vanadis Armory** — offered right after each damage event (rather than in the next paid ability window).
-* **Bazaar** — only hardware installed from the grip (fix-misc pass).
+* **Street Magic** — the chosen order is used when the unbroken subroutines resolve; nothing is broken (fix-misc pass; exact).
+* **Bazaar** — only hardware installed from the grip (fix-misc pass; exact).
 * **DJ Fenris** — the hosted identity is a pseudo card (`Card(code, 0)`) hosted faceup; its triggers and static
-  abilities are active through the normal hosted-card rules; it is removed from the game when Fenris leaves play.
+  abilities are active through the normal hosted-card rules; it is removed from the game when Fenris leaves play (representation).
 
 ## New generic mechanics (`rules-ext-rot-resources.scala`)
 
