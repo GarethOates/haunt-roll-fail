@@ -275,6 +275,36 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     def stat(value : Any, label : String, style : Style) : Elem = Span(value.toString.spn(styles.statValue) ~ " " ~ label, styles.stat, style)
 
+    // a key number of the status banner: a large value over a small label
+    def bigStat(value : Any, label : String, style : Style, emphasis : Boolean, extra : $[Style] = $) : Elem =
+        Span(Span(value.toString.txt, styles.bigValue) ~ Span(label.txt, styles.bigLabel), styles.bigStat, style)(emphasis.$(styles.bigEmphasis) ++ extra)
+
+    // The per-player status banner: name and identity, then the key numbers (credits, clicks, agenda points; tags or
+    // bad publicity when there are any) as large badges, then the other stats small. The active player's banner is
+    // tinted with their colour and their credits / clicks are outlined.
+    def statusBanner(f : Faction, alert : Elem, small : Elem) : Elem = {
+        val g = game
+        val id = g.identity.get(f)
+        val active = g.active == f && g.turnStarted && !g.isOver
+        val credits = g.credits(f)
+        val clicks = g.clicks(f)
+        val points = g.agendaPoints(f)
+        val who = Span(
+            Span(playerName(f), styles.bannerName) ~
+            id./(c => Span(Span(c.title.txt, styles.get(NRFaction.of(c.data.faction))), styles.bannerId)).|(Empty),
+            styles.bannerWho)
+        Div(
+            who ~
+            activeMark(f) ~
+            bigStat(credits, (credits == 1).?("credit").|("credits"), styles.bigCredit, active) ~
+            bigStat(clicks, (clicks == 1).?("click").|("clicks"), styles.bigClick, active && clicks > 0, (active && clicks == 0).$(styles.bigSpent)) ~
+            bigStat(points, (points == 1).?("point").|("points"), styles.bigPoints, false) ~
+            alert ~
+            extraClicksStat(f) ~
+            Span(small, styles.bannerSmall),
+            styles.header)(active.$(f.isCorp.?(styles.headerActiveCorp).|(styles.headerActiveRunner)))
+    }
+
     def playerName(f : Faction) : Elem = f.name.styled(f)(styles.name) ~ resources.getName(f)./(n => n.spn(styles.dim)(styles.headerItem)).|(Empty)
 
     def activeMark(f : Faction) : Elem = {
@@ -321,18 +351,10 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def corpBoard : Elem = {
         val g = game
         val id = g.identity.get(Corp)
-        val header = Div(
-            playerName(Corp) ~
-            id./(c => c.title.styled(NRFaction.of(c.data.faction))(styles.headerItem)(styles.headerId)).|(Empty) ~
-            activeMark(Corp) ~
-            stat(g.credits(Corp), (g.credits(Corp) == 1).?("credit").|("credits"), styles.statCredit) ~
-            stat(g.clicks(Corp), (g.clicks(Corp) == 1).?("click").|("clicks"), styles.statClick) ~
-            extraClicksStat(Corp) ~
-            stat(g.agendaPoints(Corp), (g.agendaPoints(Corp) == 1).?("agenda point").|("agenda points"), styles.statPoints) ~
-            (g.badPublicity > 0).?(stat(g.badPublicity, "bad publicity", styles.statBadPub)).|(Empty) ~
+        val header = statusBanner(Corp,
+            (g.badPublicity > 0).?(bigStat(g.badPublicity, "bad pub", styles.bigTag, false)).|(Empty),
             (g.threatLevel > 0 && threatMatters).?(stat(g.threatLevel, "threat", styles.statPoints)).|(Empty) ~
-            stat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.statHand),
-            styles.header)
+            stat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.statHand))
         if (g.phase == "setup")
             return header ~ deckSelection(Corp)
         val idImg = id./(identitySlot).|(Empty)
@@ -347,21 +369,14 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def runnerBoard : Elem = {
         val g = game
         val id = g.identity.get(Runner)
-        val header = Div(
-            playerName(Runner) ~
-            id./(c => c.title.styled(NRFaction.of(c.data.faction))(styles.headerItem)(styles.headerId)).|(Empty) ~
-            activeMark(Runner) ~
-            stat(g.credits(Runner), (g.credits(Runner) == 1).?("credit").|("credits"), styles.statCredit) ~
-            stat(g.clicks(Runner), (g.clicks(Runner) == 1).?("click").|("clicks"), styles.statClick) ~
-            extraClicksStat(Runner) ~
-            stat(g.agendaPoints(Runner), (g.agendaPoints(Runner) == 1).?("agenda point").|("agenda points"), styles.statPoints) ~
-            stat(g.tags, (g.tags == 1).?("tag").|("tags"), styles.statTag) ~
+        val header = statusBanner(Runner,
+            (g.tags > 0).?(bigStat(g.tags, (g.tags == 1).?("tag").|("tags"), styles.bigTag, false)).|(Empty),
+            (g.tags == 0).?(stat(0, "tags", styles.statTag)).|(Empty) ~
             stat(g.link, "link", styles.statLink) ~
             stat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.statMU) ~
             stat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.statHand) ~
             (g.coreDamage > 0).?(stat(g.coreDamage, "core damage", styles.statTag)).|(Empty) ~
-            g.mark./(s => stat(s.name, "mark", styles.statMark)).|(Empty),
-            styles.header)
+            g.mark./(s => stat(s.name, "mark", styles.statMark)).|(Empty))
         if (g.phase == "setup")
             return header ~ deckSelection(Runner)
         val idImg = id./(identitySlot).|(Empty)
@@ -461,6 +476,49 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // preset names without set codes or other parenthesised suffixes ("Weyland BtL (rot-ice)" -> "Weyland BtL")
     def cleanDeckName(name : String) : String = name.replaceAll("\\s*\\([^)]*\\)\\s*$", "").trim
 
+    // A deck selected in the gallery / the action pane list / the decklist import is first previewed: its cards are
+    // drawn in the viewer's board pane and the action pane offers "Confirm <deck>". Only Confirm submits the
+    // ChoosePresetDeckAction / ImportDeckAction of the current prompt; the preview is UI state only (not in the journal).
+    case class DeckPreview(side : Faction, name : String, codes : $[String], preset : |[Int])
+
+    var preview : |[DeckPreview] = None
+
+    // the last decklist pasted in the import overlay (restored when it is reopened)
+    var importText = ""
+
+    def deckPrompt(f : Faction) : Boolean = lastThen != null && lastActions.exists {
+        case ChoosePresetDeckAction(x, _) => x == f
+        case ImportDeckMarker(x) => x == f
+        case _ => false
+    }
+
+    def previewFor(f : Faction) : |[DeckPreview] = preview.%(_.side == f).%(_ => game.decks.contains(f).not && deckPrompt(f))
+
+    def presetPreview(a : ChoosePresetDeckAction) = {
+        val d = Decks.presets(a.index)
+        DeckPreview(a.self, cleanDeckName(d.name), d.codes, |(a.index))
+    }
+
+    // the action of the current prompt that the Confirm button submits
+    def confirmAction(p : DeckPreview) : |[UserAction] = p.preset match {
+        case Some(i) => lastActions.of[ChoosePresetDeckAction].find(a => a.self == p.side && a.index == i)
+        case None => lastActions.exists { case ImportDeckMarker(x) => x == p.side ; case _ => false }.?(ImportDeckAction(p.side, p.codes))
+    }
+
+    // re-render the board and the action pane after a UI-only change (preview set / cleared)
+    def redrawAsk() {
+        hideOverlay()
+        if (lastThen != null)
+            ask(lastSelf, lastActions, lastThen)
+        else
+            updateStatus()
+    }
+
+    def setPreview(p : |[DeckPreview]) {
+        preview = p
+        redrawAsk()
+    }
+
     def deckSelection(f : Faction) : Elem = {
         val g = game
         val mine = viewer.forall(_ == f)
@@ -468,13 +526,15 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             case Some(codes) =>
                 val id = codes./(Cards.get)./~(x => x).%(_.isIdentity).starting
                 Div(id./(c => Div(cardFace(c.code, styles.card), styles.slot)).|(Empty) ~ Div(("Deck chosen: " ~ id./(_.title).|("?").hl ~ " - " ~ (codes.num - 1).toString ~ " cards").spn), styles.row)
+            case None if mine && previewFor(f).any =>
+                deckPreviewElem(previewFor(f).get)
             case None if mine && lastActions.exists(_.is[ChoosePresetDeckAction]) =>
                 val presets = lastActions.of[ChoosePresetDeckAction].%(_.self == f)
                 val items = presets./ { a =>
                     val d = Decks.presets(a.index)
                     val idc = Cards.get(d.identity)
                     val check = Decks.validate(f, d.codes)
-                    // the identity is on the image (hover zooms it) and in the action pane list
+                    // the identity is on the image (hover zooms it) and in the action pane list; a click previews the deck
                     Parameter(("deck", a), OnOverOut(OnClick(Div(
                         idc./(c => cardFace(c.code, styles.cardGallery)).|(Empty) ~
                         cleanDeckName(d.name).spn(styles.galleryName) ~
@@ -483,10 +543,62 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 }
                 val importItem = Parameter("import", OnClick(Div(Image(f.isCorp.?("corp-back").|("runner-back"), styles.cardGallery) ~ "Import a decklist".spn(styles.galleryName) ~ "paste a NetrunnerDB export".spn(styles.galleryInfo), styles.galleryItem)))
                 // only the gallery is scaled to the pane (see fitPane)
-                Div(Div("Choose a deck".spn(styles.menuTitle)) ~ Div((items :+ importItem).merge, styles.gallery), styles.boardArea)
+                Div(Div("Choose a deck".spn(styles.menuTitle) ~ "(click a deck to see its cards)".spn(styles.dim)) ~ Div((items :+ importItem).merge, styles.gallery), styles.boardArea)
             case None =>
                 Div("choosing a deck...".spn(styles.dim))
         }
+    }
+
+    val corpKinds = $("Agenda", "Asset", "Upgrade", "Operation", "ICE")
+    val runnerKinds = $("Event", "Hardware", "Program", "Resource")
+
+    def kindTitle(kind : String, n : Int) : String = (kind match {
+        case "ICE" => "ice"
+        case "Hardware" => "hardware"
+        case "Agenda" => (n == 1).?("agenda").|("agendas")
+        case k => k.toLowerCase + (n != 1).??("s")
+    }) + " (" + n + ")"
+
+    // the previewed deck: identity first, then the cards grouped by type with their counts (hover zooms a card)
+    def deckPreviewElem(p : DeckPreview) : Elem = {
+        val cards = p.codes./~(Cards.get)
+        val id = cards.%(_.isIdentity).starting
+        val rest = cards.%!(_.isIdentity)
+        val counts : $[(CardData, Int)] = rest.groupBy(_.code).toList./((c, l) => l.head -> l.num).sortBy(_._1.title)
+        val kinds = p.side.isCorp.?(corpKinds).|(runnerKinds)
+        val allKinds = kinds ++ counts.map(_._1.kind).distinct.diff(kinds)
+        val influence = id./(i => rest.%(_.faction != i.faction)./(_.influence.|(0)).sum).|(0)
+        val limit = id./~(_.influenceLimit).|(15)
+        val min = id./~(_.minDeckSize).|(40)
+        val points = rest./(_.agendaPoints.|(0)).sum
+        val check = Decks.validate(p.side, p.codes)
+
+        def cardElem(d : CardData, n : Int) : Elem = {
+            val dots = id.%(_.faction != d.faction)./~(_ => d.influence).%(_ > 0)
+            Div(
+                Parameter(("preview", d.code), OnOverOut(OnClick(cardFace(d.code, styles.cardSmall, $(styles.actionable))))) ~
+                Div((n + "x").spn(styles.countBadge) ~ dots./(k => Span(("\u25CF" * k).txt, styles.influenceBadge, styles.get(NRFaction.of(d.faction)))).|(Empty), styles.previewCount),
+                styles.slot)
+        }
+
+        val idElem = id./(c => Div("identity".spn(styles.sectionTitle) ~ Div(Parameter(("preview", c.code), OnOverOut(OnClick(cardFace(c.code, styles.cardSmall, $(styles.actionable))))) ~ Div(c.faction.txt, styles.previewCount), styles.slot), styles.previewSection)).|(Empty)
+        val sections = allKinds./~ { k =>
+            val l = counts.filter(_._1.kind == k)
+            l.any.$(Div(Div(kindTitle(k, l.map(_._2).sum).spn(styles.sectionTitle) ~ Div(l./((d, n) => cardElem(d, n)).merge, styles.row)), styles.previewSection))
+        }
+
+        val summary =
+            (rest.num + " cards").hlb ~ (" (minimum " + min + ")").spn(styles.dim) ~ " | " ~
+            p.side.isCorp.?((points + " agenda point".s(points)).hlb ~ " | ").|(Empty) ~
+            (influence + "/" + limit + " influence").hlb ~ " | " ~
+            check.ok.?("legal".spn(styles.previewOk)).|(check.message.spn(styles.previewBad))
+
+        val head = Div(
+            Span(p.name.txt, styles.previewTitle) ~ id./(c => Span(c.title.txt, styles.get(NRFaction.of(c.faction)))).|(Empty) ~ Break ~
+            Span(summary, styles.previewSummary) ~ Span(" | ".txt ~ "confirm in the action pane or ".txt ~ Parameter("preview-back", OnClick("pick another deck".spn(styles.previewLink))), styles.previewHint),
+            styles.previewHead)
+
+        Div(head ~ Div((idElem +: sections).merge, styles.row), styles.boardArea)
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -653,6 +765,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def onOver(a : Any) : Unit = a @@ {
         case c : Card if canSee(c) => showZoom(c.code, |(c))
         case ("deck", a : ChoosePresetDeckAction) => showZoom(Decks.presets(a.index).identity, None)
+        case ("preview", code : String) => showZoom(code, None)
         case _ =>
     }
 
@@ -749,9 +862,15 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             if (lastThen != null)
                 lastThen(a)
 
-        case ("deck", a : UserAction) =>
-            if (lastThen != null)
-                lastThen(a)
+        // a deck of the gallery: preview it (Confirm in the action pane chooses it)
+        case ("deck", a : ChoosePresetDeckAction) =>
+            setPreview(|(presetPreview(a)))
+
+        case ("preview", code : String) =>
+            showOverlay(overlayScrollX(Div(cardFace(code, styles.artwork), styles.slot)), onClick)
+
+        case "preview-back" =>
+            setPreview(None)
 
         case ("zoom", c : Card) =>
             showOverlay(overlayScrollX(cardOverlay(c)), onClick)
@@ -801,6 +920,8 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         ta.style.fontSize = "90%"
         ta.style.color = "#d3d3d3"
         ta.style.backgroundColor = "#111111"
+        ta.value = importText
+        ta.oninput = e => { importText = ta.value }
         parent.appendChild(ta)
 
         val msg = dom.document.createElement("div").asInstanceOf[dom.html.Div]
@@ -828,6 +949,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
         def check() : |[$[String]] = {
             val text = ta.value
+            importText = text
             if (text.trim.isEmpty) {
                 msg.textContent = "The decklist is empty"
                 return None
@@ -847,13 +969,10 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             Some(codes)
         }
 
-        button("Check", "nr-import-check", () => { check() })
-
-        button("Import", "nr-import-ok", () => {
+        // a valid decklist is previewed on the board like a preset; "Import" in the action pane confirms it
+        button("Check and preview", "nr-import-check", () => {
             check().foreach { codes =>
-                hideOverlay()
-                if (lastThen != null)
-                    lastThen(ImportDeckAction(self, codes))
+                setPreview(|(DeckPreview(self, "Imported deck", codes, None)))
             }
         })
 
@@ -961,19 +1080,36 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         $(ZBasic(Break ~ Break, "Interface".spn, () => { callbacks.editSettings { updateStatus() } }, ZBasic.infoch).copy(clear = false))
     }
 
-    // preset decks in the action pane: identity thumbnail, clean deck name and the identity on its own line
+    // Deck choice in the action pane. Without a preview: the presets (identity thumbnail, clean deck name, identity);
+    // a click previews the deck (UI only, nothing is submitted). With a preview: "Confirm <deck>" (submits the matching
+    // action of the current prompt), "Back to the deck list", then the presets again to preview another one.
     override def convertActions(faction : Option[Faction], actions : $[UserAction], then : UserAction => Unit) : $[ZOption] =
         if (then == null || actions.exists(_.is[ChoosePresetDeckAction]).not)
             super.convertActions(faction, actions, then)
-        else
-            actions./~ {
+        else {
+            val f = actions.of[ChoosePresetDeckAction].head.self
+            val p = previewFor(f)
+            val confirm : $[ZOption] = p./~ { p =>
+                val id = p.codes./~(Cards.get).%(_.isIdentity).starting
+                val label = p.preset.any.?("Confirm ".txt ~ p.name.hlb).|("Import ".txt ~ id./(_.title).|("?").hlb)
+                val thumb = id./(c => cardFace(c.code, styles.cardTiny, $(styles.presetThumb))).|(Empty)
+                val group = Div(Break ~ "Previewing ".txt ~ p.name.hl ~ " (" ~ (p.codes.num - 1).toString ~ " cards)")(xlo.fullwidth)
+                confirmAction(p)./(a => ZOption(group, OnClick(Div(thumb ~ Div(label), styles.confirmButton)(elem.borders.get(f))), _ => { preview = None ; then(a) })).$ ++
+                p.preset.none.$(ZOption(group, OnClick(Div("Edit the decklist", styles.confirmBack)), _ => showImport(), false)) ++
+                $(ZOption(group, OnClick(Div("Back to the deck list", styles.confirmBack)), _ => setPreview(None), false))
+            }
+            confirm ++ actions./~ {
+                // the "Choose a deck" group header of the prompt: the presets carry their own header here
+                case _ : InfoGroupAction => $
                 case a : ChoosePresetDeckAction =>
                     val d = Decks.presets(a.index)
                     val o = Div(cardFace(d.identity, styles.cardTiny, $(styles.presetThumb)) ~ Div(cleanDeckName(d.name).hl ~ Break ~ d.identityTitle.spn(styles.presetIdentity)), styles.presetOption)
-                    val ss = styleAction(faction, actions, a, false, None)
-                    $(ZOption(Div(a.question(game))(xlo.fullwidth), OnOverOut(OnClick(Div(o, ss))), _ => then(a)))
+                    val ss = styleAction(faction, actions, a, false, None) ++ p.exists(_.preset.contains(a.index)).$(styles.selected)
+                    val q = p.any.?(Div(Break ~ "Preview another deck")(xlo.fullwidth)).|(Div("Choose a deck (click to see its cards)")(xlo.fullwidth))
+                    $(ZOption(q, OnOverOut(OnClick(Div(o, ss))), _ => setPreview(|(presetPreview(a))), false, _ => onOver(("deck", a)), _ => onOut(Nil)))
                 case a => super.convertActions(faction, $(a), then)
             }
+        }
 
     override def styleAction(faction : Option[Faction], actions : List[UserAction], a : UserAction, unavailable : Boolean, view : Option[Any]) = {
         val img = view @@ {

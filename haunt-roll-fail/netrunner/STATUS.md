@@ -32,8 +32,9 @@
   all System Gateway only and legal; decklist parser (`3x Title`, `3 Title`, `Title x3`, identity line, section
   headers, influence dots, summary lines; unicode/diacritic-insensitive title matching) and validator
   (side, one identity, min size, deck limits, influence, agenda points).
-* UI (`ui.scala`, `styles.scala`): Corp and Runner board panes with stat badges (credits, clicks, agenda points,
-  tags, bad publicity, link, MU, hand size), servers drawn from the Runner's point of view (root at the top of the
+* UI (`ui.scala`, `styles.scala`): Corp and Runner board panes with a status banner (credits, clicks and agenda
+  points as large badges, tags / bad publicity large when non-zero, link, MU, hand size small; see "Status banner and
+  deck preview"), servers drawn from the Runner's point of view (root at the top of the
   server box, ice below it, outermost ice at the bottom), a "Runner" marker and orange outline showing the attacked
   server and the current ice position, unrezzed cards dimmed with an "unrezzed" tag for the Corp (backs for the
   Runner), facedown Archives counted, counters as badges (adv/virus/credit/power/strength), hosted cards under their
@@ -42,7 +43,7 @@
   current prompt, or opens a menu of the matching actions (install destinations, break/pump, rez, advance, score,
   select toggles...), or opens the zoom overlay; cards with available actions are outlined. Hovering a card shows a
   large image of it. Deck selection is a gallery of presets with identity images on the board plus a decklist import
-  overlay with Check/Import and readable error messages. Three layouts (boards left + log/actions right, wide, single
+  overlay with readable error messages; a selected deck is previewed (its cards on the board) before it is confirmed. Three layouts (boards left + log/actions right, wide, single
   column) for common resolutions. Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown,
   unrezzed/facedown cards as backs, the opponent's hand only as the "hand" count in their header.
 * Bots: `Random` (uniform over non-manual choices) and `Basic` (weighted heuristics: scores, steals, breaks, economy).
@@ -186,6 +187,33 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   once the Runner approaches the server.
 * Small header tweaks: identity title slightly smaller, stats tighter, the "turn N" badge no longer says "running"
   (the run line below the header does), so the Runner header fits one line at 1440x900.
+
+### Status banner and deck preview (second product owner pass, 2026-10-14)
+
+* Status banner (`UI.statusBanner`, `UI.bigStat`; styles `bigStat`, `bigValue`, `bigLabel`, `bigCredit`, `bigClick`,
+  `bigPoints`, `bigTag`, `bigEmphasis`, `bigSpent`, `headerActiveCorp/Runner`, `banner*`): each board header shows the
+  player name with the identity title under it, the "turn N" badge, then credits, clicks and agenda points as large
+  coloured badges (number at 240% over a small label: blue credits, yellow clicks, purple points). Tags (Runner) and bad
+  publicity (Corp) become a large red badge when non-zero (small "0 tags" otherwise). Link, MU, hand, threat, core
+  damage, mark and "clicks next turn" stay small. The active player's banner is tinted with their colour and underlined,
+  and their credits / clicks badges get a white outline and glow; the clicks badge is dimmed once the active player
+  has no clicks left. The banner is one line at 1440x900 and 1920x1080 (it wraps tidily on narrower panes); it is not
+  part of the scaled board area, so it does not shrink with the board.
+* Deck preview before choosing (`UI.DeckPreview`, `preview`, `deckPreviewElem`, `convertActions`): clicking a deck in
+  the board gallery or in the action-pane list no longer chooses it. It sets a UI-only preview (nothing is submitted, the
+  journal is unaffected) and redraws: the viewer's board pane shows the deck name and identity, a summary line (cards and
+  minimum, agenda points for the Corp, influence used/limit, "legal" or the validator message) and the cards, identity
+  first and then grouped by type (agendas / assets / upgrades / operations / ice; events / hardware / programs /
+  resources) with "3x" counts and influence dots in the card's faction colour; hovering a card zooms it, clicking opens it.
+  The action pane then shows "Previewing <deck> (n cards)", a large "Confirm <deck>" button, "Back to the deck list",
+  and the preset list again ("Preview another deck", the previewed one outlined); the decklist-import entry stays below.
+  Only Confirm submits, and it submits the `ChoosePresetDeckAction` of the current prompt (`confirmAction`). The board
+  preview also has a "pick another deck" link.
+* Decklist import: the overlay keeps the pasted text between openings; "Check and preview" validates as before
+  (errors stay in the overlay) and, for a valid list, closes the overlay and previews the parsed deck the same way
+  ("Imported deck"); the action pane then offers "Import <identity>" (submits `ImportDeckAction`), "Edit the decklist"
+  (reopens the overlay with the text) and "Back to the deck list". The overlay no longer has a direct "Import" button.
+* `rules-setup.scala` is unchanged (the preview is entirely UI state).
 
 ## Simplifications / known gaps
 
@@ -354,6 +382,22 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   for 9 turns through 180 random human clicks (installs, rotated ice rezzed: Negotiator, Battlement, Salvage, Formicary;
   rotated events: Frame Job, Itinerant Protesters, I've Had Worse, Amped Up, Vamp, Forked; runs, an agenda steal). No
   plugin exceptions in the console (only the known `NetworkError` / 404 entries of the shell).
+
+### Tested after the status banner / deck preview change (2026-10-14)
+
+* `sbt -batch fastOptJS` green. Headless Chrome (DevTools protocol, good-game on 7070) at 1440x900 and 1920x1080:
+  hotseat game (Corp previews Jinteki then Weyland Starter, "Back to the deck list", previews again, Confirm; Runner
+  previews Shaper Starter; decklist import of a 45-card Zahya list: "Check and preview", "Edit the decklist" restored the
+  text, Import), mulligans, Corp installs ice on HQ / R&D, Runner run on HQ with the Corp's rez window, then 60
+  automated hotseat clicks; local game human Runner (Criminal Starter preview + Confirm) against the Basic Corp bot for
+  10 turns (runs, installs, a tag shown as the large red badge); local game human Corp (NBN Starter then HB Architects
+  of Tomorrow preview + Confirm) against the Basic Runner bot for several turns (discard phase, installs, rez windows).
+  No plugin exceptions in the consoles. The only non-network console entry, `later failed` (framework, `runner.scala`:
+  an action callback of an ask that is no longer current is ignored), appears only when the automated clicker clicks
+  elements of an ask that was just replaced; it did not appear in the step-by-step runs.
+* Screenshots: scratchpad `ui3/shots/` (`s2-preview-corp-zoom-1440`, `s7-preview-runner-confirm-1440/1920`,
+  `s13-corp-preview-1440`, `s3-import-preview-1440/1920`, `s5-run-1440/1920`, `s10-runner-run-1440/1920`,
+  `s12-midgame-run-1920`, `s11-after-auto-1440`).
 
 ## Known bugs
 
