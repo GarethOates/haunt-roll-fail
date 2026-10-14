@@ -764,7 +764,7 @@ trait EffectRules { game : Game =>
             impl(p.card).chosen(p, l)
 
         case p =>
-            resolveRWRPurpose(f, l, p).|(throw new Error("unknown purpose " + p))
+            resolveRWRPurpose(f, l, p).orElse(resolveRotPurpose(f, l, p)).|(throw new Error("unknown purpose " + p))
     }
 
     def payCosts(f : Faction, costs : $[Cost], self : |[Card]) {

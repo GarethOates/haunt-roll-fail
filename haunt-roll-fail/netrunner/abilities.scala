@@ -125,7 +125,7 @@ object GenericImpl extends CardImpl {
 }
 
 object CardImpls {
-    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all ++ SU21Cards.all ++ MSCards.all ++ PHCards.all ++ TAICards.all ++ RWRCards.all ++ DFCards.all ++ URCards.all ++ RotIceCards.all)./(i => i.code -> i).toMap
+    lazy val all : Map[String, CardImpl] = (SGCards.all ++ ElevCards.all ++ VPCards.all ++ SU21Cards.all ++ MSCards.all ++ PHCards.all ++ TAICards.all ++ RWRCards.all ++ DFCards.all ++ URCards.all ++ RotIceCards.all ++ RotProgramCards.all)./(i => i.code -> i).toMap
 
     def apply(code : String) : CardImpl = all.get(code).|(GenericImpl)
 
