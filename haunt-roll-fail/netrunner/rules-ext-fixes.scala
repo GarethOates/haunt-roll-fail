@@ -365,7 +365,8 @@ trait FixRules extends TurnRules with RunRules with AccessRules with EffectRules
             }
         else
             regInc("fx-scored-not-installed-this-turn")
-        val points = c.data.agendaPoints.|(0)
+        // the agenda's value with its modifiers (RestrictionRules.agendaValue), read once it is in the score area
+        lazy val points = agendaValue(c)
         lastScoredFrom = serverOf(c)
         lastScoredAdvancement = advancement(c) ; lastScoredInstalledTurn = state(c).installedTurn ; scoringAgenda = |(c)
         val hostedTrashed = leavePlay(c)

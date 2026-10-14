@@ -215,7 +215,6 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
 
         case TraceRunnerAction(f, n) =>
             spendCredits(Runner, n, Spend.trace)
-            runnerTraceBoost = n
             val zero = rotLinkZero && reg("rot-traces") <= 1
             if (zero)
                 log("The Runner's link is treated as", 0.hl, "for the first trace this turn")

@@ -355,9 +355,11 @@ not collide with another file of the package.
     class Game ... with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
         with StartupRules with SU21Rules with PHTAIRules with RWRRules
         with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules
-        with RotAssetRules with RotAgendaRules with CreditRules with RestrictionRules with PreventionRules
+        with RotAssetRules with RotAgendaRules
+        with CreditRules with RestrictionRules with FixRules with PreventionRules
 
-Only `RotAssetRules` and `RotAgendaRules` override engine methods. They extend the core traits they refine (assets:
+Among the card-set traits only `RotAssetRules` and `RotAgendaRules` override engine methods (the four rules-accuracy traits
+mixed in after them are described in 8.2-8.6; their composition in 8.6). They extend the core traits they refine (assets:
 `EffectRules, TurnRules, CardRules, RunRules, PHTAIRules, RWRRules`; agendas: `TurnRules, CardRules, AccessRules,
 EffectRules, AbilityRules, StartupRules`) and every override handles its own cases and delegates the rest to `super`.
 Scala linearization runs the **last** mixed-in trait's override first: `RotAgendaRules` → `RotAssetRules` → the base
@@ -376,7 +378,9 @@ nothing below it sees that action. Every call through `performEffects` / `perfor
     performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse
     performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
     performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse
-    performRotAssets orElse performRotAgendas
+    performRotAssets orElse performRotAgendas orElse performFixes
+
+and the whole result is post-processed by `restrictContinue(...)` (RestrictionRules, 8.3).
 
 * Front interceptors. `performRotHardware` is defined only for the actions in `rhWants` (breaker credits, mod hosting, rez
   surcharges / restrictions, win-point modifiers, SYNC, ice-advance and trace credits, damage choice, tag avoidance,
@@ -393,7 +397,7 @@ nothing below it sees that action. Every call through `performEffects` / `perfor
 **Triggers**:
 
     cards' triggers ++ su21Triggers ++ rotIceTriggers ++ rotResourceTriggers ++ rotHardwareTriggers ++ phTriggers
-        ++ rotEventTriggers ++ rotOperationTriggers ++ rotAssetTriggers ++ rotAgendaTriggers
+        ++ rotEventTriggers ++ rotOperationTriggers ++ rotAssetTriggers ++ rotAgendaTriggers ++ preventionTriggers ++ fixTriggers
 
 The bookkeeping registers of the events, operations and assets ports are counted after the cards have seen the event
 (`reg(k) == 0` means "first time this turn" inside a card trigger).
@@ -419,7 +423,7 @@ The bookkeeping registers of the events, operations and assets ports are counted
   `staysInPlay` and the Current subtype. `RE.lingering` handles only the other durations.
 * secret spending (`SecretSpendEffect`, events), damage choice and tag avoidance (`RH.damageChoice` / `RH.avoidTags`,
   hardware), and trace-margin measuring (`MarginTraceEffect` in operations, `RememberCreditsEffect` / `TraceKickerEffect` in
-  ice; the Runner's boost is `Game.runnerTraceBoost`) each exist only once.
+  ice; the Runner's link strength in the last trace, boost included, is `Game.fxTraceLinkStrength`) each exist only once.
 
 ### 8.2 Credits and costs (`rules-ext-credits.scala`, trait `CreditRules`)
 
@@ -446,7 +450,7 @@ surcharges: `CardImpl.icebreakerSurcharge` + run flags `break-surcharge`), `host
 
 ### 8.3 Restrictions (`rules-ext-restrictions.scala`)
 
-`RestrictionRules` is mixed in last (`... with RotAgendaRules with RestrictionRules`) and holds one legality check per kind of
+`RestrictionRules` (mixed in after `CreditRules`, see 8.6; its enforcement does not depend on the position) holds one legality check per kind of
 action, used by every path: `corpInstallBlock(card, server)` / `runnerInstallBlock(card, host)` (install locks, Unscheduled
 Maintenance, remote limits from `CardImpl.remoteLimit`, printed server restrictions parsed from the card text by
 `InstallRules.serverRule`, `RAg.installOnly`, `canInstall`, Apex, the locked heap), `rezBlock(card, ignoreCost)` (`canRez` --
@@ -474,7 +478,7 @@ Threat, Interdiction, Hacktivist Meeting), `playBlock(card)` (The News Now Hour,
 
 ### 8.4 Prevention, interrupts and timing windows (`rules-ext-prevention.scala`)
 
-`PreventionRules` is mixed in last, so its stackable overrides (`performEffects`, `performRun`, `performAbilities`,
+`PreventionRules` is mixed in last (outermost, see 8.6), so its stackable overrides (`performEffects`, `performRun`, `performAbilities`,
 `performTurn`, `performCards`, `performManual`, `performAccess`, `trashCard`, `payCosts`, `resolvePurpose`) run before all
 others and delegate everything else to `super`. Modelled on jinteki's `game.core.prevention`:
 
@@ -533,3 +537,44 @@ of `triggerEffects`). It provides, for any card:
   `FxAdditionalBadPubEffect(n)`.
 
 See `STATUS-fix-misc.md` for the cards that use them.
+
+
+### 8.6 Composition of the rules-accuracy traits (credits, restrictions, prevention, fixes)
+
+    ... with RotAssetRules with RotAgendaRules with CreditRules with RestrictionRules with FixRules with PreventionRules
+
+Scala runs the last mixed-in override first, so for a method overridden by several of them the order of execution is
+PreventionRules -> FixRules -> RestrictionRules -> RotAgendaRules -> RotAssetRules -> base. Why this order:
+
+* **PreventionRules outermost.** Its overrides suspend an action and perform it again later through `performInternal` with a
+  bypass flag: `PlayCardAction` / `RunnerInstallAction` (Patchwork interrupt, `patchworkBypass`), `BreakSubAction` /
+  `BreakSubsAction` / `BioroidBreakSubAction` (Tyr's Hand's break window, `breakBypass`), `JackOutAction` / `JackOutEffect` (jack-out
+  window, `jackOutBypass`), `SuccessfulRunAction` (`RunWouldSucceed`), `BreachEndAction` (`BreachFinished`). Everything inside sees
+  the action once, when it really happens: FixRules' `ClicksSpent` for the basic actions, `fxUsedThisRun`, the bioroid
+  `SubsBroken`, Mind Game's jack-out cost (paid only when the jack out is not prevented) and Aumakua's `BreachEnded` (after the
+  `BreachFinished` interrupts such as Divide and Conquer's extra breaches). With FixRules outside, a Patchwork play would have fired
+  `ClicksSpent` twice.
+* **FixRules next.** Its overrides are bookkeeping and card rules around the base behaviour (`performRun`, `performAccess`,
+  `performEffects`, `performAbilities`, `performTurn`, `performSU21`, `performPHTAI`, `performRWR`, `resolveRWRPurpose`,
+  `rezCard`, `scoreAgenda` (a full copy of `TurnRules.scoreAgenda`, reading `agendaValue`), `payCosts`, `useAbility`, `subs`,
+  `canBreakSub`, `canRunServer`, `checkWin`, `isDisabled`, `extImpl`, `abilityOptions`, `windowOptions`); each calls `super`.
+  Where FixRules and PreventionRules both intercept an action (`LoseClicksEffect`, `FireSubAction`, `PlayCardAction`,
+  `BreachEndAction`, `JackOutAction`, `payCosts`) both call their `base` / `super`, so both effects happen once.
+* **RestrictionRules** does its work outside the override stack: `performRestrictions` is the first partial function of the
+  `performInternal` chain (illegal installs / rezzes / plays / scores are refused before any window, interrupt or payment) and
+  `restrictContinue` wraps the final result of every `performInternal` call, so prevention-window asks, FixRules' RSVP-greyed
+  asks and `rhInnerPerform`'s re-entrant results are all filtered (the filter is idempotent). Its one stackable override,
+  `rezCard`, only has to be above `RotAssetRules.rezCard`; FixRules' `rezCard` (which records `fxRezIgnoredCost`) runs first.
+  Prevention windows also leave out abilities of programs blocked by `programUseBlocked`.
+* **CreditRules** has no stackable override: payments go through `spendCredits` / `canSpend`, which every other trait calls.
+  `payCosts(f, costs, self, spend)` is overridden by PreventionRules (trash costs, `ClicksSpentOrLost`) and FixRules
+  (`AgendaCounterSpent`); both pass `spend` on.
+
+Shared state with one owner: the resolving-subroutine stack is `PreventionRules.preventSubs` (`FixRules.fxResolvingSubs` is an
+alias); the Runner's link strength in the last trace is `FixRules.fxTraceLinkStrength`; "the Runner cannot spend credits" is the
+run flag `no-spend-credits` read by `CreditRules.noSpending` (FixRules greys the paying options with it); click events:
+`ClicksSpentOrLost(f, n)` (prevention: costs paid and clicks lost during runs; Heinlein Grid), `ClicksSpent(f, n, cause)` (fixes:
+clicks spent per action / ability, all turn; Jeeves, Sundew), `ClickLost(f, n)` (every click loss; Adjusted Chronotype) -- a card
+must listen to only one of them for the same click. Breach events: `BreachFinished` (prevention: before the run ends; Divide and
+Conquer) and `BreachEnded` (fixes: any breach, with "stole or trashed"; Aumakua).
+

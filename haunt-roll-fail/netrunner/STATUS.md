@@ -86,23 +86,22 @@ them by name.
 
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| ICE | 211 | 211 | ~5 (Tithonium, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
-| Programs | 164 | 164 | ~9 (Hivemind, Copycat, Customized Secretary, Progenitor, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
-| Resources | 164 | 164 | ~8 (Starlight Crusade Funding, Salvaged Vanadis Armory, DJ Fenris, Hernando Cortez, Keros Mcintyre, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
-| Events | 148 | 148 | ~8 (Rebirth (no format), Apocalypse / Reboot faceup flip, Prey, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
-| Operations | 146 | 146 | ~10 (Surveillance Sweep, Enhanced Login Protocol, "name a card" lists, Death and Taxes, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
-| Assets | 144 | 144 | ~12 (Genetics Pavilion, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
-| Agendas | 114 | 114 | ~8 (Accelerated Beta Test, Bacterial Programming, Personality Profiles, Evidence Collection 1-3 no effect, ...) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Upgrades | 79 | 79 | ~4 (Armored Servers break cost, Will-o'-the-Wisp, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Hardware | 101 | 101 | ~10 (Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| Identities | 90 | 90 | ~13 (Adam, SSO Industries, Seidr, Archives Interface, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design timing, ...) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| **Total rotated** | **1,361** | **1,361** | **~87** | | |
-| **All cards** | **2,056** | **2,056** | ~127 (current sets ~40 + rotated ~87) | | |
+| ICE | 211 | 211 | ~6 (Tithonium's alternative cost, the encounter-on-access ice Archangel / Chrysalis / Herald / Sapper, Formicary) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
+| Programs | 164 | 164 | ~8 (Hivemind, Yusuf / Musaazi, Faust, Progenitor, Customized Secretary, Panchatantra, Sahasrara edge case) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| Resources | 164 | 164 | ~8 (Starlight Crusade Funding, Hernando Cortez, Keros Mcintyre, Muertos Gang Member, Levy AR Lab, Psych Mike, Salvaged Vanadis Armory, DJ Fenris) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
+| Events | 148 | 148 | ~5 (Rebirth (no format), Apocalypse / Reboot faceup flip, Watch the World Burn in Archives, Push Your Luck / Rigged Results secrecy) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Operations | 146 | 146 | ~9 (Surveillance Sweep, Net Watchlist (break / pump only), Enhanced Login Protocol, Bad Times / MCA Informant, Death and Taxes, Accelerated Diagnostics, "name a card" lists) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
+| Assets | 144 | 144 | ~6 (Genetics Pavilion, Ibrahim Salem, Lakshmi Smartfabrics, IT Department, Full Immersion RecStudio, Mumbad Construction Co.) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
+| Agendas | 114 | 114 | ~6 (Accelerated Beta Test, Bacterial Programming, Personality Profiles, Evidence Collection 1-3 no effect) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Upgrades | 79 | 79 | ~4 (Armored Servers break cost, Warroid Tracker, Overseer Matrix, Daruma root swaps) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Hardware | 101 | 101 | ~6 (Patchwork for card-effect installs, Q-Coherence Chip, Respirocytes, Top Hat, Maya, Archives Interface) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| Identities | 90 | 90 | ~12 (Adam, Skorpios, Gagarin, Acme, SSO Industries, Seidr, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design / Jinteki Biotech timing) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| **Total rotated** | **1,361** | **1,361** | **~70** (was ~176 before the four fix passes) | | |
+| **All cards** | **2,056** | **2,056** | ~108 (current sets ~38 + rotated ~70; was ~280) | | |
 
-The prevention / interrupt / timing pass (2026-10-14, `rules-ext-prevention.scala`, `STATUS-fix-prevention.md`) replaced the
-continuation-style prevention abilities by real windows and fixed the timing of ~40 cards (trash prevention, tag / damage /
-end-the-run / jack-out / bad publicity / encounter-ability prevention, Tyr's Hand, Patchwork, Aeneas Informant, Divide and
-Conquer, Immolation Script, Climactic Showdown, AMAZE Amusements, Sneakdoor Beta / Prime, trace result ordering, ...).
+The counts above are after the four rules-accuracy fix passes (credits, restrictions, prevention, card-specific fixes; see
+"Rules-accuracy fix passes" below). They are approximate ("~"): an entry counts a card whose printed text is approximated or
+partly unenforced; differences that match jinteki's own implementation, manual-only choices and UI-only secrecy are not counted.
 
 Mechanics that several rotated ports defined independently were unified in the merge (one definition each, see
 `ENGINE.md` section 8): expose (`ExposeEffect(cards)` / one `Exposed(cards)` event, Corp responses such as Zaibatsu
@@ -133,28 +132,62 @@ server" are enforced since the restrictions pass). (The UI gap for cards hosted 
 on identities was closed in the QA pass, see "UI additions of the QA pass". Bad publicity credits are run credits and stealth /
 purpose-restricted credits are enforced since the credits pass, see "Credits and costs" below.)
 
-### Credits and costs (fix pass, 2026-10-14)
+### Rules-accuracy fix passes (2026-10-14)
 
-Every credit payment now knows what it pays for (`Spend`: play, install, rez, advance, trash cost, trash resource, remove
-tag, trace, psi, card ability, icebreaker break / pump, run cost, "pay N" of a Corp card ability) and every credit source
-declares what it may pay for (`CardImpl.paysFor`); bad publicity credits are run credits; stealth-only costs
-(`StealthCreditCost`), "the Runner cannot spend credits" (RSVP) and "cannot spend or lose credits from the pool" (Aircheck)
-are enforced; additional credit costs of icebreaker abilities (Interrupt 0, Midway Station Grid, Net Watchlist), the Corp's
-trash-resource cost (Wireless Net Pavilion) and server / host dependent install costs (Network Exchange, Hackerspace) are
-real costs. ~60 cards were ported onto it. Details, payment order, shared-file edits and the remaining approximations:
-`STATUS-fix-credits.md`; engine API: `ENGINE.md` §8.2.
+Four passes replaced most of the approximations listed by the set ports, each with one generic mechanism in its own file and a
+per-theme status file (kept as the detailed record: what was fixed, what is still approximate, shared-file edits, tests):
 
-### Restrictions pass (2026-10-14)
+* **Credits and costs** (`rules-ext-credits.scala`, `CreditRules`, `STATUS-fix-credits.md`): every payment has a purpose
+  (`Spend`), every credit source declares what it pays for (`CardImpl.paysFor`); bad publicity credits are run credits;
+  stealth-only costs (`StealthCreditCost`), RSVP ("cannot spend credits", run flag `no-spend-credits`) and Aircheck (pool locked)
+  are enforced; icebreaker surcharges (Interrupt 0, Midway Station Grid, Net Watchlist), Wireless Net Pavilion, Network Exchange
+  and Hackerspace are real costs. ~60 cards.
+* **Restrictions** (`rules-ext-restrictions.scala`, `RestrictionRules`, `InstallRules`, `DeckRules`,
+  `STATUS-fix-restrictions.md`): one legality check per action kind applied to every install / rez / play / score path (printed
+  server restrictions, limit 1 region per server, remote limits, install locks, rez lockdowns, Blacklist, The News Now Hour,
+  Vikram 1.0 / Wendigo, Always Be Running, The Black File), Satellite Grid (`advancementBonus`), agenda values with modifiers
+  (`agendaValue`), per-identity deck validation. Six su21/ms presets had out-of-faction agendas and were fixed.
+* **Prevention, interrupts and timing windows** (`rules-ext-prevention.scala`, `PreventionRules`, `STATUS-fix-prevention.md`):
+  real prevention windows (damage, tags, bad publicity, end the run, jack out, trash, "when encountered" abilities, subroutine
+  breaking) with forced interrupts and priority; new timing events (`ClicksSpentOrLost`, `AccessFinished`, `BreachFinished`,
+  `RunWouldSucceed`), persistent run-end abilities, Patchwork as an interrupt. ~40 cards.
+* **Card-specific fixes** (`rules-ext-fixes.scala`, `FixRules`, `STATUS-fix-misc.md`): ~95 card fixes and the generic support
+  they needed (`ClicksSpent`, `AgendaCounterSpent`, `BreachEnded`, bioroid click-breaks as `SubsBroken`, granted / reordered /
+  non-resolving subroutines, lingering restrictions, allotted clicks (`CardImpl.clicksPerTurn`), host subtypes
+  (`CardImpl.hostSubtypes`), the real trace link strength).
 
-Install / rez / play legality, global lockdowns, advancement counting and deck-building rules are enforced on every path by
-`rules-ext-restrictions.scala` (`RestrictionRules`, `InstallRules`, `DeckRules`): printed server restrictions ("remote server
-only", "central server only", "HQ or R&D only", "install only in the root of HQ / R&D"), limit 1 region per server, remote
-server limits (A Teia, Earth Station), install locks (Jua, Signal Jamming), Unscheduled Maintenance, Apex, "install only if"
-requirements, rez lockdowns (Interdiction, Blackmail / Cyber Threat, Hacktivist Meeting, "cannot rez" markers) for every rez
-path, The News Now Hour and Blacklist for every play / move, Vikram 1.0 / Wendigo program use, Always Be Running, The Black
-File, Satellite Grid, agenda values with modifiers, per-identity deck validation (The Professor, Custom Biotics, Nova
-Initiumia / Ampere, draft identities, agenda factions, alliance influence). Details, the shared-file edits and the tests are in
-`STATUS-fix-restrictions.md`. Six su21/ms presets had out-of-faction agendas and were fixed.
+#### Integration of the four passes
+
+* **Mixin order**: `... with RotAgendaRules with CreditRules with RestrictionRules with FixRules with PreventionRules` (ENGINE.md
+  8.6). PreventionRules is outermost because its overrides suspend an action (Patchwork, Tyr's Hand's break window, the jack-out
+  window) and perform it again through `performInternal` afterwards: everything inside (FixRules' `ClicksSpent` / programs used /
+  Mind Game's jack-out cost, the card-set rules) sees the action once, when it really happens. FixRules is next (its overrides
+  are bookkeeping around the base rules and must see the real action). RestrictionRules' enforcement does not depend on the
+  mixin order: `performRestrictions` is the first partial function of the `performInternal` chain (illegal effects are refused
+  before any window or payment) and `restrictContinue` wraps the final result of every `performInternal` call (prevention-window
+  asks included); its only stackable override (`rezCard`) has to be above `RotAssetRules`. CreditRules has no stackable
+  override. Chain: `performRestrictions orElse <card-set and base rules> orElse performFixes`; triggers: `... ++
+  preventionTriggers(e) ++ fixTriggers(e)`. Every override calls `super` (FixRules' `scoreAgenda` is a full copy of
+  `TurnRules.scoreAgenda`; it now reads `agendaValue`).
+* **Unified duplicates**: one resolving-subroutine stack (`PreventionRules.preventSubs`; `FixRules.fxResolvingSubs` is an alias
+  and the `FxSubEffect` markers were removed: Banner, Improved Tracers), one trace link record (`fxTraceLinkStrength`; the
+  credits pass's `runnerTraceBoost` was removed: Data Hound, Waiver, margin traces), one RSVP flag (`no-spend-credits` of the
+  credits pass; FixRules' greying of the Runner's paying options reads `noSpending`), `payCosts(f, costs, self, spend)` (the
+  prevention and fixes overrides take the credits pass's `spend`).
+* **Cards touched by several passes** (owner's mechanism, consistent with the printed card and jinteki): AMAZE Amusements,
+  Aeneas Informant, Divide and Conquer, Immolation Script, Heinlein Grid, Patchwork, LLDS Energy Regulator -> prevention
+  (`PersistentEffect`, `AccessFinished`, `BreachFinished`, `ClicksSpentOrLost`; FixRules' own Aeneas / Divide and Conquer /
+  AMAZE handling was removed, so nothing fires twice; Heinlein Grid reacts to `ClicksSpentOrLost` only, `ClickLost` is
+  Adjusted Chronotype's); Paparazzi -> both (forced meat-damage prevention of the prevention pass + "you are tagged" of the fixes
+  pass); The Black File -> restrictions (`corpCannotWin`) + the fixes pass's win re-check when it is trashed (FixRules'
+  `checkWin` no longer handles it); Banner -> fixes semantics (only that barrier's subroutines) on the prevention stack; RSVP,
+  Interrupt 0, Net Watchlist, Crash Space (remove-tag credits + damage window), Jackpot! (any number, 0 allowed as jinteki),
+  GameNET (steal costs now fire `CreditsPaid(.., Spend.corpAbility)` instead of a fake `CreditsLost`) -> credits; Biawak
+  (choice of the fixes pass, the 10 credits paid through `Spend.rez`), Guru Davinder / Oppo Research (paid through
+  `SpendEffect`), Tyr's Hand's rez offer (`canSpend` + `rezBlock`) -> credits / restrictions checks added to the other passes'
+  code; Daniela Jorge Inácio / Tucana -> fixes (stolen-from server) + restrictions (remote only); Data Hound / Waiver -> fixes
+  (`fxTraceLinkStrength`). Restricted programs (Vikram 1.0 / Wendigo) are also left out of prevention windows
+  (`programUseBlocked`), so a window is not opened for a greyed-out ability.
 
 ### UI additions of the QA pass
 
@@ -305,7 +338,7 @@ Initiumia / Ampere, draft identities, agenda factions, alliance influence). Deta
 * Prevention / interrupts: damage, tags, bad publicity, end the run, jack out, trash (installed Runner cards), "when
   encountered" abilities and subroutine breaking (Tyr's Hand) go through the prevention windows of
   `rules-ext-prevention.scala` (forced interrupts first, then both players with priority, the active player first); see
-  `STATUS-fix-prevention.md` and ENGINE.md section 8.2. "When a trace is initiated" abilities (Flip Switch, Disrupter,
+  `STATUS-fix-prevention.md` and ENGINE.md section 8.4. "When a trace is initiated" abilities (Flip Switch, Disrupter,
   Power Tap, Compromised Employee) still use the older one-shot "trace" ask of `TraceEffect`.
 * Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
 * Hidden information is hidden by the UI only (every client replays the whole journal, so a determined spectator could
@@ -505,6 +538,29 @@ Initiumia / Ampere, draft identities, agenda factions, alliance influence). Deta
   `o6-runner-import.png`, `o7-spec.png`, `o11-spec-mid.png` / `o11-corp-mid.png`, `o12-spec.png`,
   `o13-iso-spec-over.png`, `o15-offline-replay.png`, `o16-offline-rewind.png`, `o17-local-gallery.png`,
   `o19-collective-zoom.png`, `o21-iso-corp-reload-over.png`, `coup-replay.png`.
+
+### Tested after the integration of the four fix passes (2026-10-14)
+
+* `sbt -batch compile` and `sbt -batch fastOptJS` green.
+* JVM harness (scratchpad `merge4/host`: a copy of `integ/host` pointed at this checkout, with every script of the four fix
+  passes and their updated checks; `QuineStub.scala` stands in for the JS-only `quine.scala`). All scripted checks pass:
+  `ScriptTest` 40, `CreditScript` 92, `PreventionScript` 60, `RestrictionScript` 74, `FixScript` 81, `RotIceScript` (211 ice,
+  633 encounters, 0 failures), `RotAssetScript` 52, `RotAgendaScript` 33, `RotEventScript` 40, `RotHardwareScript` 80,
+  `RotOperationScript` 56, `RotProgramScript` 50, `RotMergeScript` 20; `PresetCheck`: 195 presets, 0 invalid. Updated checks:
+  the five harness checks changed by the passes (Méliès U memo, Spear Phishing log, Interrupt 0 message, Net Watchlist
+  surcharge, LLDS trash window) and `CreditScript`'s trace check (now `fxTraceLinkStrength == link + boost`).
+* Bot games (`MergeHost`, every offered and chosen action round-tripped through the serializer; exceptions, empty asks,
+  serialization mismatches and over-long games counted as errors) on the final code: 3 batches over all presets (250 + 250 +
+  200, seeds 8001-8003, 190 of the 195 presets drawn) + 250 rotated Runner presets against rotated Corp presets (seed 8004):
+  **950 games, 0 errors**; plus 850 games on the build before the last cross-pass fixes (seeds 7001-7004), 0 errors. The logs
+  show tag avoidance, damage prevention, Patchwork interrupts, Tyr's Hand ("not broken"), trash prevention and bad publicity
+  prevention.
+* Browser (headless Chrome over the DevTools protocol, scratchpad `merge4/cdp`): a bot-vs-bot hotseat game played to the end
+  (Corp won on points, turn 16); an online game with two player links and a spectator link, imported decks (The Masque: Cloak,
+  Dagger, Net Shield, Sure Gamble / The Shadow: Karunā, Hostile Takeover, Hedge Fund): Dagger's "+5 strength (stealth credits
+  only)" paid from Cloak ("Runner spends 1 credit from Cloak"), the net damage prevention window ("Prevent any of the 2 net
+  damage?" -> Net Shield prevents 1, the Runner suffers 1), then automatic play until the Runner was flatlined. No plugin
+  exceptions in any console.
 
 ## Known bugs
 

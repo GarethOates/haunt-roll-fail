@@ -16,7 +16,13 @@ import netrunner.elem._
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Prevention / interrupt windows (NSG timing: "when X would happen" interrupts and prevention abilities), modelled on
-// jinteki's game.core.prevention. See ENGINE.md section 8.2 and STATUS-fix-prevention.md.
+// jinteki's game.core.prevention. See ENGINE.md sections 8.4 / 8.6 and STATUS-fix-prevention.md.
+//
+// PreventionRules is the outermost mixin of Game (`... with CreditRules with RestrictionRules with FixRules with PreventionRules`):
+// its overrides suspend an action (Patchwork, Tyr's Hand's break window, the jack-out window) and perform it again through
+// performInternal after the window (with a bypass flag), so everything below it (FixRules' bookkeeping, the card-set rules)
+// sees the action exactly once, when it really happens. Legality is checked before (performRestrictions is first in the
+// performInternal chain) and the window's Ask is filtered after (restrictContinue wraps every performInternal result).
 //
 // A window is a PreventCtx on a stack. It is opened when something preventable would happen:
 //   damage   DamageEffect (after the rules below have adjusted the amount) -> PreventOpenDamageAction
@@ -156,7 +162,7 @@ trait PreventionRules extends EffectRules with RunRules with AbilityRules with T
             Nil
         else
             activeCards(f).distinct.%!(isDisabled)./~(c => impl(c).preventions(c, ctx.q, ctx.amount).indexed./((a, i) => (c, i, a))).%{ case (c, i, a) =>
-                a.ok && canPay(f, a.costs, |(c)) && a.once.forall(k => !usedThisTurn(c, k)) && ctx.uses.get((c, i)).|(0) < 20 && !(f.isRunner && rotBlocksRunnerAbility(c))
+                a.ok && canPay(f, a.costs, |(c)) && a.once.forall(k => !usedThisTurn(c, k)) && ctx.uses.get((c, i)).|(0) < 20 && !(f.isRunner && (rotBlocksRunnerAbility(c) || programUseBlocked(c)))
             }
 
     // the forced interrupts of the cards (the game-level trigger hooks of the extension files are not consulted)

@@ -567,7 +567,6 @@ trait EffectRules { game : Game =>
 
         case TraceRunnerAction(f, n) =>
             spendCredits(Runner, n, Spend.trace)
-            runnerTraceBoost = n
             val l = link + n
             log(Runner, "pays", n.credits, "for link strength", l.hl)
             if (traceStrength > l) {

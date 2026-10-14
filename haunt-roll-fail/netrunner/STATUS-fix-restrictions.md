@@ -1,10 +1,16 @@
 # Restrictions pass: install / rez / play legality, lockdowns, advancement, deck building
 
+> **Integration note (merge of the four fix passes, see STATUS.md "Integration of the four passes").** Final mixin order:
+> `... with CreditRules with RestrictionRules with FixRules with PreventionRules` (ENGINE.md 8.6). The checks do not depend on it:
+> `performRestrictions` is first in the `performInternal` chain and `restrictContinue` wraps every result, prevention-window asks
+> included (blocked programs are also left out of the windows). The Black File keeps this pass's `corpCannotWin`; the fixes pass
+> adds the win re-check when it is trashed. FixRules' copy of `scoreAgenda` reads `agendaValue`.
+
 Theme of this pass: every install, rez, play and score path checks the same legality rules; global lockdowns apply to card
 effects, not only to the basic actions; advancement and agenda values can be modified; decks are validated per identity.
 Credit sources (recurring / stealth credits, additional costs) and prevention / timing approximations were left to the other
 passes. New code: `rules-ext-restrictions.scala` (`RestrictionRules`, `InstallRules`, `DeckRules`); documented in
-`ENGINE.md` section 8.2.
+`ENGINE.md` section 8.3.
 
 ## Mechanisms
 

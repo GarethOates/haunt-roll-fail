@@ -147,9 +147,6 @@ object CreditRules {
 
 trait CreditRules { game : Game =>
 
-    // the Runner's last trace boost (credits spent on link strength, from any source)
-    var runnerTraceBoost = 0
-
     // ---- restrictions ------------------------------------------------------------------------------------------------
 
     // "you cannot lose or spend credits from your credit pool" (Aircheck while its run lasts)

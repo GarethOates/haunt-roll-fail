@@ -1,5 +1,12 @@
 # Credits and costs: status of the fix pass
 
+> **Integration note (merge of the four fix passes, see STATUS.md "Integration of the four passes").** `runnerTraceBoost` was
+> removed: margin traces (Data Hound, Waiver, `RecordTraceMarginAction`) use `fxTraceLinkStrength` of the fixes pass (link strength
+> including the boost, Net Quarantine's link 0). LLDS Energy Regulator is a trash-prevention ability of the prevention pass whose
+> 3 credits are a `CreditCost` (paid through `Spend.ability`); Patchwork is an interrupt of the prevention pass; Biawak's choice
+> (fixes pass) pays its 10 credits through `Spend.rez`. RSVP's greying of paying options (fixes pass) reads `noSpending`; GameNET also
+> fires on credits paid for steal costs (`CreditsPaid` with `Spend.corpAbility`).
+
 Branch point: `netrunner` a5d069b. This pass replaces the per-port approximations of restricted credits (recurring credits as
 cost discounts, "take hosted credits" abilities, refunds after the fact, "usable for anything during a run", stealth costs
 not enforced, permanent bad publicity credits) with one payment mechanism in the engine, and ports every card whose status

@@ -38,6 +38,10 @@ import netrunner.elem._
 //   * at the effect level (performRestrictions, first in the performInternal chain): CorpInstallEffect / RunnerInstallEffect and
 //     the effects that pay before installing or rezzing (discounted / paying installs, install-and-rez) refuse illegal targets
 //     before any payment, and the rezCard override refuses illegal rezzes whatever the path.
+// Position: `... with CreditRules with RestrictionRules with FixRules with PreventionRules` (ENGINE.md 8.6). The checks do not
+// depend on the mixin order: performRestrictions is the first partial function of the performInternal chain and restrictContinue
+// wraps the final result of every performInternal call (prevention-window asks included); the only stackable override, rezCard,
+// only needs to be above RotAssetRules.
 // Also here: "limit 1 region per server" (installing a region trashes the server's previous region, like an asset / agenda),
 // installs into a remote whose last card was just overinstalled keep the server, Satellite Grid's extra advancement token
 // (advancementBonus, read by Game.advancement), agenda values with modifiers (agendaValue, used for the score areas),

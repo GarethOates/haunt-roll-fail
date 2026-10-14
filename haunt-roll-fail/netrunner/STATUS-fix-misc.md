@@ -1,11 +1,21 @@
 # Rules accuracy pass: card-specific approximations ("fix-misc")
 
+> **Integration note (merge of the four fix passes, see STATUS.md "Integration of the four passes").** FixRules is mixed in
+> between RestrictionRules and PreventionRules (`... with CreditRules with RestrictionRules with FixRules with PreventionRules`,
+> ENGINE.md 8.6), not last. Replaced by the other passes' mechanisms (owner of the theme): Aeneas Informant (`AccessFinished`),
+> Divide and Conquer (`BreachFinished`), AMAZE Amusements (`PersistentEffect`), Heinlein Grid (`ClicksSpentOrLost`) -> prevention;
+> RSVP (run flag `no-spend-credits`; the greying below reads `noSpending`) -> credits; The Black File (`corpCannotWin`) ->
+> restrictions (this pass's win re-check on trash is kept). `fxResolvingSubs` is an alias of `PreventionRules.preventSubs` (the
+> `FxSubEffect` markers were removed); GameNET's steal-cost trigger fires `CreditsPaid(.., Spend.corpAbility)`. Biawak, Oppo Research
+> and the restricted-MU install greying pay / check through the credits pass's `Spend`. (The credits pass also made Urban Art
+> Vernissage / Cybersand Harvester real install-credit sources, so the "take" ability noted below is gone.)
+
 Scope: the card-specific approximations listed in `STATUS.md` and the `STATUS-*.md` files that are **not** about credits /
 costs / credit-source restrictions, prevention / interrupts / timing windows, or install / rez / play / score restrictions and
 deck building (three other passes own those). Each fix ports the jinteki.net behaviour (`src/clj/game/cards/*.clj`,
 checked against `test/clj/game/cards/*_test.clj`); where the printed NSG text and the Clojure differ, the printed text wins.
 
-Generic additions are in the new file `rules-ext-fixes.scala` (`trait FixRules`, see `ENGINE.md` §8.2); card-specific logic
+Generic additions are in the new file `rules-ext-fixes.scala` (`trait FixRules`, see `ENGINE.md` §8.5); card-specific logic
 stays in the card files.
 
 ## Cards fixed

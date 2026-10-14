@@ -1,10 +1,18 @@
 # Prevention, interrupts and timing windows — fix pass (2026-10-14)
 
+> **Integration note (merge of the four fix passes, see STATUS.md "Integration of the four passes").** PreventionRules is the
+> outermost mixin (`... with CreditRules with RestrictionRules with FixRules with PreventionRules`, ENGINE.md 8.6), so an action
+> suspended by a window is seen once by FixRules' bookkeeping when it is performed again. `preventSubs` is the single
+> resolving-subroutine stack (FixRules' `fxResolvingSubs` is an alias; Banner uses that barrier's subroutines only). Heinlein Grid
+> reacts to `ClicksSpentOrLost` only (the fixes pass's `ClickLost` fires for every click loss and would double it). Aeneas
+> Informant, Divide and Conquer and AMAZE Amusements keep this pass's events; the fixes pass's duplicates were removed.
+> `payCosts` takes the credits pass's `spend`; Tyr's Hand's rez offer checks `canSpend` and `rezBlock`.
+
 Theme: prevention / avoidance / interrupts / timing windows. The engine's prevention support was a per-card continuation
 style (each ability pushed `PreventWindowAction(kind, n - 1)` / `TagsEffect(n - 1)` / ... and "prevent all" simply did not
 continue), with no trash prevention, no jack-out / bad publicity / encounter / break windows, forced preventions offered as
 optional abilities, and a re-offer loop when a "prevent 1" left 0. This pass adds one generic mechanism
-(`rules-ext-prevention.scala`, documented in ENGINE.md section 8.2) and ports every card whose status entry described a
+(`rules-ext-prevention.scala`, documented in ENGINE.md section 8.4) and ports every card whose status entry described a
 prevention / interrupt / timing approximation. Reference: jinteki `src/clj/game/core/prevention.clj`, `damage.clj`,
 `tags.clj`, `trace.clj` and the card definitions / tests.
 
