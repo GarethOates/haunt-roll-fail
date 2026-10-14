@@ -111,6 +111,9 @@ object HRF {
 
     val metas = metaUIs.lefts
 
+    // the homepage menu: cthw only redirects to cwo.im (see withMeta), so it is left off
+    val menuMetas = metas.%(_ != cthw.Meta)
+
     val html = dom.window.location.origin + "/play/"
     val script = dom.document.getElementById("script").asInstanceOf[dom.html.Script].src
 
@@ -359,12 +362,28 @@ class HRFUI(implicit resources : Resources) {
 
     logger.alog(Empty ~ BuildInfo.name ~ " " ~ BuildInfo.version)
 
+    // Arcs runs hrf.im's newer compiled client (see index.html), which has the whole Blighted Reach
+    // campaign: open it as its own page instead of this build's Act I only version
+    def menuLabel(m : MetaGame) = (m.path == "arcs").?(m.label.replace(" (Act I Only)", "")).|(m.label)
+
+    def menuOpen(m : MetaGame) {
+        if (m.path == "arcs")
+            dom.window.location.assign(HRF.html + m.name)
+        else
+            new HRFMetaUI(this, m, 0).withMeta()
+    }
+
+    // games only hrf.im's compiled clients have (see index.html): name, label, title font
+    val vendoredOnly = $(("tokc", "The Old King's Crown", "ssp-semibold"))
+
     def topMenu() {
-        action.asker.zask(HRF.metas./(m => ZBasic("Haunt Roll Fail".hh(xstyles.larger110)(ExternalStyle("consolas")), m.label.spn(xstyles.larger110)(ExternalStyle(m.titleFont.|(""))), () => new HRFMetaUI(this, m, 0).withMeta(), ZBasic.choice.but(xstyles.thumargin))))
+        action.asker.zask(HRF.menuMetas./(m => ZBasic("Haunt Roll Fail".hh(xstyles.larger110)(ExternalStyle("consolas")), menuLabel(m).spn(xstyles.larger110)(ExternalStyle(m.titleFont.|(""))), () => menuOpen(m), ZBasic.choice.but(xstyles.thumargin))) ++
+            vendoredOnly./{ case (name, label, font) => ZBasic("Haunt Roll Fail".hh(xstyles.larger110)(ExternalStyle("consolas")), label.spn(xstyles.larger110)(ExternalStyle(font)), () => dom.window.location.assign(HRF.html + name), ZBasic.choice.but(xstyles.thumargin)) })
     }
 
     def topInfo() {
-        action.asker.zask(HRF.metas./(m => ZBasic("Haunt Roll Fail".hh(xstyles.larger110)(ExternalStyle("consolas")), m.label.spn(xstyles.larger110)(ExternalStyle(m.titleFont.|(""))), null, ZBasic.info.but(xstyles.thumargin))))
+        action.asker.zask(HRF.menuMetas./(m => ZBasic("Haunt Roll Fail".hh(xstyles.larger110)(ExternalStyle("consolas")), menuLabel(m).spn(xstyles.larger110)(ExternalStyle(m.titleFont.|(""))), null, ZBasic.info.but(xstyles.thumargin))) ++
+            vendoredOnly./{ case (name, label, font) => ZBasic("Haunt Roll Fail".hh(xstyles.larger110)(ExternalStyle("consolas")), label.spn(xstyles.larger110)(ExternalStyle(font)), null, ZBasic.info.but(xstyles.thumargin)) })
     }
 
     HRF.param("meta")./~(mn => HRF.metas.%(_.name == mn).single)./{m =>

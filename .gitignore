@@ -6,3 +6,9 @@ good-game-database.*
 haunt-roll-fail/external-link.png
 haunt-roll-fail/question-mark.png
 .claude/
+# fetched by haunt-roll-fail/tools/fetch-assets.py: licensed fonts and art, never commit
+haunt-roll-fail/fonts/
+haunt-roll-fail/sounds/
+haunt-roll-fail/omen.png
+haunt-roll-fail/background.png
+__pycache__/

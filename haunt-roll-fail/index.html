@@ -226,6 +226,45 @@
                 font-size: 2.2vh;
             }
 
+            @font-face {
+                font-family: "SSP Semibold";
+                src:
+                    url("fonts/ssp-semibold.woff2") format("woff2"),
+                    url("fonts/ssp-semibold.woff")  format("woff");
+            }
+
+            .ssp-semibold {
+                font-family: "SSP Semibold", serif;
+                font-size: 22px;
+                font-size: 2.2vh;
+            }
+
+            @font-face {
+                font-family: "Kabos Gyula";
+                src:
+                    url("fonts/kabos-gyula.woff2") format("woff2"),
+                    url("fonts/kabos-gyula.woff")  format("woff");
+            }
+
+            .kabos-gyula {
+                font-family: "Kabos Gyula", serif;
+                font-size: 22px;
+                font-size: 2.2vh;
+            }
+
+            @font-face {
+                font-family: "Goudy Text MT Lombardic Capitals";
+                src:
+                    url("fonts/goudy-text-mt-lombardic-capitals.woff2") format("woff2"),
+                    url("fonts/goudy-text-mt-lombardic-capitals.woff")  format("woff");
+            }
+
+            .goudy-text {
+                font-family: "Goudy Text MT Lombardic Capitals", serif;
+                font-size: 22px;
+                font-size: 2.2vh;
+            }
+
             * {
                 scrollbar-width: thin;
                 scrollbar-color: gray transparent;
@@ -512,7 +551,24 @@
                 document.head.appendChild(js);
             }
 
-            load(version);
+            // games run by hrf.im's compiled clients (vendor/<game>, from tools/fetch-assets.py CLIENTS),
+            // with their default version: Arcs, newer than this build (the whole Blighted Reach campaign),
+            // and The Old King's Crown, which this build lacks. ?version= picks another one for games
+            // imported from hrf.im. They load their images from ./<game>/assets/
+            const vendored = { "arcs": "0.8.161", "tokc": "0.8.155" };
+            const meta = document.getElementById("settings").dataset["meta"].split("-")[0];
+
+            if (vendored[meta]) {
+                js.src = "./" + meta + "/target/scala-2.13/hrf-" + meta + "-fastopt-" + (version || vendored[meta]) + ".js";
+                js.onerror = () => {
+                    document.head.removeChild(js);
+                    js.onerror = null;
+                    load(version);
+                };
+                document.head.appendChild(js);
+            }
+            else
+                load(version);
         </script>
         <!-- } | SCRIPT | } -->
 

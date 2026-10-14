@@ -1,0 +1,31 @@
+# HRF (Arcs) behind a Cloudflare Tunnel: no ports are published, cloudflared
+# reaches good-game over the compose network and Cloudflare terminates TLS.
+# ./app, ./site and .env (TUNNEL_TOKEN, PUBLIC_URL) are put in place by stage.sh / deploy.sh.
+
+name: hrf
+
+services:
+  hrf:
+    image: eclipse-temurin:21-jre
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      java -jar /app/good-game.jar run
+      /data/good-game-database /site
+      ${PUBLIC_URL} ${PUBLIC_URL}/hrf/ 7070
+    environment:
+      JAVA_TOOL_OPTIONS: -Xmx384m -XX:+UseSerialGC
+    mem_limit: 512m
+    volumes:
+      - ./app:/app:ro
+      - ./site:/site:ro
+      - ./data:/data
+
+  tunnel:
+    image: cloudflare/cloudflared:2025.8.0
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    mem_limit: 128m
+    depends_on: [hrf]
