@@ -56,14 +56,15 @@ object Meta extends MetaGame with hrf.quine.EmbedLoadedOnDemandAssetsOnly { mmm 
 
     def createGame(factions : $[Faction], options : $[O]) = new Game(factions, options)
 
-    def getBots(f : Faction) = $("Basic", "Random")
+    def getBots(f : Faction) = $("Smart", "Basic", "Random")
 
     def getBot(f : Faction, b : String) = (f, b) match {
         case (f : Faction, "Random") => new RandomBot(f)
-        case (f : Faction, _) => new BasicBot(f)
+        case (f : Faction, "Basic") => new BasicBot(f)
+        case (f : Faction, _) => new SmartBot(f)
     }
 
-    def defaultBot(f : Faction) = "Basic"
+    def defaultBot(f : Faction) = "Smart"
 
     def writeFaction(f : Faction) = f.name
     def parseFaction(s : String) : |[Faction] = factions.%(_.name == s).single
