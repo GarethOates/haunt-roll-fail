@@ -916,6 +916,32 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         zoomNode.style.display = "none"
     }
 
+    // the card an action pane option is about (the selected card of a discard / select prompt, the card of a pick, the
+    // card a Play / Install / Rez... acts on)
+    def optionCard(a : UserAction) : |[Card] = a match {
+        case v : ViewObject[_] => v.obj match { case c : Card => |(c) ; case _ => None }
+        case a => a.productIterator.collectFirst { case c : Card => c }
+    }
+
+    // the option names the card, so its image hides nothing (Archives cards turned faceup during a breach are not
+    // "seen" yet, but their titles are in the Access next list); access options hide cards in HQ, R&D and unrezzed ones
+    def optionShows(a : UserAction, c : Card) : Boolean = canSee(c) || (a match {
+        case AccessChooseAction(_, _) => game.zone(c) match {
+            case HandZone(Corp) | DeckZone(Corp) => false
+            case RootZone(_) => game.isRezzed(c)
+            case _ => true
+        }
+        case _ => pickCard(a).any
+    })
+
+    // the framework calls this when the pointer enters / leaves an option of the action pane: zoom its card
+    override def updateHighlight(a : |[UserAction]) {
+        a./~(x => optionCard(x).%(c => optionShows(x, c))) match {
+            case Some(c) => showZoom(c.code, |(c))
+            case None => onOut(Nil)
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------------------------
     // Overlay
     // ---------------------------------------------------------------------------------------------------------------
@@ -1302,7 +1328,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // action of the current prompt), "Back to the deck list", then the presets again to preview another one.
     override def convertActions(faction : Option[Faction], actions : $[UserAction], then : UserAction => Unit) : $[ZOption] =
         if (then == null || actions.exists(_.is[ChoosePresetDeckAction]).not)
-            super.convertActions(faction, actions, then)
+            withPicks(faction, actions, then)
         else {
             val f = actions.of[ChoosePresetDeckAction].head.self
             val p = previewFor(f)
@@ -1335,6 +1361,42 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 case a => super.convertActions(faction, $(a), then)
             } ++ filtered ++ otherSide
         }
+
+    // A pick whose option is only the card (a title in a list): a click shows the card full size with Confirm and Back,
+    // and only Confirm submits the action. Verbs (Play, Install, Rez...) stay one click; every option zooms on hover.
+    def pickCard(a : UserAction) : |[Card] = a match {
+        case CardChosenAction(_, c, _) => |(c)
+        case ArrangePickAction(_, _, c, _, _) => |(c)
+        case AccessChooseAction(_, c) => |(c)
+        case TrashProgramForMemoryAction(_, c) => |(c)
+        case TrashResourceAction(_, c) => |(c)
+        case _ => None
+    }
+
+    def withPicks(faction : Option[Faction], actions : $[UserAction], then : UserAction => Unit) : $[ZOption] =
+        if (then == null || actions.exists(a => pickCard(a).any).not)
+            super.convertActions(faction, actions, then)
+        else
+            actions./~ { a =>
+                pickCard(a) match {
+                    case Some(c) =>
+                        val g = game
+                        val q = a.question(g)
+                        val ss = styleAction(faction, actions, a, false, None)
+                        $(ZOption((q == Empty).?(q).|(Div(q)(xlo.fullwidth)), OnOverOut(OnClick(Div(a.option(g), ss))), _ => showPick(a, c), false, _ => updateHighlight(|(a)), _ => updateHighlight(None)))
+                    case None =>
+                        super.convertActions(faction, $(a), then)
+                }
+            }
+
+    def showPick(a : UserAction, c : Card) {
+        val g = game
+        val q = a.question(g)
+        val confirm = Parameter(("menu", a), OnClick(Div("Confirm".hlb, styles.menuItem)))
+        val back = Parameter(Nil, OnClick(Div("Back", styles.menuItem)))
+        val face = (canSee(c).not && optionShows(a, c)).?(Div(cardFace(c.code, styles.artwork), styles.slot)).|(cardOverlay(c))
+        showOverlay(overlayScrollX(Div(face ~ Div((q != Empty).?(q ~ ": ").|(Empty) ~ a.option(g), styles.menuTitle) ~ confirm ~ back, xlo.column)), onClick)
+    }
 
     override def styleAction(faction : Option[Faction], actions : List[UserAction], a : UserAction, unavailable : Boolean, view : Option[Any]) = {
         val img = view @@ {
