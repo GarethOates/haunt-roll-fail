@@ -13,7 +13,8 @@ in the card files.
 
 ## Mechanisms (`rules-ext-final-nsg.scala`)
 
-* **Mixin position**: `... with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalNsgRules` (outermost),
+* **Mixin position**: `... with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalNsgRules` (outermost;
+  since the integration `... with PreventionRules with FinalRotRules with FinalNsgRules`, FinalNsgRules extending FinalRotRules),
   and `performFinalNsg` is the second partial function of the `performInternal` chain (after `performRestrictions`). It suspends
   actions (credit-source choice, additional costs) and performs them again through `performInternal` with a marker, so
   PreventionRules' interrupts and FixRules' bookkeeping see each action once, when it really happens; illegal actions are refused
@@ -28,7 +29,8 @@ in the card files.
   advance, the Corp's trash-resource action, remove a tag, trash costs, break, pump, paid / Runner / access abilities, steal costs,
   trace boosts, and "pay N" choices (`ChoiceAction` / `YesAction` whose first effect is a `SpendEffect`). Patchwork's interrupt is
   resolved first. The actions are records with serialisable fields (Faction, `CreditSrc` records, Int).
-* **(b) Sources of effects.** `FnsSourceEffect(card, on)` markers wrap the effects of the cards' triggers (game.scala
+* **(b) Sources of effects.** (Since the integration: FixRules' `FxSourceEffect` markers, the same as the final rotated pass, and
+  `effectSource` = `FinalRotRules.frSourceNow`.) `FnsSourceEffect(card, on)` markers wrap the effects of the cards' triggers (game.scala
   `triggerEffects`), "when encountered" abilities (`encounterAbility`), "when accessed" abilities (`AccessCardAction`), "when
   rezzed" abilities (`rezCard`), paid abilities (`useAbility`) and prevention abilities (`PreventUseAction`). `effectSource` is the
   innermost resolving card (markers, then FixRules' `fxSources`, the resolving subroutine `preventSubs`, the operation / event being

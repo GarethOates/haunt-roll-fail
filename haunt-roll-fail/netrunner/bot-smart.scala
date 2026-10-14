@@ -201,8 +201,10 @@ class SmartBot(f : Faction) extends EvalBot {
 
     def eval(actions : $[UserAction])(implicit game : Game) : Compute[$[ActionEval]] = {
         val l = actions.%!(_.is[NotForBots])
+        // only options not meant for bots: never the manual adjustments or a concession when anything else is offered
+        val safe = actions.%!(x => x.is[ManualAction] || x.is[ConcedeConfirmAction])
         val ev = new SmartEval(f)
-        (l.any.?(l).|(actions))./(a => ActionEval(a, $(Evaluation((ev.score(a) * 10).round.toInt + random(5), "smart"))))
+        (l.any.?(l).|(safe.any.?(safe).|(actions)))./(a => ActionEval(a, $(Evaluation((ev.score(a) * 10).round.toInt + random(5), "smart"))))
     }
 }
 
@@ -869,6 +871,16 @@ class SmartEval(val me : Faction)(implicit val g : Game) {
         case PreventUseAction(f, c, i, kind, n) => prevent(c, i, kind, n)
         case PreventPassAction(_, _, _) => 0.0
 
+        // final rules passes: credit sources (the manual options are NotForBots: the automatic order is always taken), Gagarin
+        // Deep Space's pay-or-skip access cost, Hivemind counters, Tithonium's forfeit, Surveillance Sweep's first boost
+        case CreditAutoAction(_) => 0.0
+        case FrAccessPayAction(_, c) => (rootCardValue(c) - C * (credits <= 1).?(3.0).|(1.0)).atLeastD(-1)
+        case FrAccessRefuseAction(_, _) => 0.0
+        case FrAccessUnpaidAction(_, _) => 0.0
+        case FrHiveSpendAction(_, _, _, _, k) => -k.toDouble
+        case FrRezForfeitAction(_, c, ctx) => rez(c, ctx) - 250.0
+        case FrSurveillanceBoostAction(_, n) => traceRunner(n)
+
         case x =>
             SmartBot.unhandled += x.getClass.getSimpleName -> (SmartBot.unhandled.getOrElse(x.getClass.getSimpleName, 0) + 1)
             random(3)
@@ -1135,6 +1147,8 @@ class SmartEval(val me : Faction)(implicit val g : Game) {
             case "trash" => 40.0
             case "end-run" => currentRunValue.atLeastD(0) + 10
             case "bad-pub" => 25.0
+            // "when a trace is initiated" (Flip Switch, Disrupter): the base strength becomes 0
+            case "trace" => (me.isRunner && g.traceBase > 0).?#(g.traceBase * C + 20)
             case _ => 15.0
         }
         worth * (me.isRunner || kind == "trash").?(1.0).|(0.8) - cost

@@ -6,7 +6,7 @@ Branch point: `netrunner` 53f0c4e. Scope: every approximation still listed for t
 printed text wins. Generic code is in the new file `rules-ext-final-rot.scala` (`trait FinalRotRules`, ENGINE.md section 8.7), card
 logic stays in the card files.
 
-## Mechanism (`rules-ext-final-rot.scala`, `FinalRotRules`, mixed in last)
+## Mechanism (`rules-ext-final-rot.scala`, `FinalRotRules`; since the integration mixed in after PreventionRules, inside `FinalNsgRules`)
 
 * **Sources of abilities.** The triggered abilities of every card resolve between `FxSourceEffect` markers (game.scala
   `triggerEffects`), so the card whose triggered or paid ability is resolving is known (`fxSources`); `frSourceNow` is the innermost
@@ -25,7 +25,7 @@ logic stays in the card files.
   granted by other cards go through the encounter prevention window.
 * **Rez costs**: additional costs (Hernando Cortez's credits, a forfeit before the rez), alternative costs (Tithonium), also on
   discounted rezzes.
-* `FrSpendClicksEffect` (clicks spent by a choice: `ClicksSpent`, `ClicksSpentOrLost`, not `ClickLost`), `FrBeforeFirstTurn`,
+* `FrSpendClicksEffect` (clicks spent by a choice; merged into the NSG pass's `SpendClicksEffect` at the integration), `FrBeforeFirstTurn`,
   `FrStackSearched`, `frStarlight`, `frGripRevealed`.
 
 ## Cards fixed
@@ -87,7 +87,7 @@ logic stays in the card files.
 | 08025 | Hayley Kaplan | mods needing a host not offered | offered with their possible hosts |
 | 24001 / 03003 / 08012 | Cyber Bureau, NEXT Design, Jinteki Biotech | "before your first turn" at the start of the first turn | before the first turn begins (`FrBeforeFirstTurn`) |
 | — | HQ accesses | drawn when the breach started | drawn one at a time |
-| 08003 + spend choices | Adjusted Chronotype | "spend [click]" choices fired `ClickLost` | `FrSpendClicksEffect` (Aggressive Trendsetting, Deep Dive, the ph "spend [click] or end the run" ice, Thule Subsea, Manegarm Skunkworks, S-Dobrado, Jaguarundi) |
+| 08003 + spend choices | Adjusted Chronotype | "spend [click]" choices fired `ClickLost` | `SpendClicksEffect` since the integration (Aggressive Trendsetting, Deep Dive, the ph "spend [click] or end the run" ice, Thule Subsea, Manegarm Skunkworks, S-Dobrado, Jaguarundi) |
 
 Verified as exact or as jinteki (status notes corrected, not counted as approximations): Customized Secretary (the UI shows uninstalled
 hosted cards since the QA pass), Wari / Paintbrush / Panchatantra (printed subtype choices), Bug (random drawn cards as jinteki),
@@ -112,7 +112,8 @@ kept through a shuffle), LLDS Energy Regulator (its 3 credits are an ability `Cr
 * Rebirth: the game has no declared format; it is inferred as the formats in which every card of the Runner's deck is legal.
 * Surveillance Network Key: an operation played with the basic action that draws counts as "spends [click] to draw" (jinteki only
   implements the basic draw action).
-* Daruma's root-to-root swap does not re-check the one asset / agenda / region per root rule (the engine-gap pass owns `SwapRootEffect`).
+* (Resolved by the integration with the final NSG pass: Daruma's root-to-root swaps go through `SwapRootEffect` /
+  `SwapInstalledWithHandEffect`, which now re-check the one asset / agenda / region per root rule.)
 * UI-only secrecy (not a rules difference): Push Your Luck / Rigged Results amounts and Harishchandra's revealed grip are in the
   journal of every client; the UI hides / shows them.
 

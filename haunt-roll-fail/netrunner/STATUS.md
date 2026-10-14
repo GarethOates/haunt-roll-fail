@@ -62,7 +62,7 @@ generic mechanics each set introduced are in the set status files; the engine si
 | Set | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
 | System Gateway (sg) | 77 | 77 | none (see `STATUS-fix-misc.md`) | `cards-sg.scala` | this file |
-| Elevation (elev) | 82 | 82 | 1 (Bling: hosted cards trashed at turn end, as jinteki) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Elevation (elev) | 82 | 82 | 1 (Bling: hosted cards trashed when the turn ends, as jinteki; rotated grip effects do not list its cards) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
 | Vantage Point (vp) | 66 | 66 | 1 (Reanimation Protocol: install-only fallback, as jinteki) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
 | System Update 2021 (su21) | 82 | 82 | none (see `STATUS-fix-final-nsg.md`) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Midnight Sun (ms) | 65 | 65 | none | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
@@ -88,7 +88,7 @@ them by name.
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
 | ICE | 211 | 211 | 1 (the encounter-on-access ice are not encountered when accessed while installed) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
-| Programs | 164 | 164 | 1 (Hivemind: no choice of the counters for break / pump virus costs) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| Programs | 164 | 164 | 2 (Hivemind: no choice of the counters for break / pump virus costs; Surveillance Network Key: an operation played with the basic action that draws counts as "spends [click] to draw") | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
 | Resources | 164 | 164 | none | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
 | Events | 148 | 148 | 1 (Rebirth: the format is inferred from the deck) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
 | Operations | 146 | 146 | none | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
@@ -97,13 +97,15 @@ them by name.
 | Upgrades | 79 | 79 | none (Daruma's swaps re-check the root rules since the final NSG pass) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
 | Hardware | 101 | 101 | 1 (Patchwork's prepay ability kept for affordability in the basic menus) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | Identities | 90 | 90 | none | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| **Total rotated** | **1,361** | **1,361** | **~7** (was ~176 before the four fix passes, ~70 before the final rotated pass) | | |
-| **All cards** | **2,056** | **2,056** | ~45 (current sets ~38 + rotated ~7; was ~280) | | |
+| **Total rotated** | **1,361** | **1,361** | **6** (was ~176 before the four fix passes, ~70 before the final rotated pass) | | |
+| **All cards** | **2,056** | **2,056** | **10** (current sets 4, one of them engine-wide + rotated 6; was ~280) | | |
 
 The counts above are after the four rules-accuracy fix passes (credits, restrictions, prevention, card-specific fixes; see
-"Rules-accuracy fix passes" below) and the final pass of the rotated cards (`STATUS-fix-final-rot.md`, which lists the remaining ones
-with their reasons; Surveillance Network Key's reading of "spends [click] to draw" is noted there too). They are approximate ("~"): an entry counts a card whose printed text is approximated or
-partly unenforced; differences that match jinteki's own implementation, manual-only choices and UI-only secrecy are not counted.
+"Rules-accuracy fix passes" below), the two final passes (`STATUS-fix-final-rot.md`, `STATUS-fix-final-nsg.md`) and their
+integration; the exact list of the 10 remaining approximations is in "Integration of the final passes" below. An entry counts a
+card whose printed text is approximated or partly unenforced; differences that match jinteki's own implementation, manual-only
+choices and UI-only secrecy (Push Your Luck / Rigged Results amounts and Harishchandra's revealed grip are in every client's
+journal; the UI hides / shows them) are not counted.
 
 Mechanics that several rotated ports defined independently were unified in the merge (one definition each, see
 `ENGINE.md` section 8): expose (`ExposeEffect(cards)` / one `Exposed(cards)` event, Corp responses such as Zaibatsu
@@ -157,7 +159,7 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   they needed (`ClicksSpent`, `AgendaCounterSpent`, `BreachEnded`, bioroid click-breaks as `SubsBroken`, granted / reordered /
   non-resolving subroutines, lingering restrictions, allotted clicks (`CardImpl.clicksPerTurn`), host subtypes
   (`CardImpl.hostSubtypes`), the real trace link strength).
-* **Final pass of the rotated cards** (`rules-ext-final-rot.scala`, `FinalRotRules` mixed in last, ENGINE.md 8.7,
+* **Final pass of the rotated cards** (`rules-ext-final-rot.scala`, `FinalRotRules` mixed in after PreventionRules, ENGINE.md 8.7,
   `STATUS-fix-final-rot.md`): ~65 cards (rotated, plus the current-set cards that interact with them) and the generic support:
   sources of triggered abilities (every damage window knows the card doing it), unpreventable damage / trashes, "the next paid
   ability window after X", trash batches, Skorpios' pre-trash interrupt, the check after every action (`FrAddedToScoreArea`,
@@ -165,7 +167,7 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   granted "when encountered" abilities in the prevention window, additional / alternative rez costs on every rez path,
   Hivemind for every virus program, "before your first turn", spending clicks by choice.
 
-* **Final pass for the current sets** (`rules-ext-final-nsg.scala`, `FinalNsgRules`, `STATUS-fix-final-nsg.md`, ENGINE.md 8.7):
+* **Final pass for the current sets** (`rules-ext-final-nsg.scala`, `FinalNsgRules` mixed in last, `STATUS-fix-final-nsg.md`, ENGINE.md 8.8):
   the player chooses the credit sources when two or more restricted sources could pay (Auto = the deterministic order, preselected
   and taken by bots); credit losses carry their source (`CreditsLostFrom`, GameNET); additional costs paid before the action (rez:
   Corporate Town, Archer, Plutus, Bloop, Biawak; score: Azef Protocol; trash-resource: Sebastião, Manuel Lattes; steal / trash:
@@ -173,8 +175,7 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   root limits; any subset of subroutines can be broken (Matryoshka, every "break up to N"); "spend [click]" is a click cost; every
   "pay N" of the current sets goes through the credit engine; Bling, IP Enforcement, Reanimation Protocol, Hostile Architecture,
   Unsmiling Tsarevna, Bankhar, Front Company, Boi-tatá, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation, Whistleblower, MirrorMorph,
-  double operations. ~45 cards; 3 approximations left in the current sets (Bling's trash timing, Reanimation Protocol's install-only
-  fallback, Mr. Hendrik's click-loss prevention), see that file.
+  double operations. ~45 cards; see "Integration of the final passes" for what is left.
 
 #### Integration of the four passes
 
@@ -406,6 +407,66 @@ credit, 100 = one agenda point), from generic data only, so it plays any deck:
 Decision time on the JVM (single process, 50 Smart-vs-Smart games): p50 0.35 ms, p99 3.4 ms, p99.9 6.6 ms, max 29 ms
 (first decision, JIT warm-up), the same as `Basic` (the engine's explosion of the menus dominates).
 
+### Integration of the final passes and the Smart bot (2026-10-14)
+
+The final NSG pass (`FinalNsgRules`), the final rotated pass (`FinalRotRules`) and the Smart bot were merged on `netrunner`.
+
+* **Order**: `... with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalRotRules with FinalNsgRules`
+  (`FinalNsgRules` extends `FinalRotRules`). Chain: `performRestrictions orElse performFinalNsg orElse <card-set and base rules>
+  orElse performFixes orElse performFinalRot`; triggers: `finalRotPreTriggers ++ <cards' triggers, each between FxSourceEffect
+  markers> ++ ... ++ preventionTriggers ++ fixTriggers ++ finalRotTriggers ++ finalNsgTriggers`; `restrictContinue` =
+  `fnsFilter` -> FinalRotRules' check after every action -> RestrictionRules' filter, still wrapping the final result of every
+  `performInternal` call. Every override of both traits calls `super` / `base`. FinalNsgRules is outside FinalRotRules because of
+  `rezCard` (Archer / Corporate Town / Plutus / Bloop / Biawak's additional cost is queued first and the rez is performed again;
+  with FinalRotRules outside, Hernando Cortez's surcharge would have been charged twice), `performRun` (the subset break is also
+  offered on encounter-on-access ice) and `performAccess` (Gagarin's pay-or-skip choice first, then the "when accessed" abilities
+  are wrapped as sources). The credit-source choice suspends a user action before any other rule (second in the chain) and
+  performs it again with a marker, so PreventionRules' interrupts, FinalRotRules' Hivemind / Armored Servers / Faust costs and
+  FixRules' bookkeeping see it once (ENGINE.md 8.7 / 8.8).
+* **One source mechanism**: FixRules' `FxSourceEffect(card, on)` markers (the two passes had added `FnsSourceEffect` and reused
+  `FxSourceEffect`); `fnsSourced` = `frSourced`; card triggers are wrapped once (game.scala), paid abilities by FixRules only (the NSG
+  pass's second wrapping of `useAbility` was dropped); "when encountered" / "when accessed" / "when rezzed" / prevention abilities
+  are wrapped by FinalNsgRules. `effectSource` (GameNET's `CreditsLostFrom`) is `frSourceNow`, the same card the damage windows
+  get as their source; stale markers (whose closing marker left the queue) are forgotten when a turn ends.
+* **One "spend [click]" effect**: `SpendClicksEffect(f, n)` (a click cost: `ClicksSpent`, `ClicksSpentOrLost` during runs,
+  windows reopened, no `ClickLost`); `FrSpendClicksEffect` was removed (Aggressive Trendsetting, Deep Dive, the ph "spend [click]
+  or end the run" ice, Thule Subsea, Manegarm Skunkworks, S-Dobrado, Jaguarundi use it).
+* **Overlapping cards**: Bling -> the NSG version (hosted cards offered by the basic play / install actions; the rotated pass's
+  credit-engine check of its removed click ability is moot); Thule Subsea -> NSG (`SpendEffect`, a Corp-imposed payment); Daruma
+  -> rotated card logic (trashed first) + NSG root re-check (`SwapRootEffect` / `SwapInstalledWithHandEffect`: its swaps now keep
+  one asset / agenda / region per root, so the rotated pass's Daruma approximation is gone); Power Tap / Compromised Employee /
+  Flip Switch / Disrupter -> the NSG "trace initiated" window; Hivemind's `VirusCost` in `canPay` -> rotated; `ExtCost` in
+  `canPay` / `Cost.desc` -> NSG.
+* **Smart bot and the new prompts**: the credit-source choice -> always `CreditAutoAction` (the manual options are
+  `NotForBots`); Gagarin Deep Space -> pays when the access is worth it (`rootCardValue` of the card minus the credit; an
+  unknown card with an empty grip may be a trap, so it refuses then); the "trace initiated" window -> Flip Switch / Disrupter
+  used when the base strength is above 0 (worth the base strength in credits); the subset-break multi-select -> never opened (the
+  ordinary break options stay available); Hivemind's counter choice, Tithonium's forfeit and Surveillance Sweep's first boost
+  are scored too.
+
+**Remaining approximations (exact list, 10)**:
+
+1. Reanimation Protocol (36062): when the Corp cannot pay the combined install and rez cost (minus 10) the ice is installed
+   unrezzed (jinteki's behaviour; the printed text gives no fallback).
+2. Bling (35006): hosted cards are trashed when the Runner's turn ends (jinteki's `:runner-turn-ends`) instead of "when your
+   discard phase ends"; card effects of the rotated sets that pick from the grip do not list Bling's cards.
+3. Mr. Hendrik (33103): "lose all [click] to prevent this damage" is a choice before the damage, not an ability in the damage
+   prevention window (same outcome).
+4. Credit-source choice (engine-wide): offered for the user actions listed in `STATUS-fix-final-nsg.md` when two or more
+   restricted sources could pay; payments inside other effects (a `SpendEffect` that is not the first effect of a choice,
+   card-specific prepaid installs, psi bids, secret spending) use the default order, and a surcharge paid just before the action
+   with the same purpose (Net Watchlist, Hernando Cortez) takes the chosen sources first.
+5. Hivemind (07042): a `VirusCost` of a break or pump ability spends the program's own counters first, then Hivemind's (no choice).
+6. Patchwork (25009): the basic play / install options stay greyed when only Patchwork's discount would make them affordable,
+   so its non-printed "prepay" ability is kept for that case.
+7. Archangel / Chrysalis / Herald / Sapper accessed while installed (only through cards that access installed ice) are not
+   encountered.
+8. Personality Profiles (10066): a search is recognised as a stack shuffle while a card whose printed text says "search your /
+   the stack" resolves.
+9. Rebirth (10083): the format is inferred from the Runner's deck (the game has no declared format).
+10. Surveillance Network Key 1 / 2 (14018 / 14019): an operation played with the basic action that draws counts as "spends
+   [click] to draw" (jinteki only implements the basic draw action).
+
 ## Simplifications / known gaps
 
 * Paid ability windows follow the NSG structure (see ENGINE.md): start of turn (before and after "when your turn
@@ -426,8 +487,11 @@ Decision time on the JVM (single process, 50 Smart-vs-Smart games): p50 0.35 ms,
   encountered" abilities and subroutine breaking (Tyr's Hand) go through the prevention windows of
   `rules-ext-prevention.scala` (forced interrupts first, then both players with priority, the active player first); see
   `STATUS-fix-prevention.md` and ENGINE.md section 8.4. "When a trace is initiated" abilities (Flip Switch, Disrupter, Power Tap)
-  use the "trace" window of `rules-ext-final-nsg.scala` (ENGINE.md 8.7).
-* Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
+  use the "trace" window of `rules-ext-final-nsg.scala` (ENGINE.md 8.8).
+* Bots: `Smart` (default) plays a reasonable game (see "Smart bot"); `Basic` / `Random` are weak. Bots never use the manual
+  menu or concede (when an ask offers only options not meant for bots, the Smart bot still prefers anything but the manual
+  adjustments and the concession), always take the
+  automatic credit-source option and never open the subset-break multi-select (both `NotForBots`).
 * Hidden information is hidden by the UI only (every client replays the whole journal, so a determined spectator could
   read it from the browser's memory; the game creator receives all links anyway); the Manual menu lets the Corp move
   the top cards of R&D. The visibility rule is in `UI.omniscient` / `UI.canSee` (see "Final pass"). The shared log never
@@ -704,12 +768,77 @@ started at 0 credits; credits = average at the start of the side's turns; agenda
 | Basic vs Random (before) | 49.0% | 44/143/103/10/0 | 12.3 | 36.4% | 2.1 / 2.3 | 2.58 | 1.14 / 2.56 |
 | Random vs Basic (before) | 24.0% | 1/156/71/72/0 | 14.3 | 63.4% | 1.0 / 4.1 | 3.51 | 0.17 / 2.72 |
 | Smart vs Smart | 50.7% | 143/141/7/7/2 | 15.5 | 3.8% | 6.8 / 6.4 | 1.09 | 2.23 / 2.48 |
+| Smart vs Smart (after the final merge, 600 games) | 56.5% | 318/249/19/12/2 | 15.8 | 4.9% | 6.4 / 6.0 | 1.06 | 2.36 / 2.29 |
+| Smart vs Smart, rotated presets only (200 games) | 63.5% | 125/67/2/6/0 | 16.3 | 4.1% | 6.6 / 6.1 | 1.01 | 2.56 / 2.00 |
+| Basic vs Basic (after the final merge, 200 games) | 51.5% | 50/60/53/37/0 | 13.9 | 67.0% | 1.0 / 3.2 | 3.36 | 1.36 / 2.06 |
 | Smart vs Basic | 97.0% | 202/4/86/5/3 | 12.9 | 64.6% | 1.0 / 6.7 | 3.23 | 2.73 / 0.36 |
 | Basic vs Smart | 8.7% | 17/270/6/4/3 | 8.8 | 9.3% | 5.3 / 4.1 | 1.94 | 0.54 / 3.49 |
 | Smart vs Random | 94.0% | 146/14/136/4/0 | 12.1 | 38.8% | 2.0 / 5.7 | 2.46 | 2.34 / 0.70 |
 | Random vs Smart | 2.3% | 0/289/6/4/1 | 8.9 | 8.2% | 4.4 / 4.7 | 2.07 | 0.04 / 3.67 |
 
 `sbt -batch compile` and `sbt -batch fastOptJS` pass.
+
+### Tested after the integration of the final passes and the Smart bot (2026-10-14)
+
+* `sbt -batch compile` and `sbt -batch fastOptJS` green (final build 19:04).
+* JVM harness (scratchpad `fm/host`: `merge4/host` pointed at this checkout, with `FinalNsgScript` and `ScriptTest` from the NSG
+  pass, `FinalRotScript` and `RotHardwareScript` from the rotated pass (renamed effects adapted: `FxSourceEffect`,
+  `SpendClicksEffect`), `BotHost` from the bot branch (deck filters added; an ask whose options are all `NotForBots`, i.e. only
+  the manual menu, now counts as an error) and a new `MergeFinalScript`). All scripted checks pass: `ScriptTest` 40, `CreditScript`
+  92, `PreventionScript` 60, `RestrictionScript` 74, `FixScript` 81, `RotAssetScript` 52, `RotAgendaScript` 33, `RotEventScript` 40,
+  `RotHardwareScript` 80, `RotOperationScript` 56, `RotProgramScript` 50, `RotMergeScript` 20, `FinalNsgScript` 82, `FinalRotScript`
+  91, `MergeFinalScript` 15 (one marker pair per trigger, `effectSource` = damage source, Archer forfeit + Hernando Cortez surcharge
+  paid once each, Smart bot: automatic credit option / Gagarin pay-or-refuse / Flip Switch in the trace window / subset break
+  not for bots, the Anvil + Always Be Running stuck ask below), `RotIceScript` (211 ice, 633 encounters, 0 failures),
+  `PresetCheck` (195 presets, 0 invalid): 866 named checks.
+* Bot games (`BotHost`, random presets per side over all 195 presets, every offered and chosen action round-tripped through the
+  serializer; exceptions, empty asks, manual-only asks, serialization mismatches, games over 4000 actions and Smart heuristic
+  errors counted as errors) on the final code: Smart vs Smart 600 games, Basic vs Basic 200, Smart vs Smart with rotated presets
+  on both sides 200: **1,000 games, 0 errors** (longest 769 actions / turn 39). On the builds before the last fixes: 2,400 Smart vs
+  Smart, 400 Basic vs Basic, 400 rotated Smart vs Smart, 0 exceptions; they showed 3 games where the Runner was offered only greyed
+  options: Always Be Running's (or any bioroid-style) "break 1 subroutine" on Anvil whose printed subroutines could not be broken
+  asked for a subroutine with every option greyed (an engine gap older than the merge); `BioroidBreakEffect` now resolves with no
+  effect when no unbroken subroutine can be broken, and the Smart bot never picks the manual menu or a concession while anything
+  else is offered. Smart-vs-Smart metrics in the "Smart bot" table; single-process decision time (50 games): p50 0.5 ms, p99 3.3 ms,
+  max 30 ms (bot branch: p50 0.35 ms, p99 3.4 ms, max 29 ms). The Corp wins a little more often than on the bot branch (56.5% over
+  the final 600 games, 56% over all 2,400; 50.7% over 300 before): the Runner pays Gagarin, additional rez / score costs are real
+  and HQ / R&D are accessed one card at a time; the Runner's economy and run counts are unchanged.
+* Browser (real good-game server on port 7070 serving this checkout, index and JS checked fresh; headless Chrome on port 9668
+  over the DevTools protocol, driver in the scratchpad `fm/web/` (`daemon.mjs`, `helpers.js`, `auto.mjs`, `localplay.mjs`), each
+  link in its own browser context = anonymous visitor):
+  * Online game 1 "Flatline at Purge" (Corp `lxhfywglysszklxf`, Runner `utxplypsqkxkoucu`, spectator `khfqjfsaazckwypi`): the
+    Corp filtered the gallery to FFG era (78 decks), previewed "NBN A ice (rot-ice)" (Near-Earth Hub, 16 trace cards) and
+    confirmed; the Runner pasted a NetrunnerDB decklist (Kate "Mac" McCaffrey, 45 cards, 7/15 influence: Cloak, Cyberfeeder, Net
+    Shield, Feedback Filter, Gordian Blade, Corroder, Dagger, ...), "Check and preview", "Import". Both kept. About 330 rounds of
+    clicks from both links: Virgo and Turnpike traces (Corp and Runner boosts chosen in the UI), Herald's subroutines broken with
+    Gordian Blade after pumping, Corp scored Orbital Superiority, Runner stole Offworld Office, Tomorrow's Headline and Project
+    Beale: Runner won 8-2 on turn 16.
+  * Online game 2 "Purge on Breach" (Corp `hbjttbfnqeddjlhu`, Runner `swprttvekowbvyaz`, spectator `sqfnwbejkzkctedy`): Corp FFG-era
+    preset "Jinteki A ice (rot-ice)" (Jinteki: Personal Evolution) previewed + confirmed, Runner the same Kate decklist imported;
+    the Runner took a mulligan. Runner stole Offworld Office and Nisei MK II (Personal Evolution's net damage each time); on
+    turn 4 the Runner clicked a log line and used "Undo to here" + Confirm (log: "Runner undid 2 actions, including own action",
+    4 clicks back); the Corp link was reloaded mid-game (same position, HQ and own unrezzed ice visible, undo line kept). The
+    Runner installed Feedback Filter and two Cloaks; on stealing Orbital Superiority the prevention window "Prevent any of the 1
+    net damage?" offered "Feedback Filter: prevent 1 net damage" / "Take the damage": prevented ("All net damage is prevented").
+    On turn 8 the Corp rezzed Galahad; Corroder's "Break End the run (1 credit)" opened the credit-source choice ("Pay 1 credit
+    (1 left): choose where the credits come from": "Automatically: 1 from the credit pool" (stealth credits kept for Dagger),
+    "Pay 1 credit from Cloak" x2, "Pay 1 credit from the credit pool"); the Runner chose a Cloak ("Runner chooses the credits: 1
+    from Cloak (the rest automatically)"), and took the automatic option on the next run. Corp scored Longevity Serum and
+    Offworld Office; Runner stole Orbital Superiority again for the win, 8-4 on turn 15. Save Replay from the Runner link: 73 MB
+    file, opened from `file://` (final position with both hands, full log).
+  * Spectator check every 8 rounds in both games (card images shown to the spectator but not visible in both player views):
+    0 differences in game 2; one in game 1 (Gutenberg while it was being accessed from R&D: the access is in every client's
+    log, so it is public). Spectator screenshots show both hands and unrezzed cards as backs.
+  * Local game as the human Corp (Gagarin Deep Space preset) against the Smart Runner bot (default bot, "Bot / Smart" in the
+    setup): five turns; the bot paid Gagarin's credit to access remote cards ("Runner pays 1 credit to access an unrezzed card
+    (Gagarin Deep Space)"), stole The Basalt Spire; Plutus' additional rez cost ("Reveal and trash 3 cards from HQ") asked
+    before the rez. Quick Game twice (Smart Runner bot; Weyland Starter, then RotAg Weyland 2 on the final build), a few turns.
+  * No plugin exceptions in any console (only the shell's `NetworkError` / font 404 noise, the framework's `HTTP 409` /
+    `HTTP 500` append races and `later failed`).
+  * Screenshots at 1440x900 (scratchpad `fm/web/shots/`): `a3-corp-gallery`, `a4-corp-ffg-filter`, `a5-runner-import`,
+    `b2-runner-mid`, `b3-corp-mid`, `g1-iso-spec-over`, `c1-corp-filter`, `c9-after-undo`, `c11-corp-reload`,
+    `c15-prevention-window`, `c17-credit-choice`, `g2-iso-runner2-over`, `g2-iso-spec2-over`, `g2-offline-replay`,
+    `l4-local-midgame`, `q2-quick-midgame`, `z1-final-quick-1440`: banner badges, side colours, hand pane, gallery and board intact.
 
 ## Known bugs
 

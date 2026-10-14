@@ -350,6 +350,12 @@ trait RunRules { game : Game =>
             val l = unbrokenSubs(c)
             if (l.none)
                 NextAction
+            // every unbroken subroutine is protected (Anvil's "printed subroutines cannot be broken", Unsmiling Tsarevna, ...): the
+            // ability resolves with no effect instead of an ask with only greyed options
+            else if (!l.exists(i => canBreakSub(c, $(i)))) {
+                log("No subroutine on", c, "can be broken")
+                NextAction
+            }
             else
                 Ask(Runner).add(l./(i => BioroidBreakSubAction(Runner, c, i)))
 
