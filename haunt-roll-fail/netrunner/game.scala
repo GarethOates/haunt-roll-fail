@@ -336,7 +336,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
-    with StartupRules with SU21Rules with PHTAIRules with RWRRules {
+    with StartupRules with SU21Rules with PHTAIRules with RWRRules with RotProgramRules {
 
     implicit def implicitGame : Game = this
 
@@ -750,7 +750,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR
+        val pf = performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse performRotPrograms
 
         a match {
             case NextAction => nextStep
