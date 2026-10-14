@@ -114,7 +114,7 @@ trait RunRules { game : Game =>
                     state(c).brokenSubs = $
                     log(Runner, "encounters", c)
                     push(EncounterAction(c))
-                    pushAll(impl(c).onEncounter(c))
+                    pushAll(encounterAbility(c))
                     trigger(EncounterIce(c))
                     NextAction
                 case _ => NextAction

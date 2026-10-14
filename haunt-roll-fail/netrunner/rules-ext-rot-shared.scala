@@ -24,7 +24,7 @@ import netrunner.elem._
 //                     facedown programs use no memory (Game.memoryUsed)
 //   LoseAllCreditsEffect, BreachNoRootEffect (breach without the root cards), SwapRootEffect (two root cards)
 // Other unified mechanics live where they were first defined:
-//   TraceResolved(successful, spent)   rules-ext-rot-agendas.scala (fired once per trace, after its success/fail effects)
+//   TraceResolved(successful, spent)   rules-ext-rot-agendas.scala (fired once per trace, before its success/fail effects)
 //   RotPsiRevealed(corp, runner)       rules-ext-rot-assets.scala (fired once per psi game)
 //   RefillCreditsEffect                rules-ext-su21.scala (recurring credits, also for identities)
 //   currents                           rules-ext-rot-operations.scala (rotOperationTriggers, for Corp and Runner currents)

@@ -575,8 +575,11 @@ object RotOperationCardsA {
     }
 
     object DefectiveBrainchips extends RotOp("08072") {
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "core" && inPlay(self) && g.reg("core-damage") == 0 && !g.usedThisTurn(self, "brainchips")).$(Ability("increase the core damage by 1", $, $(MarkUsedEffect(self, "brainchips"), PreventWindowAction("core", n + 1))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt("core", 0, n) if inPlay(self) && Prevent.damageCtx.exists(_.firstThisTurn) =>
+                $(MessageEffect(Corp, "increases the core damage by 1 (Defective Brainchips)"), PreventBoostEffect("damage", 1))
+            case _ => $
+        }
     }
 
     object AnOfferYouCantRefuse extends RotOp("08091") {

@@ -81,8 +81,8 @@ case class PsiBidAction(self : Faction, n : Int) extends BaseAction("Secretly bi
 case class PsiRunnerBidAction(corp : Int, equal : $[ForcedAction], differ : $[ForcedAction]) extends ForcedAction with Reaskable
 case class PsiResolveAction(corp : Int, runner : Int, equal : $[ForcedAction], differ : $[ForcedAction]) extends ForcedAction
 case class PreventWindowAction(kind : String, n : Int) extends ForcedAction with Reaskable
-case class PreventPassAction(self : Faction, kind : String, n : Int) extends BaseAction("Prevent " ~ kind ~ "?")("Take it")
-case class PreventUseAction(self : Faction, card : Card, idx : Int, kind : String, n : Int) extends BaseAction("Prevent " ~ kind ~ "?")(g => g.cardElem(card) ~ ": " ~ g.impl(card).preventions(card, kind, n)(g).lift(idx)./(_.label).|("?"))
+case class PreventPassAction(self : Faction, kind : String, n : Int) extends BaseAction(g => g.preventQuestion(kind, n))(g => g.preventPassLabel(self, kind))
+case class PreventUseAction(self : Faction, card : Card, idx : Int, kind : String, n : Int) extends BaseAction(g => g.preventQuestion(kind, n))(g => g.cardElem(card) ~ ": " ~ g.impl(card).preventions(card, kind, n)(g).lift(idx)./(_.label).|("?"))
 case object CheckWinAction extends ForcedAction
 case class ShuffleFromArchivesEffect(n : Int) extends ForcedAction
 case class InstallChooseServerPurpose(ignoreCost : Boolean) extends Purpose

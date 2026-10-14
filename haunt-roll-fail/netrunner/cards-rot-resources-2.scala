@@ -145,7 +145,7 @@ object RotResourceCards2 {
 
     object NewAngelesCityHall extends RR("02109") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "tag").$(Ability("avoid 1 tag", c(2), $(TagsEffect(n - 1))))
+            (kind == "tag").$(Ability("avoid 1 tag", c(2), $(Prevent.tags(1))))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaStolen(_) if g.isInstalled(self) => $(MessageEffect(Runner, "trashes New Angeles City Hall"), TrashEffect(self, Runner, false))
             case _ => $
@@ -154,11 +154,11 @@ object RotResourceCards2 {
 
     object NoOneHome extends RR("21045") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "tag" || kind == "net").$(Ability("force the Corp to trace[0]; if unsuccessful, avoid all " + (kind == "tag").?("tags").|("net damage"), $(TrashSelfCost), $(NoOneHomeAction(self, kind, n)), ok = unused(self, "noh"), reason = "once per turn"))
+            ((kind == "tag" && g.reg("prevent-window-tag") == 1 && g.reg("prevent-window-net") == 0) || (kind == "net" && g.reg("prevent-window-net") == 1 && g.reg("prevent-window-tag") == 0)).$(
+                Ability("force the Corp to trace[0]; if unsuccessful, " + (kind == "tag").?("avoid all tags").|("prevent all net damage"), $(TrashSelfCost), $(NoOneHomeAction(self, kind, n))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case NoOneHomeAction(self, kind, n) =>
-                val continue : ForcedAction = (kind == "tag").?(TagsApplyEffect(n) : ForcedAction).|(PreventWindowAction(kind, n))
-                g.push(TraceEffect(0, $(continue), $(MessageEffect(Runner, "avoids all " + (kind == "tag").?("tags").|("net damage") + " (No One Home)"))))
+                g.push(TraceEffect(0, $, $(MessageEffect(Runner, (kind == "tag").?("avoids all tags").|("prevents all net damage") + " (No One Home)"), (kind == "tag").?(Prevent.allTags).|(Prevent.allDamage))))
                 NextAction
         }
     }
@@ -227,8 +227,10 @@ object RotResourceCards2 {
 
     object Paparazzi extends RR("08087") {
         // "you are tagged" is not modelled by the engine
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "meat").$(Ability("prevent all meat damage", NoCost, $(MessageEffect(Runner, "prevents all meat damage (Paparazzi)"))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt("meat", 1, n) => $(MessageEffect(Runner, "prevents " + n + " meat damage (Paparazzi)"), Prevent.allDamage)
+            case _ => $
+        }
     }
 
     object Patron extends RR("10063") {
@@ -384,13 +386,14 @@ object RotResourceCards2 {
                 h.foreach(c => g.moveTo(c, DiscardZone(Runner)))
                 if (h.any)
                     g.log(Runner, "trashes", h.num.cards, "from the grip")
-                g.push(TrashCardsEffect(installed, Runner), LoseAllCreditsEffect(Runner), RemoveTagsEffect(g.tags))
+                g.push(TrashCardsEffect(installed, Runner), LoseAllCreditsEffect(Runner), RemoveTagsEffect(g.tags), Prevent.allDamage)
                 NextAction
         }
     }
 
     object SacrificialConstruct extends RR("20054") {
-        // trash prevention is not modelled by the engine: no effect
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "trash" && Prevent.ctx.exists(_.cards.exists(c => c.data.isProgram || c.data.isHardware))).$(Ability("prevent an installed program or piece of hardware from being trashed", $(TrashSelfCost), $(PreventTrashChooseEffect(self, $("Program", "Hardware")))))
     }
 
     object SafetyFirst extends RR("09044") {

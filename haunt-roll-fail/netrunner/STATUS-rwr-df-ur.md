@@ -33,9 +33,8 @@ Business As Usual, Isaac Liberdade, The Powers That Be.
 
 ### df — Downfall (65/65 implemented, 6 partial)
 
-Runner: Isolation, Demolisher, Chisel, Stargate, Utae, Climactic Showdown (partial: when the Corp declines
-to trash ice, the resource stays in play until the end of the turn to grant the access bonus, then is removed
-from the game), Fencer Fueno, The Nihilist, Trickster Taka (partial: hosted credits are usable for anything
+Runner: Isolation, Demolisher, Chisel, Stargate, Utae, Climactic Showdown (fixed: removed from the game when the turn
+begins, the access bonus is a turn-lasting game effect, see `STATUS-fix-prevention.md`), Fencer Fueno, The Nihilist, Trickster Taka (partial: hosted credits are usable for anything
 during a run, not only programs), Az McCaffrey, Always Have a Backup Plan, Blueberry Diesel, Flip Switch,
 Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove (partial:
 "first click" is checked as "4 clicks remaining"), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /

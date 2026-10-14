@@ -425,7 +425,7 @@ trait PHTAIRules { game : Game =>
                 trigger(Played(f, c))
                 NextAction
             }
-        case EndRunEffect if hasFlag("no-etr") && run.exists(r => !r.ended) =>
+        case EndRunEffect if hasFlag("no-etr") && preventSubs.any && run.exists(r => !r.ended) =>
             log("The run cannot end now")
             NextAction
         case a : ClickCreditAction => countAction("credit", performTurn(a))

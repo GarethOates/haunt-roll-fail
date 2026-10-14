@@ -199,9 +199,9 @@ object RotEventCards2 {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
             g.isInstalled(self).?? {
                 if (kind == "tag")
-                    $(Ability("prevent up to 3 tags", $(TrashSelfCost), (n > 3).$(TagsApplyEffect(n - 3))))
+                    $(Ability("avoid up to 3 tags", $(TrashSelfCost), $(Prevent.tags(3))))
                 else if (kind == "net" || kind == "meat" || kind == "core")
-                    $(Ability("prevent up to 3 damage", $(TrashSelfCost), (n > 3).$(DamageEffect(kind, n - 3))))
+                    $(Ability("prevent up to 3 damage", $(TrashSelfCost), $(Prevent.damage(3))))
                 else
                     $
             }
@@ -663,7 +663,7 @@ object RotEventCards2 {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(runOn(self, Archives))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SuccessfulRun(Archives) if thisCardRun(self) => $(AtRunEndEffect($(MessageEffect(Runner, "breaches HQ and then R&D (Divide and Conquer)"), BreachNoRootEffect(HQ), BreachNoRootEffect(RnD))))
+            case BreachFinished(Archives) if thisCardRun(self) && g.run.exists(_.successful) => $(MessageEffect(Runner, "breaches HQ and then R&D (Divide and Conquer)"), BreachNoRootEffect(HQ), BreachNoRootEffect(RnD))
             case _ => $
         }
     }

@@ -574,9 +574,14 @@ object SGCards {
 
     object AmazeAmusements extends SG("30058") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RunEnds(s, _, true) if thisServer(self, s) && g.isRezzed(self) => $(MessageEffect(Corp, "uses AMAZE Amusements"), tag(2))
+            case RunEnds(s, _, true) if (thisServer(self, s) && g.isRezzed(self)) || g.persistentFor(self, s) => $(MessageEffect(Corp, "uses AMAZE Amusements"), tag(2))
             case _ => $
         }
+        // persistent: trashed by the Runner during a run on its server, the ability lasts for the remainder of the run
+        override def onTrash(self : Card, by : Faction)(implicit g : Game) = (by.isRunner && g.lastTrashedRezzed).??(g.lastTrashedFrom match {
+            case RootZone(s) => g.run.exists(r => !r.ended && r.server == s).$(PersistentEffect(self, s))
+            case _ => $
+        })
     }
 
     object BuiltToLast extends SG("30059") {

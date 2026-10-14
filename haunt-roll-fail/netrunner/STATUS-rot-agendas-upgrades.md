@@ -69,20 +69,18 @@ apply; the order is the `with` order in `game.scala`).
 * **Install restrictions** are enforced in the basic install menu and `ChooseServerEffect` only (other install paths, e.g.
   generic install loops, are not filtered). "Limit 1 region per server" is not enforced (as for the other sets).
 * **Satellite Grid**: no effect ("considered to have an additional advancement token" would need `Game.advancement`).
-* **Navi Mumbai City Grid**: blocks `abilityOptions` only (prevention abilities are not blocked).
+* **Navi Mumbai City Grid**: blocks `abilityOptions` and the Runner's prevention abilities (fixed, see `STATUS-fix-prevention.md`).
 * **Midway Station Grid / Armored Servers** break costs: the break is gated on being able to pay (1 credit / a card in the
   grip) and the cost is collected right after the break (`SubsBroken`), per break ability use / per subroutine broken.
 * **Simone Diego / Dedicated Technician Team / Khondi Plaza** recurring credits: Simone refunds 1 credit after a basic advance
   of a card in its server, DTT refunds the ice install cost after an action-phase install protecting its server (up to its
   credits), Khondi lowers the rez cost of ice protecting its server by its hosted credits and spends them (Mahkota pattern).
-* **Heinlein Grid** is automatic: during a run on its server, whenever the Runner's unspent clicks drop between two events
-  they lose all credits.
+* **Heinlein Grid** is a forced trigger as printed ("whenever the Runner loses or spends [click] during a run on this server");
+  it now reacts to the `ClicksSpentOrLost` event (click costs paid and clicks lost) instead of comparing clicks between events
+  (jinteki models it as a manual once-per-run ability).
 * **Personality Profiles**: "installs a card from the heap" uses the heap snapshot; "searches the stack" is detected
   heuristically (cards left the stack from below the top, or its order changed, since the previous event).
-* **Labyrinthine Servers** is a pre-emptive "the Runner cannot jack out this run" ability, not an interrupt.
-* **Tyr's Hand** un-breaks the last broken subroutine of the encountered bioroid ice protecting its server (instead of an
-  interrupt before the break).
-* **Tori Hanzō** is a Corp-side net damage prevention offered once per run on its server (not only on the first instance).
+* (Labyrinthine Servers, Tyr's Hand and Tori Hanzō were fixed by the prevention / timing pass: see `STATUS-fix-prevention.md`.)
 * **Improved Tracers** trace bonus applies to traces started during an encounter (the source of a trace is not tracked).
 * **Valley Grid** hand-size penalty lasts while Valley Grid stays active (the hook is on the card).
 * **Mandatory Upgrades** grants the extra click at "when your turn begins" (after the turn-start window); losing it when the

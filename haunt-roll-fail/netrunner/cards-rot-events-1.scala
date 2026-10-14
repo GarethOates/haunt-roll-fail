@@ -281,8 +281,11 @@ object RotEventCards1 {
                 NextAction
         }
         override def lingering(self : Card)(implicit g : Game) = (g.state(self).choice == "prevent").?("runner-begins").|("")
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (g.state(self).choice == "prevent" && inPlay(self) && kind != "tag" && kind != "trace" && kind != "end-run").$(Ability("prevent all " + kind + " damage", NoCost, $(MessageEffect(Runner, "prevents " + n + " " + kind + " damage (Leverage)"))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt(k, 1, n) if g.damageKinds.has(k) && g.state(self).choice == "prevent" && inPlay(self) =>
+                $(MessageEffect(Runner, "prevents " + n + " " + k + " damage (Leverage)"), Prevent.allDamage)
+            case _ => $
+        }
     }
 
     object ExecutiveWiretaps extends RE("04084") {
@@ -586,9 +589,12 @@ object RotEventCards1 {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(runOn(self, Archives))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case BreachServer(Archives) if thisCardRun(self) =>
-                val l = g.discard(Corp).%(c => c.data.isIce && g.rezzedIce.exists(_.title == c.title))
-                l.any.$(ChooseCardEffect(Runner, l, ImmolationPurpose(self), "Immolation Script: choose a piece of ice in Archives (a rezzed copy will be trashed)", true))
+            // remember the ice that is faceup in Archives before the breach turns everything faceup
+            case BreachServer(Archives) if thisCardRun(self) && g.run.exists(r => !r.accessOnly) =>
+                $(SetMemoEffect(self, g.discard(Corp).%(c => c.data.isIce && g.state(c).seen)./(c => c.code + "-" + c.n).mkString(",")))
+            // "whenever you would access a faceup piece of ice in Archives, you may instead trash 1 rezzed copy" (once per run)
+            case Accessed(c) if thisCardRun(self) && c.data.isIce && g.zone(c) == DiscardZone(Corp) && g.state(self).memo.split(',').contains(c.code + "-" + c.n) && !g.state(self).usedRun.has("immolation") && g.rezzedIce.exists(_.title == c.title) =>
+                $(OptionalEffect(Runner, "Immolation Script: instead of accessing " + c.title.filter(_ < 128) + ", trash a rezzed copy of it?", $(MarkRunUsedEffect(self, "immolation"), ChooseCardEffect(Runner, g.rezzedIce.%(_.title == c.title), TrashPurpose(Runner), "Immolation Script: choose a rezzed copy to trash", false)), $))
             case _ => $
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -772,8 +778,11 @@ object RotEventCards1 {
     object TheNoblePath extends RE("10077") {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(RunnerTrashCardsEffect(g.hand(Runner)), runAny(self))
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (thisCardRun(self) && activeRun.any && (kind == "net" || kind == "meat" || kind == "core")).$(Ability("prevent all " + kind + " damage", NoCost, $(MessageEffect(Runner, "prevents " + n + " " + kind + " damage (The Noble Path)"))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt(k, 1, n) if g.damageKinds.has(k) && thisCardRun(self) && activeRun.any =>
+                $(MessageEffect(Runner, "prevents " + n + " " + k + " damage (The Noble Path)"), Prevent.allDamage)
+            case _ => $
+        }
     }
 
     object InformationSifting extends RE("10079") {

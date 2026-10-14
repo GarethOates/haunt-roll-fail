@@ -22,7 +22,7 @@ import Helpers._
 object RotProgramCards3 {
     object NetShield extends Rot("01045") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" && !g.usedThisTurn(self, "netshield")).$(Ability("prevent 1 net damage (first net damage each turn)", c(1), $(MarkUsedEffect(self, "netshield")) ++ (n > 1).$(PreventWindowAction("net", n - 1))))
+            (kind == "net" && Prevent.damageCtx.exists(_.firstThisTurn) && g.preventUses(self) == 0).$(Ability("prevent 1 net damage (first net damage each turn)", c(1), $(Prevent.damage(1))))
     }
 
     object ZU13KeyMaster extends Rot("02007") {
@@ -155,17 +155,11 @@ object RotProgramCards3 {
         override def memory(self : Card)(implicit g : Game) = hostedMemory(self)
     }
 
-    // the engine has no trash prevention window: when the Corp trashes an installed piece of hardware, LLDS offers to pay
-    // 3 credits or trash itself to put the hardware back into the rig (its "when trashed" effects have already been queued)
     object LLDSEnergyRegulator extends Rot("06039") {
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Trashed(x, Corp, _) if x.data.isHardware && g.owner(x).isRunner && g.inPlayZone(g.lastTrashedFrom) && g.zone(x) == DiscardZone(Runner) =>
-                $(ChooseOneEffect(Runner, "LLDS Energy Regulator: prevent the hardware from being trashed?", $(
-                    Alt("Pay 3 credits", $(PayCreditsEffect(Runner, 3), ReinstallEffect(x)), g.availableCredits(Runner, |(self)) >= 3),
-                    Alt("Trash LLDS Energy Regulator", $(TrashEffect(self, Runner, false), ReinstallEffect(x))),
-                    Alt("Do not prevent", $))))
-            case _ => $
-        }
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "trash" && Prevent.ctx.exists(_.cards.exists(_.data.isHardware))).??($(
+                Ability("prevent an installed piece of hardware from being trashed", c(3), $(PreventTrashChooseEffect(self, $("Hardware")))),
+                Ability("prevent an installed piece of hardware from being trashed", $(TrashSelfCost), $(PreventTrashChooseEffect(self, $("Hardware"))))))
     }
 
     object Refractor extends Rot("06057") {
@@ -474,7 +468,7 @@ object RotProgramCards3 {
     object DeusX extends Rot("25053") {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility($(TrashSelfCost), 0, $("AP")))
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net").$(Ability("trash Deus X to prevent all net damage", $(TrashSelfCost), $(MessageEffect(Runner, "prevents all net damage"))))
+            (kind == "net").$(Ability("trash Deus X to prevent all net damage", $(TrashSelfCost), $(Prevent.allDamage)))
     }
 
     object Pipeline extends Rot("25055") {

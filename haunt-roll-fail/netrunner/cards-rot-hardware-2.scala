@@ -37,7 +37,7 @@ object RotHardwareCards2 {
         def x(self : Card)(implicit g : Game) = 1 + g.installedCards(Runner).%(c => c.code == self.code && c != self).num
         override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] = {
             val k = x(self).atMost(n)
-            (kind == "net" || kind == "core").$(Ability("prevent " + k + " damage, trashing the top " + k + " cards of the stack", $(TrashSelfCost), $(TrashTopEffect(Runner, k, true), PreventWindowAction(kind, n - k))))
+            (kind == "net" || kind == "core").$(Ability("prevent " + k + " damage, trashing the top " + k + " cards of the stack", $(TrashSelfCost), $(TrashTopEffect(Runner, k, true), Prevent.damage(k))))
         }
     }
 
@@ -169,7 +169,7 @@ object RotHardwareCards2 {
 
     object ReconDrone extends RH("11103") {
         override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] =
-            g.run.exists(r => !r.ended && r.phase == AccessPhase).$(Ability("prevent " + n + " damage from the accessed card", $(TrashSelfCost, CreditCost(n)), $(PreventWindowAction(kind, 0))))
+            g.run.exists(r => !r.ended && r.phase == AccessPhase).$(Ability("prevent " + n + " damage from the accessed card", $(TrashSelfCost, CreditCost(n)), $(Prevent.allDamage)))
     }
 
     object Maw extends RH("12002") {

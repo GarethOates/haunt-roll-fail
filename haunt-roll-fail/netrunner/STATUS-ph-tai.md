@@ -63,7 +63,6 @@ Partial / simplified:
   enforced; the ice is installed and rezzed paying install + rez cost - 3.
 * **Abaasy, Orca, Curupira, Umbrella** "fully breaks": the card broke the last unbroken subroutine (it is not
   checked that it broke all of them).
-* **Banner**: prevents every "end the run" effect during that encounter (not only subroutine-sourced ones).
 * **Wage Workers**: counts the Corp's basic actions and click abilities (keyed by card copy and ability index) and
   gains the click right after the third action of a kind.
 * **Oppo Research**: "action phase ends" sets the Corp's clicks to 0.
@@ -73,8 +72,9 @@ Partial / simplified:
   second card gets a turn flag `cannot-score` honoured by the score options.
 * **Mercury**: "did not break any subroutines during that run" via run flags.
 * **Eru Ayase-Pessoa, Beatriz Friere Gonzalez**: the breach replacement rewrites the queued `BreachAction`.
-* **AirbladeX**: the encounter-ability prevention removes the ice's `onEncounter` effects from the queue (abilities
-  gained from ZATO City Grid are triggers and cannot be prevented); net damage prevention through `preventions`.
+* **AirbladeX**: the encounter ability and net damage preventions use the windows of `rules-ext-prevention.scala` (see
+  `STATUS-fix-prevention.md`); abilities gained from ZATO City Grid are triggers and cannot be prevented. (Banner: fixed, only
+  subroutines cannot end the run.)
 * **Virtual Service Agent**: "broken with a decoder" is tracked with per-encounter `broken-by` flags.
 * **Starlit Knight**: X is fixed when the encounter starts and the extra subroutines last for the run.
 * **Stegodon MK IV**: icebreakers get -2 while any ice has been derezzed during the current run.

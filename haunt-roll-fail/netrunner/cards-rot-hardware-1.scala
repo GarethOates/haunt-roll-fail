@@ -82,12 +82,14 @@ object RotHardwareCards1 {
         override def initialCounters(self : Card)(implicit g : Game) = Map("power" -> 4)
         override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "power")
         override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] =
-            (kind == "meat" && g.counter(self, "power") > 0).$(Ability("prevent 1 meat damage (1 hosted power counter)", NoCost, $(AddCounterEffect(self, "power", -1), PreventWindowAction("meat", n - 1))))
+            (kind == "meat").$(Ability("prevent 1 meat damage", $(CounterCost("power", 1)), $(Prevent.damage(1), TriggerEventAction(CounterAdded(self, "power")))))
     }
 
     object MureshBodysuit extends RH("02044") {
-        override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] =
-            (kind == "meat" && firstTime(self, "muresh")).$(Ability("prevent 1 meat damage (first time this turn)", NoCost, $(MarkUsedEffect(self, "muresh"), PreventWindowAction("meat", n - 1))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt("meat", 1, n) if Prevent.damageCtx.exists(_.firstThisTurn) => $(says(self, "prevent 1 meat damage"), Prevent.damage(1))
+            case _ => $
+        }
     }
 
     object Replicator extends RH("02088") {
@@ -118,8 +120,8 @@ object RotHardwareCards1 {
 
     object FeedbackFilter extends RH("03037") {
         override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] =
-            (kind == "net").$(Ability("prevent 1 net damage", c(3), $(PreventWindowAction("net", n - 1)))) ++
-            (kind == "core").$(Ability("prevent up to 2 core damage", $(TrashSelfCost), $(PreventWindowAction("core", (n - 2).atLeast(0)))))
+            (kind == "net").$(Ability("prevent 1 net damage", c(3), $(Prevent.damage(1)))) ++
+            (kind == "core").$(Ability("prevent up to 2 core damage", $(TrashSelfCost), $(Prevent.damage(2))))
     }
 
     object CloneChip extends RH("03038") {
@@ -421,7 +423,7 @@ object RotHardwareCards1 {
     object Forger extends RH("08065") {
         override def link(self : Card)(implicit g : Game) = 1
         override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] =
-            (kind == "tag").$(Ability("avoid 1 tag", $(TrashSelfCost), $(TagsEffect(n - 1))))
+            (kind == "tag").$(Ability("avoid 1 tag", $(TrashSelfCost), $(Prevent.tags(1))))
         override def abilities(self : Card)(implicit g : Game) = $(Ability("remove 1 tag", $(TrashSelfCost), $(RemoveTagsEffect(1)), ok = g.tagged, reason = "not tagged"))
     }
 
@@ -443,7 +445,7 @@ object RotHardwareCards1 {
     object Heartbeat extends RH("09032") {
         override def memory(self : Card)(implicit g : Game) = 1
         override def prevent(self : Card, kind : String, n : Int)(implicit g : Game) : $[Ability] =
-            $("net", "meat", "core").has(kind).$(Ability("trash an installed card to prevent 1 damage", $(TrashInstalledCost("")), $(PreventWindowAction(kind, n - 1))))
+            $("net", "meat", "core").has(kind).$(Ability("trash an installed card to prevent 1 damage", $(TrashInstalledCost("")), $(Prevent.damage(1))))
     }
 
     object BrainChip extends RH("09039") {

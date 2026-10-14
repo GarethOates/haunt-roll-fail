@@ -46,21 +46,20 @@ Shipping.
 
 ## Simplifications / partial cards
 
+(Dummy Box, Sacrificial Construct, Fall Guy, Chrome Parlor and Aeneas Informant were fixed by the prevention / timing pass:
+see `STATUS-fix-prevention.md`.)
+
 Not modelled because the engine has no hook for it (and adding one would need edits to shared files):
 
-* **Trash prevention** — Dummy Box, Sacrificial Construct: no effect; Fall Guy: only its "[trash]: gain 2" ability.
 * **Wireless Net Pavilion** — the extra 2 credits on the Corp's basic "trash a resource" action are not charged
   (`TrashResourceAction` is handled by the core before the extension rules see it).
 * **The Black File** — the power counters / removal work; "the Corp cannot win except by flatline" is not enforced
   (`checkWin` cannot be intercepted).
 * **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
-* **Chrome Parlor** — the engine does not record the source of damage: no effect.
 * **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
 
 Approximations:
 
-* **Aeneas Informant** — the "reveal and gain 1" offer for each accessed card with a trash cost that was not trashed
-  is made when the run ends instead of right after that access.
 * **Inside Man / Ice Analyzer** — runner installs pay without a purpose, so the restricted credits are moved to the
   pool with a "take" ability that is only usable while holding hardware / a program during your turn.
 * **Crash Space** — the hosted credits pay the 2 credits of the remove-tag action as a block ([click] + 2 hosted

@@ -282,8 +282,8 @@ object RotAgendaCards {
 
     object LabyrinthineServers extends RAg("06063") {
         override def onScore(self : Card)(implicit g : Game) = $(AddCounterEffect(self, "power", 2))
-        override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("the Runner cannot jack out for the remainder of this run", $(CounterCost("power", 1)),
-            $(SetRunFlagEffect("cannot-jack-out"), MessageEffect(Corp, "prevents the Runner from jacking out for the remainder of the run")), ok = g.run.exists(r => !r.ended && !r.cannotJackOut), reason = "only during a run")))
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "jack-out" && corpScored(self)).$(Ability("prevent the Runner from jacking out (the Runner cannot jack out for the remainder of this run)", $(CounterCost("power", 1)), $(Prevent.jackOut)))
     }
 
     object HadesFragment extends RAg("06071") {

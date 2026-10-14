@@ -58,16 +58,16 @@ generic mechanics each set introduced are in the set status files; the engine si
 
 | Set | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| System Gateway (sg) | 77 | 77 | AMAZE Amusements, Bran 1.0, Tao's swap | `cards-sg.scala` | this file |
+| System Gateway (sg) | 77 | 77 | Bran 1.0, Tao's swap | `cards-sg.scala` | this file |
 | Elevation (elev) | 82 | 82 | 11 (Bling, Detente, Open Market, Azimat, Public Access Plaza, IP Enforcement, The Zwicky Group, Plutus, Biawak, Petty Cash, Mahkota Langit Grid) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
 | Vantage Point (vp) | 66 | 66 | 14 (Corsair, Lampades, Hackerspace, Stick and Poke, Baker, Aircheck, Word on the Street, Perfect Recall, Melies U, The Red Room, Hype Machine, Myoshu, Reanimation Protocol, Flagship) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| System Update 2021 (su21) | 82 | 82 | 12 (Egret, En Passant, Daily Business Show, Architects of Tomorrow, Sneakdoor Beta, Ayla, Atman, Oaktown Renovation, Corporate Town / Archer, Marilyn Campaign, Reina Roja) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
+| System Update 2021 (su21) | 82 | 82 | 11 (Egret, En Passant, Daily Business Show, Architects of Tomorrow, Ayla, Atman, Oaktown Renovation, Corporate Town / Archer, Marilyn Campaign, Reina Roja) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Midnight Sun (ms) | 65 | 65 | 12 (Deep Dive, Into the Depths, Steelskin Scarring, Ob Superheavy Logistics, Azef Protocol, Light the Fire!, Mitosis, Anemone, Hakarl 1.0, Trieste, Mystic Maemi, ...) | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Uprising Booster Pack (urbp) | 7 | 7 | 3 (La Costa Grid, Cayambe Grid, Megaprix Qualifier) | `cards-ms.scala` | `STATUS-su21-ms.md` |
 | Parhelion (ph) | 63 | 63 | ~22 (Matryoshka, Asmund Pudlat, Nanuq, Hostile Architecture, Anvil, Klevetnik, Issuaq Adaptics, Superdeep Borehole, Bloop, ...) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | The Automata Initiative (tai) | 65 | 65 | ~22 (Urban Art Vernissage, Bahia Bands, Daniela Jorge Inacio, Tucana, Banner, Wage Workers, Front Company, A Teia, AirbladeX, Starlit Knight, ...) | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | Rebellion Without Rehearsal (rwr) | 65 | 65 | 7 (Sebastiao Souza Pessoa, Boi-tata, Manuel Lattes de Moura, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation) | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
-| Downfall (df) | 65 | 65 | 6 (Climactic Showdown, Trickster Taka, In the Groove, Direct Access, Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
+| Downfall (df) | 65 | 65 | 5 (Trickster Taka, In the Groove, Direct Access, Whistleblower, MirrorMorph) | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 | Uprising (ur) | 58 | 58 | 6 (Paladin Poemu, Mantle, Vaporframe Fabricator, GameNET, Earth Station, stealth restrictions); 7 ur codes are not in the card database | `cards-ur.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 
 Preset decks (`Decks.presets`, 48): 7 System Gateway starters, 15 su21/ms decks (decks.scala), 8 Startup decks
@@ -85,17 +85,22 @@ them by name.
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
 | ICE | 211 | 211 | ~21 (Vikram 1.0, Wendigo, Jua, Interrupt 0, Tithonium, RSVP, Mind Game, the grail ice, Data Hound, Waiver, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
-| Programs | 164 | 164 | ~26 (stealth / recurring-credit breakers, Hivemind, LLDS Energy Regulator, Net Shield, Tracker, Mass-Driver, Copycat, Sneakdoor Prime A/B, Customized Secretary, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
-| Resources | 164 | 164 | ~23 (no trash-prevention hook: Dummy Box, Sacrificial Construct, Fall Guy; Wireless Net Pavilion, The Black File, Paparazzi, Chrome Parlor, Starlight Crusade Funding; approximations: Aeneas Informant, Inside Man, Crash Space, Network Exchange, DJ Fenris, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
-| Events | 148 | 148 | ~24 (Escher, Corporate Scandal, Cold Read, Immolation Script, Divide and Conquer, ask-level restrictions of Interdiction / Hacktivist Meeting / Security Leak / Blackmail, Apocalypse / Reboot faceup flip, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Programs | 164 | 164 | ~21 (stealth / recurring-credit breakers, Hivemind, Tracker, Mass-Driver, Customized Secretary, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| Resources | 164 | 164 | ~18 (Wireless Net Pavilion, The Black File, Paparazzi's "you are tagged", Starlight Crusade Funding; approximations: Inside Man, Crash Space, Network Exchange, DJ Fenris, Salvaged Vanadis Armory, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
+| Events | 148 | 148 | ~20 (Escher, Corporate Scandal, Cold Read, ask-level restrictions of Interdiction / Hacktivist Meeting / Security Leak / Blackmail, Apocalypse / Reboot faceup flip, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
 | Operations | 146 | 146 | ~25 (Surveillance Sweep, Net Watchlist, Enhanced Login Protocol, Media Blitz, Oversight AI, "name a card" lists, alliance influence, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
-| Assets | 144 | 144 | ~25 (recurring credits as cost modifiers, Broadcast Square, Director Haas / Victoria Jenkins clicks, Jeeves, Sundew, Genetics Pavilion, Blacklist, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
+| Assets | 144 | 144 | ~24 (recurring credits as cost modifiers, Director Haas / Victoria Jenkins clicks, Jeeves, Sundew, Genetics Pavilion, Blacklist, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
 | Agendas | 114 | 114 | ~12 (Mandatory Upgrades / Seed Replacement, Accelerated Beta Test, Bacterial Programming, Personality Profiles, Unorthodox Predictions, Evidence Collection 1-3 no effect, ...) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Upgrades | 79 | 79 | ~16 (Satellite Grid no effect, Navi Mumbai, Midway Station / Armored Servers break costs, Simone Diego / DTT / Khondi recurring credits, Heinlein Grid, Tyr's Hand, Tori Hanzo, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Hardware | 101 | 101 | ~18 (install/play-only recurring credits as discounts, MemStrips / Knobkierie / Deep Red, Ekomind, Patchwork, Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| Upgrades | 79 | 79 | ~11 (Satellite Grid no effect, Midway Station / Armored Servers break costs, Simone Diego / DTT / Khondi recurring credits, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Hardware | 101 | 101 | ~17 (install/play-only recurring credits as discounts, MemStrips / Knobkierie / Deep Red, Ekomind, Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | Identities | 90 | 90 | ~16 (Apex, Adam, SSO Industries, Seidr, Archives Interface, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design timing, deck-building restrictions not enforced: The Professor, Custom Biotics, ...) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | **Total rotated** | **1,361** | **1,361** | **~206** | | |
 | **All cards** | **2,056** | **2,056** | ~330 (current sets ~120 + rotated ~206) | | |
+
+The prevention / interrupt / timing pass (2026-10-14, `rules-ext-prevention.scala`, `STATUS-fix-prevention.md`) replaced the
+continuation-style prevention abilities by real windows and fixed the timing of ~40 cards (trash prevention, tag / damage /
+end-the-run / jack-out / bad publicity / encounter-ability prevention, Tyr's Hand, Patchwork, Aeneas Informant, Divide and
+Conquer, Immolation Script, Climactic Showdown, AMAZE Amusements, Sneakdoor Beta / Prime, trace result ordering, ...).
 
 Mechanics that several rotated ports defined independently were unified in the merge (one definition each, see
 `ENGINE.md` section 8): expose (`ExposeEffect(cards)` / one `Exposed(cards)` event, Corp responses such as Zaibatsu
@@ -224,14 +229,15 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   encounter do not open a window); a player who declined a set of options is not asked again
   for the same options until something happens. In a hotseat (both humans in one browser) only the active
   player's prompt is visible, so the off-turn window is effectively unavailable there (use online play).
-* AMAZE Amusements only fires while installed and rezzed (not the "trashed during the run" case).
 * Brân 1.0 installs the chosen ice directly inside itself (jinteki installs at Brân's index).
 * Tāo's ice swap keeps the run position by index.
 * Traces and psi games are exercised by later-set cards (Winchester, Punitive Counterstrike, Konjin, Letheia Nisei,
   See How They Run) and were played in the QA online games (see Tested).
-* Prevention: net damage (AirbladeX, Prāna Condenser), end-the-run (Lucky Charm), trace strength (Flip Switch) and core
-  damage (Mr. Hendrik) preventions exist; no card of the eleven implemented sets avoids or prevents tags, so the
-  "tag" prevention window is reachable only by future cards.
+* Prevention / interrupts: damage, tags, bad publicity, end the run, jack out, trash (installed Runner cards), "when
+  encountered" abilities and subroutine breaking (Tyr's Hand) go through the prevention windows of
+  `rules-ext-prevention.scala` (forced interrupts first, then both players with priority, the active player first); see
+  `STATUS-fix-prevention.md` and ENGINE.md section 8.2. "When a trace is initiated" abilities (Flip Switch, Disrupter,
+  Power Tap, Compromised Employee) still use the older one-shot "trace" ask of `TraceEffect`.
 * Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
 * Hidden information is hidden by the UI only; the Manual menu lets the Corp move the top cards of R&D. A viewer
   without a seat (the spectator link, bot-vs-bot games) sees everything, including both hands and facedown cards
