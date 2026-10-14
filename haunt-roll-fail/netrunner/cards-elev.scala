@@ -1055,6 +1055,8 @@ object ElevCards {
 
     object Plutus extends Startup("35073") {
         override def onRez(self : Card)(implicit g : Game) = $(PlutusRezAction(self))
+        // the additional rez cost must be payable (otherwise the rez is offered, fails and is offered again)
+        override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda) || g.hand(Corp).num >= 3
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.isRezzed(self) =>
                 val l = g.discard(Corp).%(c => c.data.isOperation && g.has(c, "Transaction") && g.credits(Corp) >= g.playCost(c) && g.impl(c).canPlay(c))

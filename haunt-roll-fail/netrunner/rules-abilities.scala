@@ -58,7 +58,8 @@ trait AbilityRules { game : Game =>
             passedSig += f -> windowSig(l)
         // the non-blocking window between actions is always offered again after each action
         val declined = (kind != "action") && passedSig.get(f).has(windowSig(l))
-        (l.any && windowPassed.has(f).not && !declined).?(Ask(f).group(windowTitle(kind)).add(l).add(WindowPassAction(f, kind)))
+        // greyed-out options alone (abilities that cannot be used now) do not open a window
+        (l.exists(a => !a.is[Unavailable]) && windowPassed.has(f).not && !declined).?(Ask(f).group(windowTitle(kind)).add(l).add(WindowPassAction(f, kind)))
     }
 
     // consume the "just acted" marker (valid only for the window re-asked right after the action)

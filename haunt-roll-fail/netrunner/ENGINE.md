@@ -38,7 +38,7 @@ definitions (`/Users/gareth/Developer/HRF/netrunner-src/src/clj/game/cards/*.clj
   `EncounterAction`), `movement` (after passing ice: jack out / continue), `approach-server`.
   `windowOptions(f, kind)` lists what `f` can do: rez non-ice cards (Corp), score agendas (Corp, `canScoreNow`:
   only the windows of its own turn outside runs), non-click paid abilities, jack out. A window is skipped for a
-  player with no options; a player who passed is not asked again while their options are unchanged
+  player with no usable options (greyed-out `ok = false` / unaffordable abilities alone do not open it); a player who passed is not asked again while their options are unchanged
   (`passedSig`, `windowSig`), and after using a window action they are not re-asked until their options change.
   Anything that "happens" (`spendClick`, triggered effects, credit gains, breaking, rezzing) reopens the windows
   (`reopenWindows()`). Basic actions spend clicks through `spendClick(f, n)` (counts `reg("actions")` and reopens
@@ -53,7 +53,10 @@ definitions (`/Users/gareth/Developer/HRF/netrunner-src/src/clj/game/cards/*.clj
   `push(AccessDoneAction(c)); stealAgenda(c)`. Scoring and stealing move the agenda, then queue `onScore`/`onSteal`,
   the `AgendaScored`/`AgendaStolen` triggers and finally `CheckWinAction` at the very front (the win is checked
   before any "when scored" ability resolves).
-* **Trashing** (`trashCard`): hosted cards leave play with their host (and get their own `Trashed` events), a
+* **Trashing** (`trashCard`): a Corp card goes to Archives faceup only if the Runner has seen it (rezzed, accessed,
+  revealed / `seen`, scored, or an operation in the play area); cards trashed from HQ / R&D and unrezzed installed
+  cards go facedown and the log says "a card" (the log is shared by both players, never name a hidden Corp card in
+  it). Hosted cards leave play with their host (and get their own `Trashed` events), a
   `CheckMemoryAction` is queued when a Runner card leaves play (the Runner must trash programs while MU is
   exceeded), unique Corp cards trash other rezzed copies when rezzed (`rezCard`), unique Runner cards on install.
 * **Access** (rules-access.scala): cards from R&D are accessed in order (top first), root cards may be accessed
@@ -139,6 +142,15 @@ When an effect needs the card's own logic (computed at resolution time, not at q
 for card choices: `ChooseCardEffect(f, candidates, XPurpose(self), ...)` calls `chosen(p, cards)` on the
 implementation with the selected cards. Both must be **top-level** classes in package `netrunner` with
 serialisable fields (Int, Boolean, String (ASCII), Faction, Card, Server, Option, List, other records).
+
+**Build choices when they resolve, not when they are queued.** `triggers` are collected when the event fires and
+several triggered effects may resolve before yours (Earthrise Hotel draws at "turn begins" before Read-Write Share
+asks which grip card to host). A `ChooseCardEffect(f, g.hand(f), ...)` built inside `triggers` would offer the stale
+grip; queue a `CardAction` instead and build the choice in `perform` (`RwsAskAction` in cards-vp.scala).
+
+**Additional rez / play costs.** If a card has an additional cost that can be unpayable (Plutus: forfeit an agenda or
+trash 3 cards from HQ), override `canRez` / `canPlay` so the option is greyed out; otherwise the rez is offered, fails
+and is offered again (the bots loop on it).
 
 ## 5. Worked examples (ported from the Clojure sources)
 

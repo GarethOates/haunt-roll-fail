@@ -275,7 +275,7 @@ trait SU21Rules { game : Game =>
 
         case RandomTrashedAction(f, l) =>
             l.foreach(c => if (f.isCorp) toArchives(c, false) else moveTo(c, DiscardZone(f)))
-            log(f, "trashes", l./(cardElem).comma, "at random from hand")
+            log(f, "trashes", f.isCorp.?(l.num.cards).|(l./(cardElem).comma), "at random from hand")
             NextAction
 
         case LoseAllClicksEffect(f) =>

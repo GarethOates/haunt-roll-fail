@@ -52,8 +52,12 @@ the export's top-level `:rotated` flag is false for every card).
 2. Downloads `https://card-images.netrunnerdb.com/v2/large/<code>.jpg` into
    `netrunner/assets-cache/jpg/<code>.jpg`. Existing files are skipped, so the
    script is resumable; at most 5 requests/second; transient errors are retried;
-   codes the CDN does not have (it answers 403/404) are listed in
-   `netrunner/assets-cache/missing.txt`.
+   when the CDN answers 403/404 the script also tries `static.nrdbassets.com/v1`,
+   `card-images.netrunnerdb.com/v1` and the image URLs listed by the NetrunnerDB
+   v3 (`api-preview`) and v2 card APIs; codes without any image are listed in
+   `netrunner/assets-cache/missing.txt` (currently 014001 The Collective and
+   014002 Chronos Protocol, two unreleased identities that NetrunnerDB does not
+   know; the UI draws them as the card back with the title).
 3. Converts each jpg to `webp2/netrunner/images/<code>.webp` (quality 82, native
    300x420 size, metadata stripped; skipped when already up to date).
 4. Converts the jinteki.net card backs and faction logos from

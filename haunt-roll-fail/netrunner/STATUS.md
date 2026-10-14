@@ -86,26 +86,67 @@ were turned into `case object`s so that the journal round trip works (the branch
 them). The `isActive` check of a hosted card reads the host's `disablesHosted` from the raw implementation (the
 `extImpl` wrapper made it recursive).
 
-Known gaps carried over from the branches: cards hosted without being installed (`StashZone`: Bling, Madani, Detente,
-Read-Write Share, Asmund Pudlat, Matryoshka) and cards hosted on identities (Ayla) are not rendered by the UI; bad
-publicity credits are a permanent gain instead of run-only credits; "remote server only" / "limit 1 region per server"
-install restrictions are not enforced; stealth-credit restrictions are relaxed (hosted credits are usable during runs).
+Known gaps carried over from the branches: bad publicity credits are a permanent gain instead of run-only credits;
+"remote server only" / "limit 1 region per server" install restrictions are not enforced; stealth-credit restrictions
+are relaxed (hosted credits are usable during runs). (The UI gap for cards hosted without being installed and for
+cards set aside on identities was closed in the QA pass, see "UI additions of the QA pass".)
+
+### UI additions of the QA pass
+
+* Cards hosted without being installed (`StashZone`: Bling, Madani, Detente, Read-Write Share, Asmund Pudlat,
+  Matryoshka's copies, ...) are drawn under their host like installed hosted cards, tagged "not installed" (or dimmed
+  when facedown); the opponent sees card backs unless the card is faceup / seen. Cards set aside on an identity (Ayla)
+  are drawn under the identity, tagged "set aside", and are visible to their owner only. Hover text says "hosted on X
+  (not installed)".
+* Every zone has a place on the board: removed-from-game piles (per side, count + overlay listing the visible cards),
+  the play area (operations / events that stay active: run events with their hosted credits, lockdowns), "installed"
+  rig section for Runner cards that are neither program, hardware nor resource.
+* Markers: the mark (Runner header + "(mark)" next to the server name), the threat level (Corp header, only while a
+  card in play mentions Threat), allotted clicks for next turn (Wage Workers...), any extra counter kind on a card
+  (bad pub, agenda, ...), bad publicity hosted on cards, per-card lingering flags (disabled, cannot break, net damage
+  subs, ...) as tags, game-level lingering flags as an "in effect:" line, run restrictions/bonuses in the run line
+  ("cannot steal or trash", "no access", "+1 access (R&D)", ...). Header stats are singular/plural aware.
+* Card images: a printing without an image (the two unreleased identities 014001 The Collective and 014002 Chronos
+  Protocol have none on NetrunnerDB; `fetch-assets.py` now also tries the v1 hosts and the v2/v3 APIs) or whose image
+  failed to load is drawn as the card back with the title on top (board, hand, zoom, menus, deck gallery). Card
+  images have a fixed height so the layout does not jump while images load lazily.
+* Layout robustness: ice is stacked vertically above the root (outermost on top); each board shrinks its font size
+  (all card sizes are in ex) until it fits its pane, so very long hands, many remotes and 10+ ice per server stay on
+  screen (tested with 24 cards in HQ, 8 remotes and 9 ice on HQ). Multi-value `margin`/`padding` styles were silently
+  dropped by the HRF CSS generator; they are now written per side.
+* Game end: the run line / attacked-server marker / "turn N" badge are hidden once the game is over. "Save Replay"
+  (self-contained HTML) is not offered: the framework embeds every declared image asset as a data URL and Netrunner
+  declares ~2,000 lazily loaded card images (62 MB), so the save crashed with "url not loaded". Online games show
+  "This game is saved on the server: open any of its links to replay it"; local games offer "Save Game Online" (as Coup
+  does) and "Play Again".
 
 ## Simplifications / known gaps
 
 * Paid ability windows follow the NSG structure (see ENGINE.md): start of turn (before and after "when your turn
   begins"), between actions (the opponent's window is non-blocking and shown next to the active player's prompt),
   after discarding, run initiation, approach ice, encounter (Corp side), after passing ice (movement), approach
-  server. Players who have nothing usable are skipped; a player who declined a set of options is not asked again
+  server. Players who have nothing usable are skipped (greyed-out options such as an Abagnale bypass outside an
+  encounter do not open a window); a player who declined a set of options is not asked again
   for the same options until something happens. In a hotseat (both humans in one browser) only the active
   player's prompt is visible, so the off-turn window is effectively unavailable there (use online play).
 * AMAZE Amusements only fires while installed and rezzed (not the "trashed during the run" case).
 * Brân 1.0 installs the chosen ice directly inside itself (jinteki installs at Brân's index).
 * Tāo's ice swap keeps the run position by index.
-* Traces/psi games are implemented but no System Gateway card uses them (untested in play).
-* The prevention window exists (`CardImpl.preventions`) but no System Gateway card prevents damage/tags.
+* Traces and psi games are exercised by later-set cards (Winchester, Punitive Counterstrike, Konjin, Letheia Nisei,
+  See How They Run) and were played in the QA online games (see Tested).
+* Prevention: net damage (AirbladeX, Prāna Condenser), end-the-run (Lucky Charm), trace strength (Flip Switch) and core
+  damage (Mr. Hendrik) preventions exist; no card of the eleven implemented sets avoids or prevents tags, so the
+  "tag" prevention window is reachable only by future cards.
 * Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
-* Hidden information is hidden by the UI only; the Manual menu lets the Corp move the top cards of R&D.
+* Hidden information is hidden by the UI only; the Manual menu lets the Corp move the top cards of R&D. A viewer
+  without a seat (the spectator link, bot-vs-bot games) sees everything, including both hands and facedown cards
+  (the game creator receives all links anyway). The shared log never names a Corp card the Runner has not seen
+  (Hansei Review / sabotage / random trashes from HQ are logged as "a card").
+* Online play: both clients (and the spectator) race to append framework milestones and shuffle results; the losers
+  get `HTTP 409` (players) / `HTTP 500` (spectator, read-only) in the console. This is the HRF framework's design and
+  harmless (the journal stays consistent, replays are identical).
+* Cards accessed while installed and left in place are not remembered as "seen" by the Runner's UI (they are drawn
+  as card backs again after the run).
 * The framework logs `NetworkError` exceptions in headless Chrome for every game (also Coup): they come from the
   shell (font loading), not from the plugin.
 * `cards-data*.scala` and `webp2/netrunner/images` are produced by the asset agent; `question-mark.png`,
@@ -170,6 +211,46 @@ install restrictions are not enforced; stealth-credit restrictions are relaxed (
   Personal Evolution net damage, draw, end of turn with the discard window, the Corp bot's next turn with the Runner's
   non-blocking "No action" window. No plugin exceptions in the console (only the shell's `NetworkError` font-loading
   entries and 404s for card images that are not in the local asset cache).
+
+### Tested in the QA pass (2026-10-14, final build)
+
+* Online game 1 "Rez at Trace" (good-game on port 7070, headless Chrome over the DevTools protocol, one tab per link,
+  plus the spectator tab): Play Online > New Online Game > Corp + Runner > Start Setup > Start gave three links
+  (Corp `wctbjntlvxzuhxfl`, Runner `povjudvowfaczejm`, spectator `dyzdrravjkzwfmbr`); each player link only asked for
+  a name (no account). Both decks were NetrunnerDB decklist imports (Corp "Jinteki: Restoring Humanity" with Brân,
+  Ansel, Winchester, Konjin, Karunā, 41 cards, 13/15 influence; Runner "Zahya Sadeghi" with Carmen, Abagnale,
+  AirbladeX, Lucky Charm, Flip Switch, Read-Write Share, 45 cards, 7/15 influence), including the error messages for
+  an unknown card and a 4th copy. Played 12 turns from both seats to the Runner's 7-point win (stole See How They Run
+  twice, Offworld Office, Superconducting Hub; the Corp scored Offworld Office): mulligan, Hedge Fund / Hansei Review
+  (trashed card now facedown and logged as "a card"), installs by clicking hand cards, rez windows, Karunā net damage
+  with random discards and jack out, Brân click-breaks (lose [click]) and its "install ice from HQ" sub (Tithe
+  installed behind it), Abagnale break and trash-to-bypass, Carmen pump + break, Overclock run credits paying a
+  trash cost, pay-to-trash Regolith, Inside Job bypass, Palisade ETR prevented by Lucky Charm (removed-from-game pile
+  shown), AirbladeX preventing 2 net damage one at a time, Konjin psi game (Corp bid hidden from the Runner until both
+  bid), Security Testing replacing breaches, Archives breach turning facedown cards faceup, R&D and HQ accesses,
+  Zahya's credits, Read-Write Share hosting 4 facedown cards (drawn under it, card backs for the Corp), the
+  scoring of Offworld Office from a window, undo from the Runner ("Undo to here" undid 2 actions) and from the Corp,
+  reloading both player links and the spectator link mid-game and after the game (journal replay with newer builds),
+  the game-over screen on all three tabs.
+* Online game 2 "Purge against Steal" (Corp `gzxtzroimjfbuesj`, Runner `qouajghxfmhzkqzw`, spectator
+  `iinsmcycoqqsiqmf`, same decklists, started by the previous QA iteration on an older build and replayed on the
+  new one): traces from Winchester (Corp boosting, the Runner paying 4 for link 4 to beat a strength 4 trace, a
+  successful ETR trace, a hardware-trash trace with no hardware), Konjin with differing bids and the Corp choosing
+  Ansel for the forced encounter, Ansel click-breaks and Carmen breaking Ansel, Ansel's "install a card from HQ or
+  Archives" (Letheia Nisei installed in the attacked server), "cannot steal or trash" shown in the run line, Urtica
+  Cipher's net damage on access, Send a Message scored with its free rez, Red Team, Pennyshaver, Legwork's extra HQ
+  accesses, Dirty Laundry; ended by the Corp conceding (turn 14, game over on both tabs).
+* Bot games in the browser (`?speed=20`, Local Game, Basic vs Basic, "Play Again" chained): 20 games to completion
+  (wins by agenda points, flatline and R&D decking) across random presets including Ayla, Quetzal, Ken, Sable,
+  Hoshiko, Sebastião, NEH, A Teia, Thule, GameNET, Thunderbolt, Pravdivost; no console exception.
+* Local human-vs-bot games: Ayla's 4 set-aside cards drawn under the identity; an imported "The Collective" deck
+  (identity without an image) drawn as card back + title; a stress board built with the Manual menu (24 cards in HQ,
+  8 remotes, 9 ice on HQ) fits the pane; "Save Game Online" turned the local game into an online one (lobby
+  `tgzepqetyxojwlzy`, Corp link `jygbtodwfrmfjqeg`) which loaded with the full board.
+* JVM harness (scratchpad `mergehost`, all 48 presets, every action round-tripped through `Serialize`): 600 games,
+  0 errors, after fixing the Plutus rez loop it had exposed ("game too long" in 1 of ~300 games before).
+* Console noise that is not the plugin's: `HTTP 409` / `HTTP 500` on `/append` (framework milestone races, see
+  Simplifications).
 
 ## Known bugs
 

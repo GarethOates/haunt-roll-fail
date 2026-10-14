@@ -9,8 +9,11 @@ Steps:
   1. Collect every card code from the generated netrunner/cards-data-*.scala files.
   2. Download https://card-images.netrunnerdb.com/v2/large/<code>.jpg
      into netrunner/assets-cache/jpg/<code>.jpg (skip existing, resumable,
-     <= 5 requests/second, retries on transient errors, 403/404s logged to
-     netrunner/assets-cache/missing.txt).
+     <= 5 requests/second, retries on transient errors). When the CDN answers
+     403/404 the older hosts (static.nrdbassets.com v1, card-images v1) and the
+     image URLs listed by the NetrunnerDB v3 API for the printing are tried;
+     codes without any image are logged to netrunner/assets-cache/missing.txt
+     (the UI shows a card back with the title for them).
   3. Convert each jpg to webp2/netrunner/images/<code>.webp
      (Pillow, quality 82, native size, metadata stripped; skipped when up to date).
   4. Convert the jinteki.net card backs and faction logos:
@@ -22,6 +25,7 @@ Both netrunner/assets-cache/ and webp2/ are git-ignored.
 """
 
 import glob
+import json
 import os
 import re
 import sys
@@ -37,6 +41,15 @@ NETRUNNER_DIR = os.path.dirname(HERE)
 HRF_DIR = os.path.dirname(NETRUNNER_DIR)
 
 IMAGE_URL = "https://card-images.netrunnerdb.com/v2/large/%s.jpg"
+# tried in order when the primary CDN answers 403/404 (older NetrunnerDB asset hosts)
+FALLBACK_IMAGE_URLS = [
+    "https://static.nrdbassets.com/v1/large/%s.jpg",
+    "https://card-images.netrunnerdb.com/v1/large/%s.jpg",
+]
+# the v3 API lists the image URLs of a printing (attributes.images.<set>.large)
+API_PRINTING_URL = "https://api-preview.netrunnerdb.com/api/v3/public/printings/%s"
+# the v2 API gives an image_url per card (or an imageUrlTemplate for the whole response)
+API_V2_CARD_URL = "https://netrunnerdb.com/api/2.0/public/card/%s"
 CACHE_DIR = os.path.join(NETRUNNER_DIR, "assets-cache", "jpg")
 MISSING_LOG = os.path.join(NETRUNNER_DIR, "assets-cache", "missing.txt")
 OUT_DIR = os.path.join(HRF_DIR, "webp2", "netrunner", "images")
@@ -77,12 +90,61 @@ class RateLimiter:
         self.next_at = max(now, self.next_at) + self.interval
 
 
+def fetch_json(url, limiter, log):
+    limiter.wait()
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+        log("api %s: %s" % (url, e))
+        return None
+
+
+def api_image_urls(code, limiter, log):
+    """Image URLs the NetrunnerDB APIs list for a printing (empty when unknown)."""
+    urls = []
+    v3 = fetch_json(API_PRINTING_URL % code, limiter, log) or {}
+    images = ((v3.get("data") or {}).get("attributes") or {}).get("images") or {}
+    for variants in images.values():
+        if isinstance(variants, dict):
+            for key in ("large", "medium", "small"):
+                u = variants.get(key)
+                if u and u not in urls:
+                    urls.append(u)
+    v2 = fetch_json(API_V2_CARD_URL % code, limiter, log) or {}
+    template = v2.get("imageUrlTemplate")
+    for card in v2.get("data") or []:
+        u = card.get("image_url") or (template and template.replace("{code}", code))
+        if u and u not in urls:
+            urls.append(u)
+    return urls
+
+
 def download(code, limiter, log):
     """Returns 'ok', 'cached', 'missing' or 'failed'."""
     dest = os.path.join(CACHE_DIR, code + ".jpg")
     if os.path.exists(dest) and os.path.getsize(dest) > 0:
         return "cached"
-    url = IMAGE_URL % code
+    r = download_url(code, IMAGE_URL % code, dest, limiter, log)
+    if r != "missing":
+        return r
+    for template in FALLBACK_IMAGE_URLS:
+        r = download_url(code, template % code, dest, limiter, log)
+        if r != "missing":
+            return r
+    for url in api_image_urls(code, limiter, log):
+        if url == IMAGE_URL % code:
+            continue
+        r = download_url(code, url, dest, limiter, log)
+        if r != "missing":
+            return r
+    log("404 %s" % code)
+    return "missing"
+
+
+def download_url(code, url, dest, limiter, log):
+    """Returns 'ok', 'missing' (403/404, try the next source) or 'failed'."""
     for attempt in range(1, RETRIES + 1):
         limiter.wait()
         try:
@@ -99,7 +161,6 @@ def download(code, limiter, log):
         except urllib.error.HTTPError as e:
             if e.code in (403, 404):
                 # the CDN answers 403 for images that do not exist
-                log("404 %s" % code)
                 return "missing"
             log("HTTP %d %s (attempt %d)" % (e.code, code, attempt))
             if e.code in (429, 500, 502, 503, 504) and attempt < RETRIES:

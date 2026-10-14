@@ -632,6 +632,8 @@ trait EffectRules { game : Game =>
     }
 
     def trashCard(c : Card, by : Faction, accessed : Boolean) {
+        // Corp cards the Runner has not seen (from HQ / R&D, unrezzed installed cards) go to Archives facedown
+        val faceup = owner(c).isRunner || state(c).seen || isRezzed(c) || accessed || zone(c).is[ScoredZone] || zone(c).is[PlayZone]
         val wasInstalled = isInstalled(c)
         val hostedInstalledCards = wasInstalled.??(hostedInstalled(c))
         lastTrashedRezzed = isRezzed(c)
@@ -640,12 +642,12 @@ trait EffectRules { game : Game =>
         val wasRezzed = isRezzed(c)
         lastTrashedFrom = from
         if (owner(c).isCorp)
-            toArchives(c, true)
+            toArchives(c, faceup)
         else
             moveTo(c, DiscardZone(Runner))
         if (hostedTrashed.any)
             log("Hosted cards trashed:", hostedTrashed./(cardElem).comma)
-        log(by, "trashes", cardElem(c), from match {
+        log(by, "trashes", faceup.?(cardElem(c)).|("a card".hl), from match {
             case HandZone(Corp) => "from HQ".txt
             case DeckZone(Corp) => "from R&D".txt
             case HandZone(Runner) => "from the grip".txt

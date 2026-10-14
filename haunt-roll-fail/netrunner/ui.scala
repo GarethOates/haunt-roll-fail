@@ -60,14 +60,53 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     case DiscardZone(Corp) => v.isCorp || g.state(c).seen
                     case DiscardZone(Runner) => true
                     case RootZone(_) | IceZone(_) => v.isCorp || g.isRezzed(c) || g.state(c).seen
+                    // cards set aside on an identity (Ayla) are known to their owner only
+                    case HostedZone(h) if g.zone(h).is[IdentityZone] => g.owner(c) == v || g.state(c).seen
                     case HostedZone(h) => g.owner(c) == v || (g.owner(c).isCorp && (g.isRezzed(c) || g.state(c).seen)) || (g.owner(c).isRunner && !g.state(c).facedown)
+                    // cards hosted without being installed (Bling, Detente, Read-Write Share, Asmund Pudlat, Matryoshka...)
+                    case StashZone(_) => g.owner(c) == v || g.state(c).seen || (g.owner(c).isRunner && !g.state(c).facedown)
                     case RigZone => v.isRunner || !g.state(c).facedown
+                    case RemovedZone(_) => g.owner(c) == v || g.state(c).seen || g.owner(c).isRunner
                     case _ => true
                 }
         }
     }
 
     def back(c : Card) = game.owner(c).isCorp.?("corp-back").|("runner-back")
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Card images with a fallback for missing assets
+    // ---------------------------------------------------------------------------------------------------------------
+
+    // printings without an image on NetrunnerDB (the asset script logs them in assets-cache/missing.txt)
+    val knownMissingImages : Set[String] = Set("014001", "014002")
+
+    // true when the image of a card is known to be unavailable (not declared, or its load failed)
+    def imageMissing(code : String) : Boolean = {
+        if (knownMissingImages.contains(code))
+            return true
+        val images = resources.images
+        if (images.has(code))
+            return false
+        if (!images.hasSource(code))
+            return true
+        try { images.loader.error(images.getSource(code)) } catch { case e : Throwable => true }
+    }
+
+    // a card image, or a card back with the title when the image is not available
+    def cardFace(code : String, style : Style, extra : $[Style] = $) : Elem = {
+        val data = Cards.get(code)
+        if (imageMissing(code)) {
+            val back = data./(d => d.isCorp.?("corp-back").|("runner-back")).|("corp-back")
+            val title = data./(_.title).|(code)
+            val img = Image(back, style)
+            Div(img.copy(styles = img.styles ++ extra) ~ title.spn(styles.placeholderTitle)((style == styles.cardTiny || style == styles.cardSmall).$(styles.placeholderSmall)), styles.placeholder)
+        }
+        else {
+            val img = Image(code, style)
+            img.copy(styles = img.styles ++ extra)
+        }
+    }
 
     // ---------------------------------------------------------------------------------------------------------------
     // Cards on the board
@@ -78,38 +117,79 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def cardImage(c : Card, style : Style, extra : $[Style] = $) : Elem = {
         val g = game
         val visible = canSee(c)
-        val inPlay = g.inPlayZone(g.zone(c))
+        val z = g.zone(c)
+        val inPlay = g.inPlayZone(z)
         val unrezzed = inPlay && g.owner(c).isCorp && !g.isRezzed(c)
-        val facedown = inPlay && g.owner(c).isRunner && g.state(c).facedown
-        val img = visible.?(Image(c.code, style)).|(Image(back(c), style))
-        val styled = img.copy(styles = img.styles ++ extra ++ (visible && unrezzed).$(styles.unrezzed) ++ (visible && facedown).$(styles.facedown) :+ styles.actionable)
+        val facedown = (inPlay || z.is[StashZone]) && g.state(c).facedown
+        val styled =
+            if (visible)
+                cardFace(c.code, style, extra ++ unrezzed.$(styles.unrezzed) ++ facedown.$(styles.facedown) :+ styles.actionable)
+            else {
+                val img = Image(back(c), style)
+                img.copy(styles = img.styles ++ extra :+ styles.actionable)
+            }
         clickable(styled, c)
     }
+
+    val standardCounters = $("advancement", "virus", "credit", "power", "agenda")
 
     def badges(c : Card) : Elem = {
         val g = game
         val s = g.state(c)
         val visible = canSee(c)
+        val other = s.counters.toList.filter { case (k, n) => !standardCounters.has(k) && n > 0 }.sortBy(_._1)
         val l =
             (s.advancement > 0).$((s.advancement + " adv").spn(styles.badge)(styles.badgeAdv)) ++
             (s.virus > 0).$((s.virus + " virus").spn(styles.badge)(styles.badgeVirus)) ++
             (s.credits > 0).$((s.credits + "c").spn(styles.badge)(styles.badgeCredit)) ++
             (s.power > 0).$((s.power + " power").spn(styles.badge)(styles.badgePower)) ++
             (s.counter("agenda") > 0).$((s.counter("agenda") + " agenda").spn(styles.badge)(styles.badgePower)) ++
+            other.map { case (k, n) => (n + " " + counterLabel(k)).spn(styles.badge)(styles.badgePower) } ++
+            g.hostedBadPub.get(c).%(_ > 0).$./(n => (n + " bad pub").spn(styles.badge)(styles.badgeMark)) ++
             (visible && c.data.isIce && g.isRezzed(c) && g.iceStrength(c) != c.data.strength.|(0)).$(("str " + g.iceStrength(c)).spn(styles.badge)(styles.badgeStr)) ++
             (visible && c.data.isIcebreaker && g.breakerStrength(c) != c.data.strength.|(0)).$(("str " + g.breakerStrength(c)).spn(styles.badge)(styles.badgeStr))
         l.any.?(Div(l.merge, styles.badges)).|(Empty)
     }
 
-    def tagLabel(c : Card) : Elem = {
+    def counterLabel(k : String) = k match {
+        case "badpub" => "bad pub"
+        case k => k.replace("-", " ")
+    }
+
+    // per-card lingering flags worth showing on the board
+    def flagLabels(c : Card) : $[String] = {
         val g = game
-        val inPlay = g.inPlayZone(g.zone(c))
-        if (inPlay && g.owner(c).isCorp && !g.isRezzed(c) && canSee(c))
-            "unrezzed".spn(styles.tag)
-        else if (inPlay && g.owner(c).isRunner && g.state(c).facedown && canSee(c))
-            "facedown".spn(styles.tag)
-        else
+        if (g.flags.none)
+            return $
+        $("disabled", "cannot-break", "net-subs", "max-break-1", "cannot-score").%(k => g.hasFlag(k, c))./ {
+            case "net-subs" => "net damage subs"
+            case "max-break-1" => "break 1 sub max"
+            case k => k.replace("-", " ")
+        }
+    }
+
+    def tagLabel(c : Card, tiny : Boolean = false) : Elem = {
+        val g = game
+        val z = g.zone(c)
+        val inPlay = g.inPlayZone(z)
+        val visible = canSee(c)
+        val base : $[String] =
+            if (z.is[HostedZone] && z.as[HostedZone].exists(hz => g.zone(hz.host).is[IdentityZone]))
+                $("set aside")
+            else if (z.is[StashZone] || (z.is[HostedZone] && g.state(c).uninstalled))
+                $((visible && !g.state(c).facedown).?("not installed").|("facedown"))
+            else if (inPlay && g.owner(c).isCorp && !g.isRezzed(c) && visible && !c.data.isAgenda)
+                $("unrezzed")
+            else if (inPlay && g.owner(c).isRunner && g.state(c).facedown && visible)
+                $("facedown")
+            else
+                $
+        val l : $[String] = base ++ visible.??(flagLabels(c))
+        // on tiny (hosted) cards a card back or a dimmed facedown card speaks for itself and the label is smaller
+        if (tiny && (!visible || l == $("facedown")))
             Empty
+        else
+            l.any.?(l.join(", ").spn(styles.tag)(tiny.$(styles.tagTiny))).|(Empty)
     }
 
     def highlightOf(c : Card) : $[Style] = {
@@ -118,16 +198,25 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         encountered.$(styles.encountered) ++ (hasActions(c) && !encountered).$(styles.highlighted)
     }
 
-    def slot(c : Card, style : Style = styles.card) : Elem = {
+    // cards shown under a card: installed hosted cards, then cards hosted without being installed (StashZone)
+    def hostedElems(c : Card, depth : Int = 0) : Elem = {
         val g = game
-        val hostedElems = g.hosted(c)./(h => slot(h, styles.cardTiny))
-        Div(cardImage(c, style, highlightOf(c)) ~ tagLabel(c) ~ badges(c) ~ hostedElems.some./(l => Div(l.merge, styles.hostedRow)).|(Empty), styles.slot)
+        if (depth > 8)
+            return Empty
+        val l = (g.hosted(c) ++ g.stashed(c)).distinct./(h => slot(h, styles.cardTiny, depth + 1))
+        l.some./(l => Div(l.merge, styles.hostedRow)).|(Empty)
+    }
+
+    def slot(c : Card, style : Style = styles.card, depth : Int = 0) : Elem = {
+        Div(cardImage(c, style, highlightOf(c)) ~ tagLabel(c, style == styles.cardTiny) ~ badges(c) ~ hostedElems(c, depth), styles.slot)
     }
 
     def iceSlot(c : Card) : Elem = {
-        val g = game
-        val hostedElems = g.hosted(c)./(h => slot(h, styles.cardTiny))
-        Div(Div(cardImage(c, styles.cardIceImg, highlightOf(c)) ~ tagLabel(c), styles.iceBox) ~ badges(c) ~ hostedElems.some./(l => Div(l.merge, styles.hostedRow)).|(Empty), styles.slot)
+        Div(Div(cardImage(c, styles.cardIceImg, highlightOf(c)) ~ tagLabel(c), styles.iceBox) ~ badges(c) ~ hostedElems(c), styles.slot)
+    }
+
+    def identitySlot(c : Card) : Elem = {
+        Div(cardImage(c, styles.cardSmall, highlightOf(c)) ~ tagLabel(c) ~ badges(c) ~ hostedElems(c), styles.slot)
     }
 
     def pileImage(id : String, count : Int, label : String, p : Any) : Elem =
@@ -139,7 +228,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     def serverElem(s : Server) : Elem = {
         val g = game
-        val r = g.run.%(r => r.server == s && !r.ended)
+        val r = g.run.%(r => r.server == s && !r.ended && !g.isOver)
         val iceList = g.ice(s)
         val position = r./(_.position).|(-1)
         val approachingServer = r.exists(x => x.position == 0 || x.phase == ApproachServerPhase || x.phase == AccessPhase || x.phase == SuccessPhase)
@@ -155,11 +244,12 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 val l = g.discard(Corp)
                 val faceup = l.%(c => g.state(c).seen)
                 val top = l.lastOption./(c => (g.state(c).seen || viewer.forall(_.isCorp)).?(c.code).|("corp-back")).|("corp-back")
-                Div(clickable(Image(top, styles.cardSmall)(styles.actionable)(l.none.?(styles.unrezzed)), "archives") ~ (l.num + " cards" + (l.num > faceup.num).??(" (" + (l.num - faceup.num) + " facedown)")).spn(styles.serverCount), styles.slot)
+                Div(clickable(cardFace(top, styles.cardSmall, $(styles.actionable) ++ l.none.$(styles.unrezzed)), "archives") ~ (l.num + " cards" + (l.num > faceup.num).??(" (" + (l.num - faceup.num) + " facedown)")).spn(styles.serverCount), styles.slot)
             case _ => Empty
         }
         val marker = approachingServer.?(Div("Runner".spn(styles.marker))).|(Empty)
-        val name = clickable(s.name.spn(styles.serverName)(hasServerActions(s).$(styles.highlighted))(styles.actionable), s)
+        val mark = g.mark.has(s).?(" (mark)".spn(styles.markLabel)).|(Empty)
+        val name = clickable(Span(s.name.txt ~ mark, styles.serverName)(hasServerActions(s).$(styles.highlighted))(styles.actionable), s)
         Div(
             name ~
             Div(iceElems.merge, styles.iceColumn) ~
@@ -179,7 +269,43 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
     def activeMark(f : Faction) : Elem = {
         val g = game
-        (g.active == f && g.turnStarted).?(("turn " + g.turn + (g.run.exists(!_.ended) && f.isRunner).??(" - running")).spn(styles.active)).|(Empty)
+        (g.active == f && g.turnStarted && !g.isOver).?(("turn " + g.turn + (g.run.exists(!_.ended) && f.isRunner).??(" - running")).spn(styles.active)).|(Empty)
+    }
+
+    // the threat level is shown only while a card in play refers to it
+    def threatMatters : Boolean = {
+        val g = game
+        (g.installedCards(Corp) ++ g.installedCards(Runner) ++ g.identity.values.$ ++ g.scored(Corp) ++ g.scored(Runner)).exists(_.data.text.contains("Threat"))
+    }
+
+    // allotted clicks for the next turn (Wage Workers and the like)
+    def extraClicksStat(f : Faction) : Elem = {
+        val n = game.extraClicks.get(f).|(0)
+        (n != 0).?(stat((n > 0).?("+" + n).|("" + n), "clicks next turn", styles.statClick)).|(Empty)
+    }
+
+    // game-level lingering flags (not tied to a card)
+    def globalFlagsLine : Elem = {
+        val g = game
+        val l = g.activeFlags.%(f => f.card.none && !$("encountered", "subs-broken", "installed", "advanced").has(f.key))./(f => f.key.replace("-", " ") + f.server./(s => " (" + s.name + ")").|(""))
+        val cannotScore = g.cannotScoreThisTurn.$("cannot score this turn")
+        val all = (l ++ cannotScore).distinct
+        all.any.?(Div(("in effect: " + all.join(", ")).spn(styles.promptLine))).|(Empty)
+    }
+
+    def section(title : String, l : $[Elem]) : Elem = l.any.?(Div(title.spn(styles.sectionTitle) ~ Div(l.merge, styles.row), styles.section)).|(Empty)
+
+    // operations / events that stay in the play area (lockdowns, "for the remainder of the turn", the card being resolved)
+    def playAreaSection(f : Faction) : Elem = section("play area", game.at(PlayZone(f))./(c => slot(c, styles.cardTiny)))
+
+    // cards removed from the game: a pile with the count, clicking opens the list
+    def removedPile(f : Faction) : Elem = {
+        val g = game
+        val l = g.removed(f)
+        if (l.none)
+            return Empty
+        val top = l.last
+        Div(clickable(canSee(top).?(cardFace(top.code, styles.cardTiny, $(styles.actionable, styles.unrezzed))).|(Image(back(top), styles.cardTiny)(styles.unrezzed)(styles.actionable)), ("removed", f)) ~ (l.num + " removed").spn(styles.serverCount), styles.slot)
     }
 
     def corpBoard : Elem = {
@@ -189,21 +315,23 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             playerName(Corp) ~
             id./(c => c.title.styled(NRFaction.of(c.data.faction))(styles.headerItem)).|(Empty) ~
             activeMark(Corp) ~
-            stat(g.credits(Corp), "credits", styles.statCredit) ~
-            stat(g.clicks(Corp), "clicks", styles.statClick) ~
-            stat(g.agendaPoints(Corp), "agenda points", styles.statPoints) ~
+            stat(g.credits(Corp), (g.credits(Corp) == 1).?("credit").|("credits"), styles.statCredit) ~
+            stat(g.clicks(Corp), (g.clicks(Corp) == 1).?("click").|("clicks"), styles.statClick) ~
+            extraClicksStat(Corp) ~
+            stat(g.agendaPoints(Corp), (g.agendaPoints(Corp) == 1).?("agenda point").|("agenda points"), styles.statPoints) ~
             (g.badPublicity > 0).?(stat(g.badPublicity, "bad publicity", styles.statBadPub)).|(Empty) ~
+            (g.threatLevel > 0 && threatMatters).?(stat(g.threatLevel, "threat", styles.statPoints)).|(Empty) ~
             stat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.statHand),
             styles.header)
         if (g.phase == "setup")
             return header ~ deckSelection(Corp)
-        val idImg = id./(c => Div(clickable(Image(c.code, styles.cardSmall)(styles.actionable), c), styles.slot)).|(Empty)
+        val idImg = id./(identitySlot).|(Empty)
         val scored = g.scored(Corp)./(c => slot(c, styles.cardTiny))
-        val scoredSection = scored.any.?(Div("scored".spn(styles.sectionTitle) ~ Div(scored.merge, styles.row), styles.section)).|(Empty)
+        val scoredSection = section("scored", scored)
         val servers = Div(g.servers./(serverElem).merge, styles.serversRow)
         val hand = handElem(Corp)
 
-        header ~ Div(Div(idImg ~ scoredSection, styles.section) ~ servers, styles.row) ~ hand
+        header ~ globalFlagsLine ~ Div(Div(idImg ~ scoredSection ~ playAreaSection(Corp) ~ removedPile(Corp), styles.section) ~ servers, styles.row) ~ hand
     }
 
     def runnerBoard : Elem = {
@@ -213,33 +341,36 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             playerName(Runner) ~
             id./(c => c.title.styled(NRFaction.of(c.data.faction))(styles.headerItem)).|(Empty) ~
             activeMark(Runner) ~
-            stat(g.credits(Runner), "credits", styles.statCredit) ~
-            stat(g.clicks(Runner), "clicks", styles.statClick) ~
-            stat(g.agendaPoints(Runner), "agenda points", styles.statPoints) ~
+            stat(g.credits(Runner), (g.credits(Runner) == 1).?("credit").|("credits"), styles.statCredit) ~
+            stat(g.clicks(Runner), (g.clicks(Runner) == 1).?("click").|("clicks"), styles.statClick) ~
+            extraClicksStat(Runner) ~
+            stat(g.agendaPoints(Runner), (g.agendaPoints(Runner) == 1).?("agenda point").|("agenda points"), styles.statPoints) ~
             stat(g.tags, (g.tags == 1).?("tag").|("tags"), styles.statTag) ~
             stat(g.link, "link", styles.statLink) ~
             stat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.statMU) ~
             stat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.statHand) ~
-            (g.coreDamage > 0).?(stat(g.coreDamage, "core damage", styles.statTag)).|(Empty),
+            (g.coreDamage > 0).?(stat(g.coreDamage, "core damage", styles.statTag)).|(Empty) ~
+            g.mark./(s => stat(s.name, "mark", styles.statMark)).|(Empty),
             styles.header)
         if (g.phase == "setup")
             return header ~ deckSelection(Runner)
-        val idImg = id./(c => Div(clickable(Image(c.code, styles.cardSmall)(styles.actionable), c), styles.slot)).|(Empty)
+        val idImg = id./(identitySlot).|(Empty)
         val scored = g.scored(Runner)./(c => slot(c, styles.cardTiny))
-        val scoredSection = scored.any.?(Div("stolen".spn(styles.sectionTitle) ~ Div(scored.merge, styles.row), styles.section)).|(Empty)
+        val scoredSection = section("stolen", scored)
         val programs = g.rig.%(_.data.isProgram)./(slot(_, styles.cardSmall))
         val hardware = g.rig.%(_.data.isHardware)./(slot(_, styles.cardSmall))
         val resourcesL = g.rig.%(_.data.isResource)./(slot(_, styles.cardSmall))
+        val otherRig = g.rig.%(c => !c.data.isProgram && !c.data.isHardware && !c.data.isResource)./(slot(_, styles.cardSmall))
         val heap = g.discard(Runner)
         val piles = Div(
             Div(Image("runner-back", styles.cardSmall)(g.deck(Runner).none.?(styles.unrezzed)) ~ (g.deck(Runner).num + " stack").spn(styles.serverCount), styles.slot) ~
-            Div(heap.any.?(clickable(Image(heap.last.code, styles.cardSmall)(styles.actionable), "heap")).|(Image("runner-back", styles.cardSmall)(styles.unrezzed)) ~ (heap.num + " heap").spn(styles.serverCount), styles.slot),
+            Div(heap.any.?(clickable(cardFace(heap.last.code, styles.cardSmall, $(styles.actionable)), "heap")).|(Image("runner-back", styles.cardSmall)(styles.unrezzed)) ~ (heap.num + " heap").spn(styles.serverCount), styles.slot) ~
+            removedPile(Runner),
             styles.row)
-        def section(title : String, l : $[Elem]) = l.any.?(Div(title.spn(styles.sectionTitle) ~ Div(l.merge, styles.row), styles.section)).|(Empty)
-        val runLine = g.run.%(!_.ended)./(r => runStatus(r)).|(Empty)
+        val runLine = g.run.%(!_.ended).%(_ => !g.isOver)./(r => runStatus(r)).|(Empty)
         val hand = handElem(Runner)
 
-        header ~ runLine ~ Div(Div(idImg ~ scoredSection, styles.section) ~ Div(piles, styles.section) ~ section("programs", programs) ~ section("hardware", hardware) ~ section("resources", resourcesL), styles.row) ~ hand
+        header ~ runLine ~ Div(Div(idImg ~ scoredSection ~ playAreaSection(Runner), styles.section) ~ Div(piles, styles.section) ~ section("programs", programs) ~ section("hardware", hardware) ~ section("resources", resourcesL) ~ section("installed", otherRig), styles.row) ~ hand
     }
 
     def runStatus(r : Run) : Elem = {
@@ -257,7 +388,14 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         val n = r.position
         val accessed = (r.phase == AccessPhase).??(r.accessed.%(c => g.location.contains(c)))
         val accessedElems = accessed./(c => Div(cardImage(c, styles.cardSmall), styles.slot))
-        Div("Run on " ~ r.server.elem ~ ": " ~ ph ~ ((n > 0 && r.phase != AccessPhase).?(" (" + n + " ice " + ((n == 1).?("piece").|("pieces")) + " to pass)").|("")), styles.runLine) ~
+        // lingering restrictions and bonuses of this run
+        val notes : $[String] =
+            r.cannotStealOrTrash.$("cannot steal or trash") ++
+            r.preventAccess.$("no access") ++
+            r.cannotJackOut.$("cannot jack out") ++
+            r.disableRoot.$("root cards blank") ++
+            r.accessBonus.toList.filter(_._2 != 0).sortBy(_._1).map(kv => (kv._2 > 0).?("+").|("") + kv._2 + " access" + (kv._1 != "total").??(" (" + kv._1 + ")"))
+        Div("Run on " ~ r.server.elem ~ ": " ~ ph ~ ((n > 0 && r.phase != AccessPhase).?(" (" + n + " " + (n == 1).?("piece").|("pieces") + " of ice to pass)").|("")) ~ notes.any.?((" - " + notes.join(", ")).spn(styles.dim)).|(Empty), styles.runLine) ~
         accessed.any.?(Div("accessed".spn(styles.sectionTitle) ~ Div(accessedElems.merge, styles.row), styles.section)).|(Empty)
     }
 
@@ -284,7 +422,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         g.decks.get(f) match {
             case Some(codes) =>
                 val id = codes./(Cards.get)./~(x => x).%(_.isIdentity).starting
-                Div(id./(c => Div(Image(c.code, styles.card), styles.slot)).|(Empty) ~ Div(("Deck chosen: " ~ id./(_.title).|("?").hl ~ " (" ~ (codes.num - 1).toString ~ " cards)").spn), styles.row)
+                Div(id./(c => Div(cardFace(c.code, styles.card), styles.slot)).|(Empty) ~ Div(("Deck chosen: " ~ id./(_.title).|("?").hl ~ " (" ~ (codes.num - 1).toString ~ " cards)").spn), styles.row)
             case None if mine && lastActions.exists(_.is[ChoosePresetDeckAction]) =>
                 val presets = lastActions.of[ChoosePresetDeckAction].%(_.self == f)
                 val items = presets./ { a =>
@@ -292,7 +430,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     val idc = Cards.get(d.identity)
                     val check = Decks.validate(f, d.codes)
                     Parameter(("deck", a), OnClick(Div(
-                        idc./(c => Image(c.code, styles.card)).|(Empty) ~
+                        idc./(c => cardFace(c.code, styles.card)).|(Empty) ~
                         d.name.spn(styles.galleryName) ~
                         (d.identityTitle + " - " + check.message).spn(styles.galleryInfo),
                         styles.galleryItem)))
@@ -357,13 +495,31 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         }
         val view = c./(c => Parameter(("zoom", c), OnClick(Div("View card", styles.menuItem)))).|(Empty)
         val close = Parameter(Nil, OnClick(Div("Cancel", styles.menuItem)))
-        val img = c.%(canSee)./(c => Div(Image(c.code, styles.card), styles.slot)).|(Empty)
+        val img = c.%(canSee)./(c => Div(cardFace(c.code, styles.card), styles.slot)).|(Empty)
         showOverlay(overlayScrollX(Div(img ~ Div(title, styles.menuTitle) ~ items.merge ~ view ~ close, xlo.column)), onClick)
     }
 
     def updateStatus() {
         corpPane.replace(corpBoard, resources, onClick, onOver, onOut)
         runnerPane.replace(runnerBoard, resources, onClick, onOver, onOut)
+        fitPane(corpPane)
+        fitPane(runnerPane)
+    }
+
+    // shrink a board (card sizes are in ex) until it fits its pane: many remotes, long ice stacks, big hands
+    def fitPane(pane : Container) {
+        try {
+            val node = pane.attach.parent.asInstanceOf[dom.html.Element]
+            node.style.fontSize = ""
+            var scale = 1.0
+            while (scale > 0.5 && (node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2)) {
+                scale *= 0.9
+                node.style.fontSize = (90 * scale).round + "%"
+            }
+        }
+        catch {
+            case e : Throwable => warn("fitPane " + e)
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -409,7 +565,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def onOver(a : Any) : Unit = a @@ {
         case c : Card if canSee(c) =>
             val d = c.data
-            val e = Div(Div(Image(c.code, styles.zoomImg), styles.slot) ~ Div(d.title.hlb ~ Break ~ cardStats(c).join(" | ") ~ Break ~ Break ~ cardText(c) ~ stateText(c), styles.zoomText), xlo.flexhcenter)(xlo.flexnowrap)
+            val e = Div(Div(cardFace(c.code, styles.zoomImg), styles.slot) ~ Div(d.title.hlb ~ Break ~ cardStats(c).join(" | ") ~ Break ~ Break ~ cardText(c) ~ stateText(c), styles.zoomText), xlo.flexhcenter)(xlo.flexnowrap)
             new ElementAttachmentPoint(zoomNode).clear()
             new ElementAttachmentPoint(zoomNode).append(e, resources)
             placeZoom()
@@ -455,7 +611,15 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             (inPlay && c.data.isIce && g.isRezzed(c)).$("strength " + g.iceStrength(c)) ++
             (inPlay && c.data.isIcebreaker).$("strength " + g.breakerStrength(c)) ++
             s.host./(h => "hosted on " + h.title).$ ++
+            (g.zone(c) match { case StashZone(h) => $("hosted on " + h.title + " (not installed)") ; case _ => $[String]() }) ++
+            s.uninstalled.$("not installed") ++
             (inPlay && c.data.isIce).$(g.serverOf(c)./(s => "protecting " + s.name).|("")) ++
+            s.extraSubtypes.some./(l => "gained subtypes: " + l.join(", ")).$ ++
+            s.target.%(t => canSee(t))./(t => "targeting " + t.title).$ ++
+            (s.choice != "").$("choice: " + s.choice) ++
+            flagLabels(c) ++
+            g.hostedBadPub.get(c).%(_ > 0)./(n => n + " hosted bad publicity").$ ++
+            (g.zone(c).is[RemovedZone]).$("removed from the game") ++
             (CardImpls.has(c.code)).?($()).|($("no automation: use the Manual menu"))
         l.any.?("\n\n" + l.join(", ")).|("")
     }
@@ -463,7 +627,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def cardOverlay(c : Card) : Elem = {
         val g = game
         if (canSee(c))
-            Div(Image(c.code, styles.artwork), styles.slot) ~ Div(c.title.hlb ~ Break ~ cardStats(c).join(" | ") ~ Break ~ Break ~ cardText(c) ~ stateText(c), styles.cardText)
+            Div(cardFace(c.code, styles.artwork), styles.slot) ~ Div(c.title.hlb ~ Break ~ cardStats(c).join(" | ") ~ Break ~ Break ~ cardText(c) ~ stateText(c), styles.cardText)
         else
             Div(Image(back(c), styles.artwork), styles.slot)
     }
@@ -515,6 +679,11 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
         case "heap" =>
             showOverlay(overlayScrollX(pileOverlay("Heap", game.discard(Runner), false)), onClick)
+
+        case ("removed", f : Faction) =>
+            val l = game.removed(f).%(canSee)
+            val hidden = game.removed(f).num - l.num
+            showOverlay(overlayScrollX(pileOverlay("Removed from the game (" + f.name + ")" + (hidden > 0).??(" (" + hidden + " facedown)"), l, true)), onClick)
 
         case "hq" | "rnd" =>
             hideOverlay()
@@ -679,10 +848,24 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         aa.exists(_.is[ImportDeckMarker]).$(
             ZBasic(Break, "Import NetrunnerDB decklist".hh, () => { onClick("import") }, ZBasic.infoch).copy(clear = false)
         ) ++
-        (currentGame.isOver && hrf.HRF.flag("replay").not).$(
-            ZBasic(Break ~ Break ~ Break, "Save Replay".hh, () => {
-                callbacks.saveReplay {}
-            }).copy(clear = false)
+        // "Save Replay" (a self-contained HTML file) is not offered: the framework embeds every declared image asset
+        // as a data URL and Netrunner declares ~2,000 lazily loaded card images (62 MB), so the save fails.
+        // Online games are already saved on the server (any link replays the game); a local game can be saved online.
+        (currentGame.isOver && callbacks.canPlayAgain.not && hrf.HRF.flag("replay").not).$(
+            ZBasic(Break ~ Break ~ Break, "This game is saved on the server: open any of its links to replay it".spn(xstyles.smaller85), null).copy(clear = false)
+        ) ++
+        (callbacks.canPlayAgain && hrf.HRF.offline.not && hrf.HRF.flag("replay").not).$(
+            ZBasic(Break ~ Break ~ Break, "Save Game Online".hh, () => {
+                showOverlay(overlayScrollX("Save Game Online".hlb(xstyles.larger125) ~
+                    ("Save".hlb).div.div(xstyles.choice)(xstyles.xx)(xstyles.chm)(xstyles.chp)(xstyles.thu)(xlo.fullwidth)(xstyles.width60ex).pointer.onClick.param("***") ~
+                    ("Save and replace bots with humans".hh).div.div(xstyles.choice)(xstyles.xx)(xstyles.chm)(xstyles.chp)(xstyles.thu)(xlo.fullwidth)(xstyles.width60ex).pointer.onClick.param("///") ~
+                    ("Cancel".txt).div.div(xstyles.choice)(xstyles.xx)(xstyles.chm)(xstyles.chp)(xstyles.thu)(xlo.fullwidth)(xstyles.width60ex).pointer.onClick.param("???")
+                ).onClick, {
+                    case "***" => callbacks.saveReplayOnline(false, false) { url => onClick(Nil) }
+                    case "///" => callbacks.saveReplayOnline(true , false) { url => onClick(Nil) }
+                    case _ => onClick(Nil)
+                })
+            }, ZBasic.infoch).copy(clear = false)
         ) ++
         (currentGame.isOver && callbacks.canPlayAgain).$(
             ZBasic(Break ~ Break ~ Break, "Play Again".hh, () => {

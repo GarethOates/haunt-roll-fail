@@ -29,6 +29,7 @@ case class BetaBuildReturnAction(card : Card) extends CardAction
 case class MethuselahPurpose(card : Card) extends CardPurpose
 case class RwsPurpose(card : Card) extends CardPurpose
 case class RwsShuffleAction(card : Card) extends CardAction
+case class RwsAskAction(card : Card) extends CardAction        // asks with the grip as it is when the trigger resolves
 case class SipaPurpose(card : Card, ice : Card) extends CardPurpose
 case class WotsAction(card : Card, installedThisTurn : Boolean) extends CardAction
 case class ReallocPurpose(card : Card) extends CardPurpose
@@ -325,7 +326,7 @@ object VPCards {
         def ask(self : Card)(implicit g : Game) = (g.stashed(self).num < 4 && g.hand(Runner).any).$(ChooseCardEffect(Runner, g.hand(Runner), RwsPurpose(self), "Read-Write Share: host a card from the grip facedown to draw 1 card?", true))
         override def onInstall(self : Card)(implicit g : Game) = ask(self)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) => ask(self)
+            case TurnBegins(Runner) => $(RwsAskAction(self))
             case _ => $
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -339,6 +340,10 @@ object VPCards {
         }
         override def abilities(self : Card)(implicit g : Game) = $(Ability("trash: shuffle all hosted cards into the stack", NoCost, $(RwsShuffleAction(self)), ok = g.isInstalled(self), reason = "not installed"))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
+            case RwsAskAction(self) =>
+                if (g.isInstalled(self))
+                    g.pushAll(ask(self))
+                NextAction
             case RwsShuffleAction(self) =>
                 val l = g.stashed(self)
                 l.foreach(c => g.moveTo(c, DeckZone(Runner)))
