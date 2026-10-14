@@ -32,9 +32,9 @@
   all System Gateway only and legal; decklist parser (`3x Title`, `3 Title`, `Title x3`, identity line, section
   headers, influence dots, summary lines; unicode/diacritic-insensitive title matching) and validator
   (side, one identity, min size, deck limits, influence, agenda points).
-* UI (`ui.scala`, `styles.scala`): Corp and Runner board panes with a status banner (credits, clicks and agenda
-  points as large badges, tags / bad publicity large when non-zero, link, MU, hand size small; see "Status banner and
-  deck preview"), servers drawn from the Runner's point of view (root at the top of the
+* UI (`ui.scala`, `styles.scala`): Corp and Runner board panes with a status banner (every stat as a large badge of
+  the same style: credits, clicks, points, bad publicity / tags, link, MU, hand, core damage, threat, mark, clicks next
+  turn, turn; zeros subdued; see "Side indicator in the deck choice, uniform banner badges"), servers drawn from the Runner's point of view (root at the top of the
   server box, ice below it, outermost ice at the bottom), a "Runner" marker and orange outline showing the attacked
   server and the current ice position, unrezzed cards dimmed with an "unrezzed" tag for the Corp (backs for the
   Runner), facedown Archives counted, counters as badges (adv/virus/credit/power/strength), hosted cards under their
@@ -252,7 +252,8 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
 
 ### Status banner and deck preview (second product owner pass, 2026-10-14)
 
-* Status banner (`UI.statusBanner`, `UI.bigStat`; styles `bigStat`, `bigValue`, `bigLabel`, `bigCredit`, `bigClick`,
+* (Superseded by "uniform banner badges" below: every stat is now a large badge.)
+  Status banner (`UI.statusBanner`, `UI.bigStat`; styles `bigStat`, `bigValue`, `bigLabel`, `bigCredit`, `bigClick`,
   `bigPoints`, `bigTag`, `bigEmphasis`, `bigSpent`, `headerActiveCorp/Runner`, `banner*`): each board header shows the
   player name with the identity title under it, the "turn N" badge, then credits, clicks and agenda points as large
   coloured badges (number at 240% over a small label: blue credits, yellow clicks, purple points). Tags (Runner) and bad
@@ -318,6 +319,42 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   shrinking ~100 identities to stamps). The action pane deck list shows the same filtered decks (plus the previewed
   one) and "n more decks hidden by the filters above the board gallery"; preview / Confirm / Back work as before and
   the filters survive "Back to the deck list". Each gallery item shows its era next to size and influence.
+
+### Side indicator in the deck choice, uniform banner badges (third product owner pass, 2026-10-14)
+
+* "How do I see Corporation decks if I want to play as Corp?" Cause: the deck screen never said which side it was for,
+  and the side is not chosen there. (1) Quick Game, the first button of the menu, seats the human on a random side
+  (`MetaBase.randomQuickGame`: Corp or Runner with equal odds, the other side a bot), so a player could get the Runner
+  gallery repeatedly with no hint why or how to change it. (2) In a hotseat game the framework shows the first human
+  ask of a `MultiAsk` (`runner.scala`, `UIContinue(MultiAsk)`: debug bot, then human, then bot), and the deck prompt
+  listed the sides in seating order, so a game seated Runner-first asked the Runner first. The gallery's side filter
+  itself was correct (the presets of the prompt's faction, keyed on the action's `self`).
+* Fix: `rules-setup.scala` (one line, `ChooseDecksAction`) asks `$(Corp, Runner)` in that order, so in a hotseat game
+  the Corp always chooses first and the Runner second whatever the seating (online each link still chooses at the same
+  time; the journal and the validation are unchanged). The deck screen (`UI.deckSelection`, `deckSteps`, `sideHint`,
+  `isQuickGame`, `playOtherSide`; styles `deckTitle`, `sideTitle`, `sideTitleRest`, `sideName`, `sideTag`, `deckSteps`,
+  `deckStep`, `deckStepOn`, `sideHint`) shows a large "Corp: choose a deck (Corp decks only)" title in the side's colour,
+  a two-step line "Corp: choosing now | Runner: not chosen yet" (or "Corp: chose <identity>") with the current side
+  outlined, "n of m Corp decks shown", and "Corp" / "Runner" tags on the deck preview, the action pane groups ("Corp:
+  choose a deck", "Corp: previewing ...", "Corp: preview another deck") and the other board ("Runner: no deck chosen
+  yet", "Corp deck chosen: ..."). In a Quick Game (`/play/netrunner/quick` or `?quick`, local journal) the deck screen
+  says "Quick Game seated you as the Runner (it picks a side at random). Play the Corp instead" and explains how to
+  choose a side with Local Game (select Corp and Runner, Start Setup, click Human next to the side the bot should play);
+  "Play the Corp instead" (also a button at the end of the action pane) restarts the Quick Game with
+  `/play/netrunner?quick=1&human=Corp` (an existing HRF quick-start parameter, `location.replace` so the new page's
+  history rewind cannot return to the old one). HRF's own Local Game setup screen (Human / Bot toggles per side) was
+  left as it is.
+* Status banner (`UI.statusBanner`, `bigStat`, `corpStats`, `runnerStats`, `extraClicksStat`, `markMatters`; styles
+  `bannerStats`, `bigBadPub`, `bigThreat`, `bigHand`, `bigLink`, `bigMU`, `bigCore`, `bigMark`, `bigTurn`, `bigAlert`,
+  `bigZero`, `bigWord`): every stat is now the same large badge as credits / clicks / points (value at 220% over a small
+  label, each with its own colour): Corp: credits, clicks, points, bad pub, threat (while a card in play mentions it),
+  hand n/max; Runner: credits, clicks, points, tags, link, MU used/total, hand n/max, core damage, mark (the server name
+  in a smaller font, while set or while a card in play says "your mark"), plus "clicks next turn" when non-zero and the
+  turn number on the active player's banner. Zero values stay in place, subdued (55% opacity, desaturated); tags, bad
+  publicity and core damage above zero get a red outline. The small `stat` pills and their styles are gone. Padding and
+  margins were reduced so the banner stays on one line: at 1440x900 the busiest Runner banner (13 badges incl. turn,
+  mark and clicks next turn) is 730 px of a 1000 px pane; the identity title stays under the player name (cut with an
+  ellipsis beyond 36ex). The banner is not part of the scaled board area, so the board does not shrink.
 
 ## Simplifications / known gaps
 
@@ -561,6 +598,25 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   only)" paid from Cloak ("Runner spends 1 credit from Cloak"), the net damage prevention window ("Prevent any of the 2 net
   damage?" -> Net Shield prevents 1, the Runner suffers 1), then automatic play until the Runner was flatlined. No plugin
   exceptions in any console.
+### Tested after the side indicator / banner change (2026-10-14)
+
+* `sbt -batch fastOptJS` green. Separate good-game server on port 7171 serving this checkout, headless Chrome on port
+  9888 over the DevTools protocol (driver in the scratchpad `nr2/`), 1440x900 and 1920x1080:
+  hotseat seated Runner-first (Corp asked first: "Corp: choose a deck", Jinteki Starter preview + Confirm, then
+  "Runner: choose a deck" with "Corp: chose Jinteki: Restoring Humanity"); hotseat with manual tags 2, bad publicity 1,
+  core damage 1 and a run on HQ (banner badges and alerts at both resolutions); Quick Game seated as the Runner,
+  "Play the Corp instead" restarted it as the Corp (and back); Quick Game as the Corp against the Basic Runner bot for
+  ~120 automated clicks (installs, advances, scoring); Local Game human Runner against the Basic Corp bot (Shaper
+  Starter, ~80 automated clicks with runs) and with Criminal Sable (mark badge "Archives"); online game: the Corp link
+  and the Runner link each saw only their side's gallery with the side title, the Corp confirmed NBN Starter, the
+  Runner saw "Corp: chose NBN: Reality Plus" and confirmed Anarch Starter, both reached the mulligan. Worst-case banner
+  width checked by adding mark and clicks-next-turn badges in the DOM. No plugin exceptions (only the shell's
+  `NetworkError` / 404 font noise, the known `HTTP 409` append race and one `later failed`).
+* Screenshots (scratchpad `nr2/shots/`): `h1-hot-corp-gallery`, `h2-hot-corp-preview`, `h3-hot-runner-gallery`,
+  `h4-hot-runner-gallery-1920`, `b1-run-1440`, `b2-run-1920`, `q1-quick`, `q6-quick-corp-hint`,
+  `q8-quick-runner-hint`, `q4-corp-preview`, `q7-corp-midgame-1440`, `v1-runner-vs-bot-gallery`,
+  `v4-runner-midgame-1440`, `v5-runner-midgame-1920`, `s4-sable-mark-1440`, `w1-worst-1440`, `o1-corp-link`,
+  `o2-runner-link`, `o4-runner-after-corp`.
 
 ## Known bugs
 
