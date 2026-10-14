@@ -248,7 +248,7 @@ object RotIdentityCards1 {
 
     object NiseiDivision extends RH("05002") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RHPsiRevealed => $(says(self, "gain 1 credit"), gain(Corp, 1))
+            case RotPsiRevealed(_, _) => $(says(self, "gain 1 credit"), gain(Corp, 1))
             case _ => $
         }
     }

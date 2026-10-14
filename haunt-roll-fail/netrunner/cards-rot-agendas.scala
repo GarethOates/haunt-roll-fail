@@ -43,7 +43,7 @@ object RotAgendaCards {
 
     // ---- Core Set -------------------------------------------------------------------------------------------------------
 
-    object AcceleratedBetaTest extends RA("01055") {
+    object AcceleratedBetaTest extends RAg("01055") {
         override def onScore(self : Card)(implicit g : Game) = g.deck(Corp).any.$(OptionalEffect(Corp, "Accelerated Beta Test: look at the top 3 cards of R&D?", $(RaAbtStartAction(self)), $))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case RaAbtStartAction(self) =>
@@ -74,13 +74,13 @@ object RotAgendaCards {
         }
     }
 
-    object AstroScriptPilotProgram extends RA("01081") {
+    object AstroScriptPilotProgram extends RAg("01081") {
         override def onScore(self : Card)(implicit g : Game) = agendaCounters(self, 1)
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("place 1 advancement counter on an installed card you can advance", $(CounterCost("agenda", 1)),
             $(ChooseCardEffect(Corp, g.advanceableCards, AdvancePurpose(1), "AstroScript Pilot Program: choose a card to advance", false)), ok = g.advanceableCards.any, reason = "nothing to advance")))
     }
 
-    object BreakingNews extends RA("01082") {
+    object BreakingNews extends RAg("01082") {
         override def onScore(self : Card)(implicit g : Game) = $(tag(2), SetMemoEffect(self, "bn:" + g.halfTurn))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnEnds(_) if corpScored(self) && g.state(self).memo == "bn:" + g.halfTurn => $(MessageEffect(Corp, "uses Breaking News: the Runner removes 2 tags"), RemoveTagsEffect(2), SetMemoEffect(self, ""))
@@ -88,13 +88,13 @@ object RotAgendaCards {
         }
     }
 
-    object PostedBounty extends RA("01095") {
+    object PostedBounty extends RAg("01095") {
         override def onScore(self : Card)(implicit g : Game) = $(OptionalEffect(Corp, "Posted Bounty: forfeit it to give the Runner 1 tag and take 1 bad publicity?", $(ForfeitEffect(self), BadPubEffect(1), tag(1)), $))
     }
 
     // ---- Genesis / Creation and Control / Spin --------------------------------------------------------------------------
 
-    object MandatoryUpgrades extends RA("02011") {
+    object MandatoryUpgrades extends RAg("02011") {
         override def onScore(self : Card)(implicit g : Game) = g.active.isCorp.$(MessageEffect(Corp, "gains 1 additional click per turn from Mandatory Upgrades"), GainClicksEffect(Corp, 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if corpScored(self) => $(MessageEffect(Corp, "uses Mandatory Upgrades"), GainClicksEffect(Corp, 1))
@@ -102,11 +102,11 @@ object RotAgendaCards {
         }
     }
 
-    object RestructuredDatapool extends RA("02016") {
+    object RestructuredDatapool extends RAg("02016") {
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("Trace 2: give the Runner 1 tag", click(), $(TraceEffect(2, $(tag(1)), $)), click = true)))
     }
 
-    object ExecutiveRetreat extends RA("02039") {
+    object ExecutiveRetreat extends RAg("02039") {
         override def onScore(self : Card)(implicit g : Game) = $(RaShuffleHQAction(self), AddCounterEffect(self, "agenda", 1))
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("draw 5 cards", $(ClickCost(1), CounterCost("agenda", 1)), $(draw(Corp, 5)), click = true)))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -119,11 +119,11 @@ object RotAgendaCards {
         }
     }
 
-    object GovernmentContracts extends RA("02077") {
+    object GovernmentContracts extends RAg("02077") {
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("gain 4 credits", click(2), $(gain(Corp, 4)), click = true)))
     }
 
-    object CorporateWar extends RA("02120") {
+    object CorporateWar extends RAg("02120") {
         override def onScore(self : Card)(implicit g : Game) = $(RaCorpWarAction(self))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case RaCorpWarAction(self) =>
@@ -135,7 +135,7 @@ object RotAgendaCards {
         }
     }
 
-    object DirectorHaasPetProject extends RA("03004") {
+    object DirectorHaasPetProject extends RAg("03004") {
         def candidates(anchor : |[Card])(implicit g : Game) = {
             val server = anchor./~(g.serverOf)
             val rootTaken = server.exists(s => g.root(s).exists(x => x.data.isAgenda || x.data.isAsset))
@@ -159,13 +159,13 @@ object RotAgendaCards {
         }
     }
 
-    object EfficiencyCommittee extends RA("03005") {
+    object EfficiencyCommittee extends RAg("03005") {
         override def onScore(self : Card)(implicit g : Game) = agendaCounters(self, 3)
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("gain [click][click]; you cannot advance cards this turn", $(ClickCost(1), CounterCost("agenda", 1)),
             $(GainClicksEffect(Corp, 2), RegisterEffect("rot-no-advance", 1)), click = true)))
     }
 
-    object ProjectWotan extends RA("03006") {
+    object ProjectWotan extends RAg("03006") {
         def approached(implicit g : Game) = g.run.%(r => !r.ended && r.phase == ApproachIcePhase)./~(_.ice).%(i => g.isRezzed(i) && g.has(i, "Bioroid"))
         override def onScore(self : Card)(implicit g : Game) = agendaCounters(self, 3)
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("the approached bioroid ice gains [sub] End the run for the remainder of this run", $(CounterCost("agenda", 1)),
@@ -182,94 +182,94 @@ object RotAgendaCards {
         }
     }
 
-    object SentinelDefenseProgram extends RA("03007") {
+    object SentinelDefenseProgram extends RAg("03007") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case DamageDone("core", n) if n > 0 && corpScored(self) => $(MessageEffect(Corp, "uses Sentinel Defense Program"), net(1))
             case _ => $
         }
     }
 
-    object GilaHandsArcology extends RA("03023") {
+    object GilaHandsArcology extends RAg("03023") {
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("gain 3 credits", click(2), $(gain(Corp, 3)), click = true)))
     }
 
     // ---- Lunar cycle ---------------------------------------------------------------------------------------------------
 
-    object CharacterAssassination extends RA("04014") {
+    object CharacterAssassination extends RAg("04014") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = g.runnerInstalledOf("Resource")
             l.any.$(ChooseCardEffect(Corp, l, TrashPurpose(Corp), "Character Assassination: choose a resource to trash", false))
         }
     }
 
-    object GeothermalFracking extends RA("04017") {
+    object GeothermalFracking extends RAg("04017") {
         override def onScore(self : Card)(implicit g : Game) = agendaCounters(self, 2)
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("gain 7 credits and take 1 bad publicity", $(ClickCost(1), CounterCost("agenda", 1)), $(gain(Corp, 7), BadPubEffect(1)), click = true)))
     }
 
-    object CloneRetirement extends RA("04032") {
+    object CloneRetirement extends RAg("04032") {
         override def onScore(self : Card)(implicit g : Game) = (g.badPublicity > 0).$(OptionalEffect(Corp, "Clone Retirement: remove 1 bad publicity?", $(BadPubEffect(-1)), $))
         override def onSteal(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "takes 1 bad publicity from Clone Retirement"), BadPubEffect(1))
     }
 
-    object Profiteering extends RA("04039") {
+    object Profiteering extends RAg("04039") {
         override def onScore(self : Card)(implicit g : Game) = $(ChooseOneEffect(Corp, "Profiteering: take up to 3 bad publicity, gain 5 credits for each", 0.to(3).$./(k =>
             Alt("Take " + k + " bad publicity", (k > 0).$(BadPubEffect(k), gain(Corp, 5 * k))))))
     }
 
-    object UnorthodoxPredictions extends RA("04053") {
+    object UnorthodoxPredictions extends RAg("04053") {
         override def onScore(self : Card)(implicit g : Game) = $(ChooseOneEffect(Corp, "Unorthodox Predictions: choose an ice type", $("Barrier", "Code Gate", "Sentry")./(t =>
             Alt(t, $(SetChoiceEffect(self, t), SetMemoEffect(self, "" + g.turn), MessageEffect(Corp, "prevents subroutines on " + t + " ice from being broken until the next Corp turn"))))))
         override def preventsBreak(self : Card, ice : Card, breaker : Card)(implicit g : Game) = corpScored(self) && g.state(self).memo == "" + g.turn && g.state(self).choice != "" && g.has(ice, g.state(self).choice)
     }
 
-    object VeteransProgram extends RA("04080") {
+    object VeteransProgram extends RAg("04080") {
         override def onScore(self : Card)(implicit g : Game) = (g.badPublicity > 0).$(OptionalEffect(Corp, "Veterans Program: remove up to 2 bad publicity?", $(BadPubEffect(-(g.badPublicity.atMost(2)))), $))
     }
 
-    object MarketResearch extends RA("04095") {
+    object MarketResearch extends RAg("04095") {
         override def onScore(self : Card)(implicit g : Game) = g.tagged.$(AddCounterEffect(self, "agenda", 1))
         override def agendaPointsBonus(self : Card)(implicit g : Game) = (corpScored(self) && g.counter(self, "agenda") > 0).?(1).|(0)
     }
 
-    object VulcanCoverup extends RA("04098") {
+    object VulcanCoverup extends RAg("04098") {
         override def onScore(self : Card)(implicit g : Game) = $(meat(2))
         override def onSteal(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "takes 1 bad publicity from Vulcan Coverup"), BadPubEffect(1))
     }
 
-    object NAPDContract extends RA("04119") {
+    object NAPDContract extends RAg("04119") {
         override def accessCostPaidByRunner(self : Card)(implicit g : Game) = $(CreditCost(4))
         override def advancementRequirementMod(self : Card, agenda : Card)(implicit g : Game) = (agenda == self).?(g.badPublicity).|(0)
     }
 
     // ---- Honor and Profit / Order and Chaos -----------------------------------------------------------------------------
 
-    object MedicalBreakthrough extends RA("05005") {
+    object MedicalBreakthrough extends RAg("05005") {
         override def advancementRequirementMod(self : Card, agenda : Card)(implicit g : Game) = (scoredAnywhere(self) && agenda != self && agenda.code == code).?(-1).|(0)
     }
 
-    object TheFuturePerfect extends RA("05007") {
+    object TheFuturePerfect extends RAg("05007") {
         def psi(self : Card)(implicit g : Game) : $[ForcedAction] = $(PsiEffect($, $(MessageEffect(Corp, "wins the psi game: The Future Perfect cannot be stolen during this access"), AddFlagEffect(Flag("rot-no-steal", |(self), None, "run", 0, $)))))
         override def onAccess(self : Card)(implicit g : Game) = (!g.isInstalled(self)).??(psi(self))
         override def onArchivesAccess(self : Card)(implicit g : Game) = psi(self)
     }
 
-    object DomesticSleepers extends RA("06001") {
+    object DomesticSleepers extends RAg("06001") {
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("place 1 agenda counter on Domestic Sleepers", click(3), $(AddCounterEffect(self, "agenda", 1)), click = true)))
         override def agendaPointsBonus(self : Card)(implicit g : Game) = (corpScored(self) && g.counter(self, "agenda") > 0).?(1).|(0)
     }
 
-    object EncryptedPortals extends RA("06024") {
+    object EncryptedPortals extends RAg("06024") {
         override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = (corpScored(self) && g.has(ice, "Code Gate")).?(1).|(0)
         override def onScore(self : Card)(implicit g : Game) = $(gain(Corp, g.rezzedIce.count(c => g.has(c, "Code Gate"))))
     }
 
-    object EdenFragment extends RA("06030") {
+    object EdenFragment extends RAg("06030") {
         override def installCostMod(self : Card, card : Card)(implicit g : Game) =
             (corpScored(self) && card.data.isIce && !g.flagsOf("installed").exists(_.card.exists(_.data.isIce))).?(-99).|(0)
     }
 
-    object ChronosProject extends RA("06049") {
+    object ChronosProject extends RAg("06049") {
         override def onScore(self : Card)(implicit g : Game) = $(RaChronosAction(self))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case RaChronosAction(self) =>
@@ -280,13 +280,13 @@ object RotAgendaCards {
         }
     }
 
-    object LabyrinthineServers extends RA("06063") {
+    object LabyrinthineServers extends RAg("06063") {
         override def onScore(self : Card)(implicit g : Game) = $(AddCounterEffect(self, "power", 2))
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("the Runner cannot jack out for the remainder of this run", $(CounterCost("power", 1)),
             $(SetRunFlagEffect("cannot-jack-out"), MessageEffect(Corp, "prevents the Runner from jacking out for the remainder of the run")), ok = g.run.exists(r => !r.ended && !r.cannotJackOut), reason = "only during a run")))
     }
 
-    object HadesFragment extends RA("06071") {
+    object HadesFragment extends RAg("06071") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if corpScored(self) && g.discard(Corp).any =>
                 $(ChooseCardEffect(Corp, g.discard(Corp), BottomOfDeckPurpose(Corp), "Hades Fragment: add a card from Archives to the bottom of R&D?", true))
@@ -294,7 +294,7 @@ object RotAgendaCards {
         }
     }
 
-    object BifrostArray extends RA("06081") {
+    object BifrostArray extends RAg("06081") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = g.scored(Corp).%(c => c.data.isAgenda && c.code != code && g.owner(c).isCorp)
             l.any.$(ChooseCardEffect(Corp, l, RaBifrostPurpose(self), "Bifrost Array: trigger the when scored ability of another agenda?", true))
@@ -309,12 +309,12 @@ object RotAgendaCards {
         }
     }
 
-    object SuperiorCyberwalls extends RA("06087") {
+    object SuperiorCyberwalls extends RAg("06087") {
         override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = (corpScored(self) && g.has(ice, "Barrier")).?(1).|(0)
         override def onScore(self : Card)(implicit g : Game) = $(gain(Corp, g.rezzedIce.count(c => g.has(c, "Barrier"))))
     }
 
-    object Helium3Deposit extends RA("06101") {
+    object Helium3Deposit extends RAg("06101") {
         def targets(implicit g : Game) = (g.installedCards(Corp) ++ g.installedCards(Runner) ++ g.scored(Corp) ++ g.scored(Runner) ++ g.identity.values.$).distinct.%(c => g.counter(c, "power") > 0)
         override def onScore(self : Card)(implicit g : Game) = targets.any.$(ChooseOneEffect(Corp, "Helium-3 Deposit: place power counters on a card with a power counter", $(
             Alt("Place 2 power counters", $(RaHeliumAction(self, 2))),
@@ -333,18 +333,18 @@ object RotAgendaCards {
         }
     }
 
-    object UtopiaFragment extends RA("06110") {
+    object UtopiaFragment extends RAg("06110") {
         override def stealCostMod(self : Card, agenda : Card)(implicit g : Game) = (corpScored(self) && g.advancement(agenda) > 0).$(CreditCost(2 * g.advancement(agenda)))
     }
 
-    object FirmwareUpdates extends RA("07004") {
+    object FirmwareUpdates extends RAg("07004") {
         def targets(implicit g : Game) = g.allIce.%(c => g.isAdvanceable(c))
         override def onScore(self : Card)(implicit g : Game) = agendaCounters(self, 3)
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("place 1 advancement counter on a piece of ice you can advance", $(CounterCost("agenda", 1)),
             $(ChooseCardEffect(Corp, targets, AdvancePurpose(1), "Firmware Updates: choose a piece of ice", false)), once = once("firmware-updates"), ok = targets.any, reason = "no ice can be advanced")))
     }
 
-    object GlennStation extends RA("07005") {
+    object GlennStation extends RAg("07005") {
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(
             Ability("host a card from HQ facedown", click(), $(ChooseCardEffect(Corp, g.hand(Corp), StashPurpose(self, true), "Glenn Station: choose a card in HQ to host", false)), click = true,
                 ok = g.hand(Corp).any && g.stashed(self).none, reason = "already hosts a card"),
@@ -352,11 +352,11 @@ object RotAgendaCards {
                 ok = g.stashed(self).any, reason = "no hosted card")))
     }
 
-    object GovernmentTakeover extends RA("07006") {
+    object GovernmentTakeover extends RAg("07006") {
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("gain 3 credits", click(), $(gain(Corp, 3)), click = true)))
     }
 
-    object HighRiskInvestment extends RA("07007") {
+    object HighRiskInvestment extends RAg("07007") {
         override def onScore(self : Card)(implicit g : Game) = agendaCounters(self, 1)
         override def abilities(self : Card)(implicit g : Game) = corpScored(self).??($(Ability("gain 1 credit for each credit in the Runner credit pool", $(ClickCost(1), CounterCost("agenda", 1)),
             $(RaHriAction(self)), click = true, ok = g.credits(Runner) > 0, reason = "the Runner has no credits")))
@@ -369,7 +369,7 @@ object RotAgendaCards {
 
     // ---- SanSan / Mumbad / Flashpoint -----------------------------------------------------------------------------------
 
-    object GeneticResequencing extends RA("08013") {
+    object GeneticResequencing extends RAg("08013") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = g.scored(Corp).%(_.data.isAgenda)
             l.any.$(ChooseCardEffect(Corp, l, RaAgendaCounterPurpose(self), "Genetic Resequencing: place 1 agenda counter on an agenda in your score area?", true))
@@ -381,7 +381,7 @@ object RotAgendaCards {
         }
     }
 
-    object ResearchGrant extends RA("08032") {
+    object ResearchGrant extends RAg("08032") {
         override def onScore(self : Card)(implicit g : Game) = {
             val l = g.installedCards(Corp).%(c => c.code == code && c != self)
             l.any.$(ChooseCardEffect(Corp, l, RaResearchGrantPurpose(self), "Research Grant: score another installed copy of Research Grant?", true))
@@ -398,11 +398,11 @@ object RotAgendaCards {
         }
     }
 
-    object SelfDestructChips extends RA("08051") {
+    object SelfDestructChips extends RAg("08051") {
         override def handSize(self : Card, f : Faction)(implicit g : Game) = (f.isRunner && corpScored(self)).?(-1).|(0)
     }
 
-    object UnderwayRenovation extends RA("08077") {
+    object UnderwayRenovation extends RAg("08077") {
         override def onInstall(self : Card)(implicit g : Game) = $(FaceupInstallEffect(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Advanced(c, _) if c == self && g.isInstalled(self) => $(MessageEffect(Corp, "uses Underway Renovation"), MillEffect(Runner, (g.advancement(self) >= 4).?(2).|(1)))
@@ -410,7 +410,7 @@ object RotAgendaCards {
         }
     }
 
-    object AwardBait extends RA("08093") {
+    object AwardBait extends RAg("08093") {
         override def onAccess(self : Card)(implicit g : Game) = $(RaAwardBaitAction(self))
         override def onArchivesAccess(self : Card)(implicit g : Game) = $(RaAwardBaitAction(self))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -425,7 +425,7 @@ object RotAgendaCards {
         }
     }
 
-    object HollywoodRenovation extends RA("08098") {
+    object HollywoodRenovation extends RAg("08098") {
         override def onInstall(self : Card)(implicit g : Game) = $(FaceupInstallEffect(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Advanced(c, _) if c == self && g.isInstalled(self) => $(RaHollywoodAction(self))
@@ -441,33 +441,33 @@ object RotAgendaCards {
         }
     }
 
-    object VanityProject extends RA("08100")
+    object VanityProject extends RAg("08100")
 
-    object AncestralImager extends RA("08112") {
+    object AncestralImager extends RAg("08112") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case RunEnds(_, _, _) if corpScored(self) && g.run.exists(_.jackedOut) => $(MessageEffect(Corp, "uses Ancestral Imager"), net(1))
             case _ => $
         }
     }
 
-    object TheFutureIsNow extends RA("08120") {
+    object TheFutureIsNow extends RAg("08120") {
         override def onScore(self : Card)(implicit g : Game) = g.deck(Corp).any.$(
             ChooseCardEffect(Corp, g.deck(Corp).sortBy(_.title), AddToHandPurpose(Corp, false), "The Future is Now: choose a card in R&D to add to HQ", false), ShuffleDeckEffect(Corp))
     }
 
     // ---- Data and Destiny -----------------------------------------------------------------------------------------------
 
-    object FifteenMinutes extends RA("09004") {
+    object FifteenMinutes extends RAg("09004") {
         override def abilities(self : Card)(implicit g : Game) = (g.active.isCorp && scoredAnywhere(self)).??($(Ability("shuffle 15 Minutes into R&D", click(),
             $(MessageEffect(Corp, "shuffles 15 Minutes into R&D"), MoveEffect(self, DeckZone(Corp), false), ShuffleDeckEffect(Corp)), click = true)))
     }
 
-    object ImprovedTracers extends RA("09005") {
+    object ImprovedTracers extends RAg("09005") {
         override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = (corpScored(self) && g.has(ice, "Tracer")).?(1).|(0)
         override def traceBonus(self : Card)(implicit g : Game) = (corpScored(self) && g.run.exists(r => !r.ended && r.phase == EncounterPhase)).?(1).|(0)
     }
 
-    object RebrandingTeam extends RA("09006") {
+    object RebrandingTeam extends RAg("09006") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaScored(c) if c == self => g.installedCards(Corp).%(_.data.isAsset)./(c => ExtraSubtypesEffect(c, $("Advertisement"), true))
             case Installed(Corp, c) if corpScored(self) && c.data.isAsset => $(ExtraSubtypesEffect(c, $("Advertisement"), true))
@@ -475,13 +475,13 @@ object RotAgendaCards {
         }
     }
 
-    object QuantumPredictiveModel extends RA("09007") {
+    object QuantumPredictiveModel extends RAg("09007") {
         def add(self : Card)(implicit g : Game) : $[ForcedAction] = g.tagged.$(MessageEffect(Corp, "adds Quantum Predictive Model to the score area"), AddToScoreAreaEffect(self, Corp))
         override def onAccess(self : Card)(implicit g : Game) = add(self)
         override def onArchivesAccess(self : Card)(implicit g : Game) = add(self)
     }
 
-    object GlobalFoodInitiative extends RA("09026") {
+    object GlobalFoodInitiative extends RAg("09026") {
         override def agendaPointsBonus(self : Card)(implicit g : Game) = (g.zone(self) == ScoredZone(Runner)).?(-1).|(0)
     }
 

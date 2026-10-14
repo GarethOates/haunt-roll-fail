@@ -31,7 +31,7 @@ object RotProgramCards2 {
 
     object Snitch extends Rot("02045") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ApproachIce(ice) if !g.isRezzed(ice) => $(OptionalEffect(Runner, "Snitch: expose the approached ice?", $(ExposeEffect(ice), JackOutOfferEffect), $))
+            case ApproachIce(ice) if !g.isRezzed(ice) => $(OptionalEffect(Runner, "Snitch: expose the approached ice?", $(ExposeEffect($(ice)), JackOutOfferEffect), $))
             case _ => $
         }
     }
@@ -277,7 +277,7 @@ object RotProgramCards2 {
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
             case WariPurpose(self, st) =>
                 cards.single.foreach { i =>
-                    g.push(ExposeEffect(i))
+                    g.push(ExposeEffect($(i)))
                     if (g.has(i, st))
                         g.push(MessageEffect(Runner, "uses Wari to add the exposed ice to HQ"), ReturnToHandEffect(i))
                 }

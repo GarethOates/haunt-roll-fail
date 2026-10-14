@@ -139,7 +139,7 @@ object RotIceCards1 {
     object Bloom extends RI("12032") {
         override def subroutines(self : Card)(implicit g : Game) = $(
             Sub("Install 1 piece of ice from HQ protecting another server, ignoring all costs", ChooseCardEffect(Corp, g.hand(Corp).%(_.data.isIce), InstallPayingChooseServerPurpose(99, g.servers.%(s => !thisServer(self, s)), true, false), "Bloom: install a piece of ice from HQ protecting another server", false)),
-            Sub("Install 1 piece of ice from HQ directly inside this ice, ignoring all costs", ChooseCardEffect(Corp, g.hand(Corp).%(_.data.isIce), RotPurpose(self, 1), "Bloom: install a piece of ice from HQ protecting this server", false)))
+            Sub("Install 1 piece of ice from HQ directly inside this ice, ignoring all costs", ChooseCardEffect(Corp, g.hand(Corp).%(_.data.isIce), RotIcePurpose(self, 1), "Bloom: install a piece of ice from HQ protecting this server", false)))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 g.serverOf(p.card).foreach { s =>
@@ -486,7 +486,7 @@ object RotIceCards1 {
         def ownSub(self : Card)(implicit g : Game) : Sub
         override def onEncounter(self : Card)(implicit g : Game) = {
             val l = g.hand(Corp).%(c => g.has(c, "Grail"))
-            l.any.$(ChooseCardsEffect(Corp, l, 0, 2, RotPurpose(self, 1), name + ": reveal up to 2 grail ice from HQ to add their subroutines"))
+            l.any.$(ChooseCardsEffect(Corp, l, 0, 2, RotIcePurpose(self, 1), name + ": reveal up to 2 grail ice from HQ to add their subroutines"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             if (cards.any) {
@@ -519,7 +519,7 @@ object RotIceCards1 {
             case RotSubAction(self, 2) =>
                 val l = (g.hand(Corp) ++ g.discard(Corp)).%(_.data.isAgenda)
                 if (l.any)
-                    g.push(ChooseCardsEffect(Corp, l, 0, 3, RotPurpose(self, 1), "Gatekeeper: choose up to 3 agendas to reveal and shuffle into R&D"))
+                    g.push(ChooseCardsEffect(Corp, l, 0, 3, RotIcePurpose(self, 1), "Gatekeeper: choose up to 3 agendas to reveal and shuffle into R&D"))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -624,7 +624,7 @@ object RotIceCards1 {
 
     object Howler extends RI("03016") {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Install and rez a bioroid ice from HQ or Archives directly inside this ice, ignoring all costs; derez it and trash this ice when the run ends",
-            ChooseCardEffect(Corp, (g.hand(Corp) ++ g.discard(Corp)).%(c => c.data.isIce && g.has(c, "Bioroid")), RotPurpose(self, 1), "Howler: choose a bioroid ice", true)))
+            ChooseCardEffect(Corp, (g.hand(Corp) ++ g.discard(Corp)).%(c => c.data.isIce && g.has(c, "Bioroid")), RotIcePurpose(self, 1), "Howler: choose a bioroid ice", true)))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 g.serverOf(p.card).foreach { s =>
@@ -734,7 +734,7 @@ object RotIceCards1 {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
                 if (g.runnerInstalled.num >= 2)
-                    g.push(ChooseCardsEffect(Corp, g.runnerInstalled, 2, 2, RotPurpose(self, 1), "Jua: choose 2 installed Runner cards"))
+                    g.push(ChooseCardsEffect(Corp, g.runnerInstalled, 2, 2, RotIcePurpose(self, 1), "Jua: choose 2 installed Runner cards"))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -765,7 +765,7 @@ object RotIceCards1 {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
                 if (g.hand(Corp).any)
-                    g.push(OptionalEffect(Corp, "Kitsune: force the Runner to access a card in HQ?", $(ChooseCardEffect(Corp, g.hand(Corp), RotPurpose(self, 1), "Kitsune: choose a card in HQ", false)), $))
+                    g.push(OptionalEffect(Corp, "Kitsune: force the Runner to access a card in HQ?", $(ChooseCardEffect(Corp, g.hand(Corp), RotIcePurpose(self, 1), "Kitsune: choose a card in HQ", false)), $))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -809,7 +809,7 @@ object RotIceCards1 {
     object Loki extends RI("12069") {
         override def onEncounter(self : Card)(implicit g : Game) = {
             val l = g.rezzedIce.but(self)
-            l.any.$(ChooseCardEffect(Corp, l, RotPurpose(self, 1), "Loki: choose another rezzed piece of ice to copy", false))
+            l.any.$(ChooseCardEffect(Corp, l, RotIcePurpose(self, 1), "Loki: choose another rezzed piece of ice to copy", false))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.push(SetTargetEffect(p.card, |(c)), ExtraSubtypesEffect(p.card, g.subtypes(c), true)))

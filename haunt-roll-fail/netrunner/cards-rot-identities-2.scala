@@ -52,13 +52,12 @@ object RotIdentityCards2 {
 
     object Apex extends RH("09029") {
         override def blocksInstall(self : Card, card : Card)(implicit g : Game) = card.data.isResource && !g.has(card, "Virtual")
-        override def memory(self : Card)(implicit g : Game) = g.rig.%(c => g.state(c).facedown && c.data.isProgram)./(_.data.memory.|(0)).sum
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) if g.hand(Runner).any => $(ChooseCardEffect(Runner, g.hand(Runner), RHApexPurpose(self), "Apex: install 1 card from the grip facedown?", true))
             case _ => $
         }
         override def chosenRH(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.single.foreach(c => g.push(says(p.card, "install a card facedown"), RHFacedownInstallEffect(c)))
+            cards.single.foreach(c => g.push(says(p.card, "install a card facedown"), InstallFacedownEffect(c)))
             NextAction
         }
     }
@@ -277,9 +276,9 @@ object RotIdentityCards2 {
         override def performRH(a : CardAction)(implicit g : Game) = a match {
             case RH419Action(self, c) =>
                 if (g.credits(Corp) >= 1)
-                    g.push(ChooseOneEffect(Corp, "419: pay 1 credit to prevent the card from being exposed?", $(Alt("Pay 1 credit", $(lose(Corp, 1))), Alt("Let the Runner expose it", $(RHExposeEffect(c))))))
+                    g.push(ChooseOneEffect(Corp, "419: pay 1 credit to prevent the card from being exposed?", $(Alt("Pay 1 credit", $(lose(Corp, 1))), Alt("Let the Runner expose it", $(ExposeEffect($(c)))))))
                 else
-                    g.push(RHExposeEffect(c))
+                    g.push(ExposeEffect($(c)))
                 NextAction
         }
     }

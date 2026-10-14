@@ -92,7 +92,7 @@ object RotHardwareCards2 {
 
     object GPINetTap extends RH("11003") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ApproachIce(c) if !g.isRezzed(c) => $(OptionalEffect(Runner, "GPI Net Tap: expose the approached ice?", $(RHExposeEffect(c), RHGpiAction(self)), $))
+            case ApproachIce(c) if !g.isRezzed(c) => $(OptionalEffect(Runner, "GPI Net Tap: expose the approached ice?", $(ExposeEffect($(c)), RHGpiAction(self)), $))
             case _ => $
         }
         override def performRH(a : CardAction)(implicit g : Game) = a match {
@@ -306,7 +306,7 @@ object RotHardwareCards2 {
         override def recurring(self : Card)(implicit g : Game) = 2
         override def breakerCredits(self : Card, breaker : Card)(implicit g : Game) = g.isIcebreaker(breaker)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RHTraceResolved(true) if g.run.exists(!_.ended) => $(MessageEffect(Runner, "suffers 1 core damage (Spinal Modem)"), core(1))
+            case TraceResolved(true, _) if g.run.exists(!_.ended) => $(MessageEffect(Runner, "suffers 1 core damage (Spinal Modem)"), core(1))
             case _ => $
         }
     }
@@ -355,7 +355,7 @@ object RotHardwareCards2 {
     object Zamba extends RH("21003") {
         override def memory(self : Card)(implicit g : Game) = 2
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RHExposed(c) if g.owner(c).isCorp => $(says(self, "gain 1 credit"), gain(Runner, 1))
+            case Exposed(l) if l.exists(c => g.owner(c).isCorp) => $(says(self, "gain " + l.num + " credit" + (l.num != 1).??("s")), gain(Runner, l.num))
             case _ => $
         }
     }

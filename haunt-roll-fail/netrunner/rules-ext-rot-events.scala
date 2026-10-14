@@ -16,23 +16,17 @@ import netrunner.elem._
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Generic mechanics added for the rotated / FFG-era Runner events (see STATUS-rot-events.md):
-// currents and other lingering events, expose, facedown installs, extra turns, identity switch, credit drains,
+// lingering events (currents: see rules-ext-rot-operations.scala), turning the rig facedown, extra turns, identity switch, credit drains,
 // root-less breaches, run markers (access from the bottom of R&D / no HQ cards), game-level restrictions on rezzing,
 // running, advancing and installing ice (Blackmail, Interdiction, Unscheduled Maintenance, Security Leak, Hacktivist
 // Meeting, Marathon, Peace in Our Time, The Price of Freedom) applied by intercepting the engine asks.
 // ---------------------------------------------------------------------------------------------------------------------
 
-// ---- new events -----------------------------------------------------------------------------------------------------
-case class Exposed(cards : $[Card]) extends Event
-
 // ---- new effects ----------------------------------------------------------------------------------------------------
-case class ExposeEffect(cards : $[Card]) extends ForcedAction                                  // expose installed Corp cards
-case class RunnerInstallFacedownEffect(card : Card) extends ForcedAction                        // install a Runner card facedown (no cost, no abilities)
 case class TurnRigFacedownEffect(cards : $[Card]) extends ForcedAction                          // turn installed Runner cards facedown (Apocalypse)
 case class ExtraTurnEffect(f : Faction) extends ForcedAction                                   // f takes an additional turn after this one
 case class SwitchIdentityEffect(f : Faction, code : String) extends ForcedAction                // replace f's identity with another one (Rebirth)
 case class DrainCreditsEffect(max : Int, mult : Int, tags : Int) extends ForcedAction           // Corp loses up to max credits, Runner gains mult per credit and takes tags
-case class BreachNoRootEffect(server : Server) extends ForcedAction                             // breach a server without accessing its root (pseudo-run)
 case class SetRunMarkerEffect(key : String) extends ForcedAction                                // mark the current run ("bottom": access R&D from the bottom, "no-hand": no HQ cards)
 case class TrashAccessedEffect(card : Card) extends ForcedAction                                // trash the card being accessed at no cost (the access decision is skipped)
 case class RfgAccessedEffect(card : Card) extends ForcedAction                                  // remove the card being accessed from the game
@@ -43,9 +37,6 @@ case class CorpAddAllToTopEffect(cards : $[Card]) extends ForcedAction          
 case class SecretSpendEffect(card : Card, max : Int) extends ForcedAction                        // the Runner secretly spends 0..max credits for card (Push Your Luck, Rigged Results)
 case class SecretSpendAction(self : Faction, card : Card, n : Int) extends BaseAction("Secretly spend credits")(n.hl ~ " credits")
 case class SecretSpentAction(card : Card, n : Int) extends CardAction                           // dispatched to the card's perform: n credits were set aside (not yet paid)
-
-// generic purpose (resolved by RotEventRules)
-case object ExposePurpose extends Purpose
 
 
 trait RotEventRules { game : Game =>
@@ -181,10 +172,8 @@ trait RotEventRules { game : Game =>
             }
             c
         // run markers / no-access markers: restrict the cards still to be accessed
-        case a @ AccessNextAction if run.exists(r => r.accessBonusFor("no-root") > 0 || r.accessBonusFor("no-hand") > 0) || noAccessMarked =>
+        case a @ AccessNextAction if run.exists(r => r.accessBonusFor("no-hand") > 0) || noAccessMarked =>
             run.foreach { r =>
-                if (r.accessBonusFor("no-root") > 0)
-                    r.toAccess = r.toAccess.%!(c => zone(c).is[RootZone] || zone(c).is[HostedZone])
                 if (r.accessBonusFor("no-hand") > 0)
                     r.toAccess = r.toAccess.%!(c => zone(c) == HandZone(Corp))
                 r.toAccess = r.toAccess.%!(c => usedThisTurn(c, "no-access"))
@@ -196,37 +185,7 @@ trait RotEventRules { game : Game =>
             push(AccessDoneAction(c))
             NextAction
 
-        // ---- purposes
-        case CardsChosenAction(f, l, ExposePurpose) =>
-            if (l.any)
-                push(ExposeEffect(l))
-            NextAction
-
         // ---- new effects
-        case ExposeEffect(l) =>
-            val ll = l.%(c => isInstalled(c) && owner(c).isCorp)
-            ll.foreach { c =>
-                state(c).seen = true
-                log(Runner, "exposes", cardElem(c))
-            }
-            if (ll.any) {
-                regInc("exposed", ll.num)
-                trigger(Exposed(ll))
-            }
-            NextAction
-
-        case RunnerInstallFacedownEffect(c) =>
-            if (location.get(c).exists(inPlayZone))
-                NextAction
-            else {
-                moveTo(c, RigZone)
-                state(c).facedown = true
-                state(c).installedTurn = turn
-                log(Runner, "installs a card facedown")
-                regInc("installed")
-                NextAction
-            }
-
         case TurnRigFacedownEffect(l) =>
             val ll = l.%(c => isInstalled(c) && owner(c).isRunner && !state(c).facedown)
             ll.foreach(c => state(c).facedown = true)
@@ -255,23 +214,6 @@ trait RotEventRules { game : Game =>
         case DrainCreditsEffect(max, mult, tags) =>
             val n = max.atMost(credits(Corp))
             pushAll($(LoseCreditsEffect(Corp, n), GainCreditsEffect(Runner, n * mult)) ++ (tags > 0).$(TagsEffect(tags)))
-            NextAction
-
-        case BreachNoRootEffect(s) =>
-            val r = new Run(s, None, false)
-            r.accessOnly = true
-            r.outer = run
-            r.phase = AccessPhase
-            r.breachServer = |(s)
-            r.accessBonus += "no-root" -> 1
-            run = |(r)
-            lastPseudoRun = |(r)
-            log(Runner, "breaches", s, "(no root cards)")
-            if (s == HQ) regInc("breach-hq")
-            if (s == RnD) regInc("breach-rd")
-            if (s == Archives) regInc("breach-archives")
-            push(AccessServerAction(s), SyncPseudoRunAction)
-            trigger(BreachServer(s))
             NextAction
 
         case SetRunMarkerEffect(k) =>
@@ -362,9 +304,7 @@ abstract class RE(val code : String) extends CardImpl {
         case ("corp-turn", TurnEnds(Corp)) => $(lingerEnd(self))
         case ("runner-begins", TurnBegins(Runner)) => $(lingerEnd(self))
         case ("corp-begins", TurnBegins(Corp)) => $(lingerEnd(self))
-        case ("current", Played(_, c)) if c != self && g.has(c, "Current") => $(MessageEffect(g.owner(self), "trashes the current " + g.asciiTitle(self)), lingerEnd(self))
-        case ("current", AgendaScored(_)) if g.owner(self).isRunner => $(MessageEffect(Runner, "trashes the current " + g.asciiTitle(self)), lingerEnd(self))
-        case ("current", AgendaStolen(_)) if g.owner(self).isCorp => $(MessageEffect(Corp, "trashes the current " + g.asciiTitle(self)), lingerEnd(self))
+        // "current": trashed by rotOperationTriggers (another current played, an agenda scored / stolen)
         case _ => $
     }
 

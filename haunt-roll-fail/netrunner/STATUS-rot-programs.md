@@ -136,3 +136,15 @@ No other shared file was touched; nothing was renamed, reordered or reformatted.
   from HQ) cannot be paid; it is then derezzed immediately and the rez option is offered again, so the Random bot can loop
   forever ("game too long" in 4 of ~1400 harness games before the Zwicky preset was excluded with `HRF_CORP_EXCLUDE=Zwicky`).
   Suggested fix in Plutus: `override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda) || g.hand(Corp).num >= 3`.
+
+## Merge note (2026-10-14)
+
+After the eight rotated ports were merged into `netrunner`, mechanics that several ports had defined independently were
+reduced to one definition each (see `ENGINE.md` §8.1 and `rules-ext-rot-shared.scala`). Expose is now
+`ExposeEffect(cards)` / `Exposed(cards)`, facedown installs are `InstallFacedownEffect`, and the shared effects are
+`LoseAllCreditsEffect`, `BreachNoRootEffect` and `SwapRootEffect`. The trace result event is `TraceResolved(successful, spent)`,
+the psi result event is `RotPsiRevealed(corp, runner)`, recurring refills use `RefillCreditsEffect`, and the currents
+rule lives in `rotOperationTriggers`. Renames made to avoid clashes: the agendas/upgrades base class `RA` became `RAg`, and
+the purpose traits became `RotIcePurpose` / `RotProgPurpose` / `RotResPurpose` / `RotAgPurpose`. The agendas' `rotActive`
+became `rotAgActive`, and the events' `LevyAction` became `LevyARLabAccessAction`. Apex no longer offsets the MU of facedown
+programs, because facedown programs now use no MU at all. Some notes above may still name the old definitions.

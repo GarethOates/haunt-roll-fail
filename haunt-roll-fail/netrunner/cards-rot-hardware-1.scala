@@ -186,7 +186,7 @@ object RotHardwareCards1 {
     object Blackguard extends RH("04085") {
         override def memory(self : Card)(implicit g : Game) = 2
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RHExposed(c) if g.owner(c).isCorp && !c.data.isAgenda => $(RHBlackguardAction(self, c))
+            case Exposed(l) => l.%(c => g.owner(c).isCorp && !c.data.isAgenda)./(c => RHBlackguardAction(self, c) : ForcedAction)
             case _ => $
         }
         override def performRH(a : CardAction)(implicit g : Game) = a match {

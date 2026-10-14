@@ -107,13 +107,13 @@ abstract class RI(code : String) extends NC(code) {
     // "the Runner spent [click] to break a subroutine this run" (bioroid breaks of the rotated ice set the run flag)
     def clickBrokeThisRun(implicit g : Game) = g.hasFlag("click-break")
 
-    // install a card (from HQ / Archives) choosing among the servers where it is affordable (RotPurpose k = 98)
+    // install a card (from HQ / Archives) choosing among the servers where it is affordable (RotIcePurpose k = 98)
     def installSub(label : String, l : $[Card], optional : Boolean)(self : Card)(implicit g : Game) =
-        Sub(label, ChooseCardEffect(Corp, l.%(corpInstallable), RotPurpose(self, 98), name + ": choose a card to install", optional))
+        Sub(label, ChooseCardEffect(Corp, l.%(corpInstallable), RotIcePurpose(self, 98), name + ": choose a card to install", optional))
 
     // the generic purposes of the base class: 98 = install paying, 99 = resolve a subroutine of the chosen ice
     override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) : Continue = p match {
-        case RotPurpose(_, 98) =>
+        case RotIcePurpose(_, 98) =>
             cards.single.foreach { c =>
                 val l = (c.data.isIce || c.data.isUpgrade).?(g.servers).|(g.remotes).%(s => g.installCost(c, |(s)) <= g.credits(Corp))
                 val n = g.installCost(c, None) <= g.credits(Corp)
@@ -121,7 +121,7 @@ abstract class RI(code : String) extends NC(code) {
                     g.push(ChooseServerPayingEffect(c, 0, l, n, false))
             }
             NextAction
-        case RotPurpose(_, 99) =>
+        case RotIcePurpose(_, 99) =>
             cards.single.foreach(c => g.push(ChooseSubEffect(Corp, c, false, false)))
             NextAction
         case _ => throw new Error("unhandled card purpose " + p)
@@ -133,7 +133,7 @@ abstract class RI(code : String) extends NC(code) {
 
 // card specific actions and purposes (k discriminates the uses inside a card)
 case class RotSubAction(card : Card, k : Int) extends CardAction
-case class RotPurpose(card : Card, k : Int) extends CardPurpose
+case class RotIcePurpose(card : Card, k : Int) extends CardPurpose
 case class RotServerAction(card : Card, server : Server, k : Int) extends CardAction
 
 

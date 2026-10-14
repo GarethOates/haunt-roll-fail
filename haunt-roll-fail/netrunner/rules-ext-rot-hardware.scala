@@ -28,54 +28,11 @@ import Helpers._
 // ---------------------------------------------------------------------------------------------------------------------
 
 // ---- events -----------------------------------------------------------------------------------------------------------
-case class RHExposed(card : Card) extends Event                          // an installed card was exposed
-case class RHFacedownInstalled(card : Card) extends Event                // a Runner card was installed facedown (Apex)
-case class RHTraceResolved(success : Boolean) extends Event              // a trace finished (successful or not)
-case object RHPsiRevealed extends Event                                  // both players revealed secretly spent credits
+// (expose / facedown installs: rules-ext-rot-shared.scala; trace / psi results: TraceResolved / RotPsiRevealed)
 case class RHTrashAbilityUsed(card : Card) extends Event                 // the Runner used a [trash] ability
 
 
 // ---- effects ----------------------------------------------------------------------------------------------------------
-
-// expose an installed card (only unrezzed / facedown cards reveal anything)
-case class RHExposeEffect(card : Card) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        if (g.isInstalled(card) && !g.isRezzed(card)) {
-            g.state(card).seen = true
-            g.log(Runner, "exposes", g.cardElem(card))
-            g.regInc("exposed")
-            g.trigger(RHExposed(card))
-        }
-        NextAction
-    }
-}
-
-// install a Runner card facedown (no cost, no install abilities)
-case class RHFacedownInstallEffect(card : Card) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        if (g.location.contains(card) && !g.location.get(card).exists(g.inPlayZone)) {
-            g.moveTo(card, RigZone)
-            g.state(card).facedown = true
-            g.state(card).installedTurn = g.turn
-            g.regInc("installed")
-            g.log(Runner, "installs a card facedown")
-            g.trigger(RHFacedownInstalled(card))
-        }
-        NextAction
-    }
-}
-
-// refill hosted recurring credits (also for identities, which are not installed)
-case class RHRefillEffect(card : Card, n : Int) extends ForcedAction with SelfPerform {
-    def perform(soft : Void)(implicit g : Game) = {
-        val cur = g.counter(card, "credit")
-        if (cur < n && g.isActive(card)) {
-            g.addCounter(card, "credit", n - cur)
-            g.trigger(CounterAdded(card, "credit"))
-        }
-        NextAction
-    }
-}
 
 // discard the chosen cards for damage (Titanium Ribs, Chronos Protocol), then the rest at random
 case class RHDamageResolveEffect(kind : String, n : Int, picked : $[Card]) extends ForcedAction with SelfPerform {
@@ -197,7 +154,6 @@ case class RHInstallInnermostEffect(card : Card, server : Server) extends Forced
 // ---- generic purposes (CardPurposes of an RH card, resolved by RotHardwareExt) ------------------------------------------
 trait RHPurpose extends CardPurpose
 
-case class RHExposePurpose(card : Card) extends RHPurpose                                  // expose the chosen cards
 case class RHDamagePickPurpose(card : Card, kind : String, n : Int) extends RHPurpose     // the chosen grip cards are trashed by damage
 case class RHTrashProgramPreventPurpose(card : Card, kind : String, n : Int) extends RHPurpose  // trash a program from the grip, prevent 1 damage
 case class RHAddCounterPurpose(card : Card, kind : String, n : Int) extends RHPurpose     // place n counters of kind on the chosen card
@@ -269,10 +225,10 @@ abstract class RH(code : String) extends Startup(code) {
     def hostedMU(self : Card)(implicit g : Game) : Int = hostedPrograms(self)./(_.data.memory.|(0)).sum
     def asciiTitle(c : Card) : String = c.title.toList.map(ch => if (ch < 128 && ch != '"') ch else '?').mkString
     def expose(candidates : $[Card], prompt : String, optional : Boolean, self : Card) : $[ForcedAction] =
-        candidates.any.$(ChooseCardEffect(Runner, candidates, RHExposePurpose(self), prompt, optional))
+        candidates.any.$(ChooseCardEffect(Runner, candidates, ExposePurpose, prompt, optional))
     def mostFaction(f : Faction, faction : String)(implicit g : Game) = g.rhHasMostFaction(f, faction)
     def recurringRefill(self : Card, e : Event, f : Faction)(implicit g : Game) : $[ForcedAction] = e match {
-        case TurnBegins(ff) if ff == f && recurring(self) > 0 => $(RHRefillEffect(self, recurring(self)))
+        case TurnBegins(ff) if ff == f && recurring(self) > 0 => $(RefillCreditsEffect(self, recurring(self)))
         case _ => $
     }
 }
@@ -283,9 +239,6 @@ object RotHardwareExt {
 
     def chosen(impl : RH, p : RHPurpose, cards : $[Card])(implicit g : Game) : Continue = {
         p match {
-            case RHExposePurpose(_) =>
-                cards.foreach(c => g.push(RHExposeEffect(c)))
-
             case RHDamagePickPurpose(_, kind, n) =>
                 g.log(g.owner(p.card).isCorp.?(Corp).|(Runner), "chooses", cards.num.cards, "to trash")
                 g.push(RHDamageResolveEffect(kind, n, cards))
@@ -425,6 +378,9 @@ trait RotHardwareRules { game : Game =>
 
     def rhCreditSources(purpose : String) : $[Card] = rhCards.%{ case (x, r) => counter(x, "credit") > 0 && r.creditsUsableFor(x, purpose) }.map(_._1)
 
+    // hosted credits usable for traces: rotated hardware / identities (Making News) and assets (Net Police, Primary Transmission Dish)
+    def rhTraceSources : $[Card] = (rhCreditSources("trace") ++ rotRecurring("trace", Card("", 0))).distinct
+
     def rhDamageChoice(kind : String, n : Int) : |[(Card, Faction, Int)] = rhCards./~{ case (x, r) => r.damageChoice(x, kind, n)./{ case (f, k) => (x, f, k) } }.starting
 
     // ---- the interception -----------------------------------------------------------------------------------------------
@@ -442,9 +398,7 @@ trait RotHardwareRules { game : Game =>
         case CheckWinAction => rhCards.exists { case (x, r) => r.winPointsMod(x, Corp) != 0 || r.winPointsMod(x, Runner) != 0 }
         case RemoveTagAction(_) | TrashResourceAction(_, _) => rhSync("tag") != 0 || rhSync("resource") != 0
         case AdvanceAction(_, c) => c.data.isIce && rhCreditSources("advance-ice").any
-        case TraceCorpBoostAction(_, _, _) | TraceCorpAction(_, _) => rhCreditSources("trace").any
-        case TraceRunnerAction(_, _) => true
-        case PsiResolveAction(_, _, _, _) => true
+        case TraceCorpBoostAction(_, _, _) | TraceCorpAction(_, _) => rhTraceSources.any
         case DamageApplyEffect(kind, n) => n > 0 && n <= hand(Runner).num && rhDamageChoice(kind, n).any
         case TagsEffect(n) => n > 0 && rhCards.any
         case AccessDoneAction(c) => rhCards.any
@@ -600,12 +554,12 @@ trait RotHardwareRules { game : Game =>
             rhInnerPerform(a)
 
         case TraceCorpBoostAction(base, success, fail) =>
-            val hosted = rhCreditSources("trace")./(counter(_, "credit")).sum
+            val hosted = rhTraceSources./(counter(_, "credit")).sum
             Ask(Corp).group("Trace strength " ~ base.hl ~ ", boost by paying credits (" ~ hosted.hl ~ " hosted credits usable)").add(0.to(credits(Corp) + hosted).$./(n => TraceCorpAction(Corp, n)))
 
         case TraceCorpAction(f, n) =>
             var left = n
-            rhCreditSources("trace").foreach { s =>
+            rhTraceSources.foreach { s =>
                 val m = left.atMost(counter(s, "credit"))
                 if (m > 0) {
                     addCounter(s, "credit", -m)
@@ -615,17 +569,6 @@ trait RotHardwareRules { game : Game =>
                 }
             }
             rhInnerPerform(a)
-
-        case TraceRunnerAction(f, n) =>
-            val success = traceStrength > link + n
-            val r = rhInnerPerform(a)
-            trigger(RHTraceResolved(success))
-            r
-
-        case PsiResolveAction(_, _, _, _) =>
-            val r = rhInnerPerform(a)
-            trigger(RHPsiRevealed)
-            r
 
         case DamageApplyEffect(kind, n) =>
             rhDamageChoice(kind, n) match {
@@ -681,7 +624,7 @@ trait RotHardwareRules { game : Game =>
     def rotHardwareTriggers(e : Event) : $[ForcedAction] = e match {
         case TurnBegins(f) =>
             activeCards(f)./~(c => impl(c) match {
-                case r : RH if r.recurring(c) > 0 && counter(c, "credit") < r.recurring(c) => $(RHRefillEffect(c, r.recurring(c)))
+                case r : RH if r.recurring(c) > 0 && counter(c, "credit") < r.recurring(c) => $(RefillCreditsEffect(c, r.recurring(c)))
                 case _ => $
             })
         case Rezzed(c) if c.data.isIce && hasFlag("rh-emp") && !hasFlag("rh-emp-used") =>

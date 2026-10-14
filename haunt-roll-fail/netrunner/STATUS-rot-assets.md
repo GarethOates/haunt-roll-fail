@@ -144,3 +144,15 @@ No other shared file was touched (`rules-*.scala`, `ui.scala`, `meta.scala`, `ca
   HQ, Shock! from Archives, Synth DNA Modification (first time only), Hyoubu Research Facility + Fumiko, Lakshmi Smartfabrics,
   Echo Chamber, Contract Killer, False Flag, Elizabeth Mills, Long-Term Investment, C.I. Fund, Zealous Judge, Full Immersion
   RecStudio (hosting, trash cost, access), Jeeves Model Bioroids.
+
+## Merge note (2026-10-14)
+
+After the eight rotated ports were merged into `netrunner`, mechanics that several ports had defined independently were
+reduced to one definition each (see `ENGINE.md` §8.1 and `rules-ext-rot-shared.scala`). Expose is now
+`ExposeEffect(cards)` / `Exposed(cards)`, facedown installs are `InstallFacedownEffect`, and the shared effects are
+`LoseAllCreditsEffect`, `BreachNoRootEffect` and `SwapRootEffect`. The trace result event is `TraceResolved(successful, spent)`,
+the psi result event is `RotPsiRevealed(corp, runner)`, recurring refills use `RefillCreditsEffect`, and the currents
+rule lives in `rotOperationTriggers`. Renames made to avoid clashes: the agendas/upgrades base class `RA` became `RAg`, and
+the purpose traits became `RotIcePurpose` / `RotProgPurpose` / `RotResPurpose` / `RotAgPurpose`. The agendas' `rotActive`
+became `rotAgActive`, and the events' `LevyAction` became `LevyARLabAccessAction`. Apex no longer offsets the MU of facedown
+programs, because facedown programs now use no MU at all. Some notes above may still name the old definitions.

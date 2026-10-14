@@ -23,8 +23,7 @@ import netrunner.elem._
 // RotAssetRules is mixed into Game like the other extension traits. Besides performRotAssets and rotAssetTriggers it
 // uses stackable overrides (each one calls super and is guarded by the card being in play), so that no shared rules
 // file had to be edited:
-//   performEffects  psi reveal event, recurring trace credits, trace success event, Broadcast Square, Genetics Pavilion
-//                   draw limit, Blacklist (AddToHandEffect / MoveEffect / RemoveFromGameEffect out of the heap)
+//   performEffects  psi reveal event (RotPsiRevealed), Broadcast Square, Genetics Pavilion draw limit, Blacklist (AddToHandEffect / MoveEffect / RemoveFromGameEffect out of the heap)
 //   performCards    recurring install credits (The Root), Blacklist (installing from the heap)
 //   performTurn     recurring advance credit (The Root), Genetics Pavilion / The News Now Hour greying of Runner actions
 //   performRun      remembers the unbroken subroutines of an encounter that ends (Chief Slee)
@@ -35,15 +34,10 @@ import netrunner.elem._
 // ---------------------------------------------------------------------------------------------------------------------
 
 // ---- events ---------------------------------------------------------------------------------------------------------
-case class RotPsiRevealed(corp : Int, runner : Int) extends Event      // the secretly spent credits of a psi game were revealed
-case object RotTraceSucceeded extends Event                             // a trace was successful
-case class RotExposed(card : Card) extends Event                        // an installed Corp card was exposed
+case class RotPsiRevealed(corp : Int, runner : Int) extends Event      // the secretly spent credits of a psi game were revealed (the one psi event of all rotated sets)
 
 // ---- effects --------------------------------------------------------------------------------------------------------
 case class RotAsAgendaEffect(card : Card, f : Faction) extends ForcedAction            // add a card to f's score area as an agenda (RA.asAgendaPoints)
-case class RotExposeEffect(card : Card) extends ForcedAction                           // the Runner exposes an installed Corp card (Corp may respond)
-case class RotExposeResolveAction(card : Card) extends ForcedAction
-case class RotExposePreventedEffect(card : Card) extends ForcedAction
 case class RotCorpHostInstallEffect(card : Card, host : Card) extends ForcedAction     // install a Corp card hosted on an installed Corp card (Worlds Plaza)
 case class RotChooseInstallServerEffect(card : Card, ignoreCost : Boolean) extends ForcedAction with Reaskable  // choose a server and install (paying the cost unless ignored)
 case class RotBadPubNowEffect(n : Int) extends ForcedAction                            // take bad publicity without the Broadcast Square trace
@@ -69,8 +63,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
 
     // ---- recurring credits ------------------------------------------------------------------------------------------
     def rotRecurring(kind : String, card : Card) : $[Card] = activeCards(Corp).%(c => isInstalled(c) && counter(c, "credit") > 0 && raOf(c).exists(_.recurring(c, kind, card)))
-
-    def rotTraceCredits : Int = rotRecurring("trace", Card("", 0))./(c => counter(c, "credit")).sum
 
     def rotRawRezCost(c : Card, ex : $[Card]) : Int = (c.data.cost.|(0) + allActive.%!(ex.has)./(x => impl(x).rezCostMod(x, c)).sum + (!isActive(c)).??(impl(c).rezCostMod(c, c))).atLeast(0)
 
@@ -121,32 +113,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
             case a @ PsiResolveAction(c, r, _, _) =>
                 val x = base(a)
                 trigger(RotPsiRevealed(c, r))
-                x
-
-            case TraceCorpBoostAction(b, s, f) if rotTraceCredits > 0 =>
-                val t = rotTraceCredits
-                Ask(Corp).group("Trace strength " ~ b.hl ~ ", boost by paying credits (" ~ t.credits ~ " from recurring credits)").add(0.to(credits(Corp) + t).$./(n => TraceCorpAction(Corp, n)))
-
-            case TraceCorpAction(f, n) if rotTraceCredits > 0 =>
-                traceStrength = traceBase + n
-                var left = n
-                rotRecurring("trace", Card("", 0)).foreach { s =>
-                    val m = left.atMost(counter(s, "credit"))
-                    if (m > 0) {
-                        addCounter(s, "credit", -m)
-                        left -= m
-                        log(Corp, "spends", m.credits, "from", s)
-                    }
-                }
-                credits += Corp -> (credits(Corp) - left)
-                log(Corp, "pays", n.credits, "for trace strength", traceStrength.hl)
-                TraceRunnerBoostAction(traceStrength, traceSuccess, traceFail)
-
-            case a @ TraceRunnerAction(f, n) =>
-                val ok = traceStrength > link + n
-                val x = base(a)
-                if (ok)
-                    trigger(RotTraceSucceeded)
                 x
 
             case BadPubEffect(n) if n > 0 && rotLive("04112").any =>
@@ -269,7 +235,7 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
             case Accessed(c) if zone(c) == DiscardZone(Corp) => raOf(c).$./~(r => r.accessInArchives.?(r.onAccess(c)).|($))
             // executives trashed while accessed
             case Trashed(c, Runner, true) if owner(c).isCorp && raOf(c).exists(_.executive) => $(RotAsAgendaEffect(c, Runner))
-            case RotExposed(c) if isInstalled(c) => raOf(c).$./~(_.onExpose(c))
+            case Exposed(l) => l.%(isInstalled)./~(c => raOf(c).$./~(_.onExpose(c)))
             case _ => $
         }
 
@@ -306,31 +272,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
                 log(f, "adds", c, "to the score area as an agenda worth", n.hl, "agenda point" + (n != 1).??("s"))
                 push(CheckWinAction)
             }
-            NextAction
-
-        case RotExposeEffect(c) =>
-            if (!location.contains(c) || !isInstalled(c) || owner(c).isRunner)
-                NextAction
-            else {
-                val alts = installedCards(Corp)./~(x => raOf(x).$./~(_.exposeOptions(x, c)))
-                if (alts.%(_.ok).none) {
-                    push(RotExposeResolveAction(c))
-                    NextAction
-                }
-                else
-                    ChooseOneEffect(Corp, "A card would be exposed", alts :+ Alt("Let the card be exposed", $(RotExposeResolveAction(c))))
-            }
-
-        case RotExposeResolveAction(c) =>
-            if (location.contains(c) && isInstalled(c)) {
-                log(Runner, "exposes", cardElem(c))
-                state(c).seen = true
-                trigger(RotExposed(c))
-            }
-            NextAction
-
-        case RotExposePreventedEffect(c) =>
-            log("The card is not exposed")
             NextAction
 
         case RotCorpHostInstallEffect(c, h) =>

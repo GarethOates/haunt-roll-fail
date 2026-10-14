@@ -322,3 +322,95 @@ How the pieces are chained:
   does not survive the round trip (it parses back as its companion object), so every parameterless purpose or action
   that can be embedded must be a `case object` (`DerezPurpose`, `BypassEffect`, `CheckWinAction`, `RunNextAction`, ...).
   The JVM harness checks every offered and chosen action for this.
+
+### 8.1 The rotated (FFG-era) extension files
+
+The 1,361 rotated cards add nine more rules files, one per ported card type plus one for the mechanics that several
+ports shared:
+
+| File | Trait (entry points) | Base class for its cards | Card files |
+|---|---|---|---|
+| `rules-ext-rot-shared.scala` | `RotSharedRules` (`performRotShared`, `resolveRotSharedPurpose`) | (none) | (none) |
+| `rules-ext-rot-ice.scala` | `RotIceRules` (`performRotIce`, `rotIceTriggers`) | `RI(code)` (cards-rot-ice.scala) | `cards-rot-ice*.scala` (`RotIceCards`) |
+| `rules-ext-rot-programs.scala` | `RotProgramRules` (`performRotPrograms`, `resolveRotPurpose`) | `Rot(code)` | `cards-rot-programs*.scala` (`RotProgramCards`) |
+| `rules-ext-rot-resources.scala` | `RotResourceRules` (`performRotResources`, `rotResourceTriggers`) | `RR(code)` | `cards-rot-resources-*.scala` (`RotResourceCards`) |
+| `rules-ext-rot-events.scala` | `RotEventRules` (`performRotEvents`, `rotEventTriggers`) | `RE(code)` | `cards-rot-events-*.scala` (`RotEventCards`) |
+| `rules-ext-rot-operations.scala` | `RotOperationRules` (`performRotOperations`, `rotOperationTriggers`) | `RotOp(code)`, `RotCondition(code)` | `cards-rot-operations*.scala` (`RotOperationCards`) |
+| `rules-ext-rot-hardware.scala` | `RotHardwareRules` (`performRotHardware`, `rotHardwareTriggers`) | `RH(code)` | `cards-rot-hardware-*.scala`, `cards-rot-identities-*.scala` (`RotHardwareCards`, `RotIdentityCards`) |
+| `rules-ext-rot-assets.scala` | `RotAssetRules` (`performRotAssets`, `rotAssetTriggers`, stackable overrides) | `RA(code)` | `cards-rot-assets*.scala` (`RotAssetCards`) |
+| `rules-ext-rot-agendas.scala` | `RotAgendaRules` (`performRotAgendas`, `rotAgendaTriggers`, stackable overrides) | `RAg(code)` | `cards-rot-agendas*.scala`, `cards-rot-upgrades.scala` (`RotAgendaCards`, `RotUpgradeCards`) |
+
+Naming: the base classes and purpose traits of the ports are distinct (`RI`, `Rot`, `RR`, `RE`, `RotOp`, `RH`, `RA`, `RAg`;
+`RotIcePurpose`, `RotProgPurpose`, `RotResPurpose`, `RotAgPurpose`, `RHPurpose`). New top-level names in a rotated file must
+not collide with another file of the package.
+
+**Mixin order** (game.scala):
+
+    class Game ... with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
+        with StartupRules with SU21Rules with PHTAIRules with RWRRules
+        with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules
+        with RotAssetRules with RotAgendaRules
+
+Only `RotAssetRules` and `RotAgendaRules` override engine methods. They extend the core traits they refine (assets:
+`EffectRules, TurnRules, CardRules, RunRules, PHTAIRules, RWRRules`; agendas: `TurnRules, CardRules, AccessRules,
+EffectRules, AbilityRules, StartupRules`) and every override handles its own cases and delegates the rest to `super`.
+Scala linearization runs the **last** mixed-in trait's override first: `RotAgendaRules` → `RotAssetRules` → the base
+definition (`EffectRules.performEffects`, `TurnRules.performTurn`, `CardRules.performCards`, `RunRules.performRun`,
+`AccessRules.performAccess`, `AbilityRules.performAbilities / windowOptions / abilityOptions`, `EffectRules.rezCard /
+resolvePurpose`, `PHTAIRules.extImpl`, `RWRRules.subs`, `StartupRules.stealCostOf / accessProtected`). `SU21Rules`,
+`PHTAIRules` and `RWRRules` define but do not override these methods, so they are the bottom of the stack. A new
+override must call `super` for everything it does not fully handle, and must not take over an action another override
+already reimplements: `TraceRunnerAction` is reimplemented by `RotAgendaRules` (link treated as 0, `TraceResolved`), so
+nothing below it sees that action. Every call through `performEffects` / `performTurn` / ... (including the ones in
+`performPHTAI` and `performRotEvents`) goes through the whole stack.
+
+**`performInternal` chain**:
+
+    performRotHardware orElse performRotEvents orElse performPHTAI orElse
+    performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse
+    performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
+    performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse
+    performRotAssets orElse performRotAgendas
+
+* Front interceptors. `performRotHardware` is defined only for the actions in `rhWants` (breaker credits, mod hosting, rez
+  surcharges / restrictions, win-point modifiers, SYNC, ice-advance and trace credits, damage choice, tag avoidance,
+  after-access, mulligan bonus). It performs the rest of the chain through `rhInnerPerform` (re-entrant `performInternal`
+  with the `rhInner` guard) and adjusts the result. `performRotEvents` comes next: while `rotActive` it wraps the asks of
+  `performPHTAI` / `performTurn` to grey out options restricted by currents and flags, and it handles a few run steps
+  (run R&D again, access from the bottom, extra turns). `performPHTAI` keeps its role of intercepting engine asks.
+* Then the core chain and the older extension effects, then the rotated effects. These are distinct case classes, so
+  their relative order does not matter.
+* Purposes: `resolvePurpose` → (assets/agendas overrides: Blacklist filtering, `CorpChosenHQAccessPurpose`,
+  `ShuffleInstalledIntoStackPurpose`) → base dispatch → `resolveRWRPurpose` → `resolveRotPurpose` (programs) →
+  `resolveRotSharedPurpose` (`ExposePurpose`).
+
+**Triggers**:
+
+    cards' triggers ++ su21Triggers ++ rotIceTriggers ++ rotResourceTriggers ++ rotHardwareTriggers ++ phTriggers
+        ++ rotEventTriggers ++ rotOperationTriggers ++ rotAssetTriggers ++ rotAgendaTriggers
+
+The bookkeeping registers of the events, operations and assets ports are counted after the cards have seen the event
+(`reg(k) == 0` means "first time this turn" inside a card trigger).
+
+**One definition per rotated mechanic** (the other files only reference it):
+
+* expose: `ExposeEffect(cards)` (shared). It keeps installed unrezzed Corp cards, offers the Corp's responses
+  (`RA.exposeOptions`: Zaibatsu Loyalty, through `RotExposeEffect(card)` / `RotExposePreventedEffect(card)`), then
+  `ExposeResolveAction` exposes the rest, increments `reg("exposed")` and fires **one** `Exposed(cards)` event (`RA.onExpose`
+  reacts through `rotAssetTriggers`). Use `ExposePurpose` for "choose cards to expose".
+* facedown installs: `InstallFacedownEffect(card)` + `FacedownInstalled(card)` (shared). It records `rotFacedown` (Harbinger).
+  `Game.memoryUsed` skips facedown programs. `FlipFaceupEffect` (resources) and `TurnRigFacedownEffect` (events) remain
+  separate effects.
+* `LoseAllCreditsEffect(f)`, `BreachNoRootEffect(server)` (`access-exclude` flags around `BreachServerEffect`),
+  `SwapRootEffect(a, b)` (shared).
+* trace result: `TraceResolved(successful, spent)` (agendas). It is fired once per trace, after the success/fail effects.
+* psi result: `RotPsiRevealed(corp, runner)` (assets). It is fired once per psi game.
+* recurring credits: `RefillCreditsEffect(card, n)` (su21) refills installed cards and active identities. Trace credits from
+  `RH.creditsUsableFor(_, "trace")` and `RA.recurring(_, "trace", _)` are handled by one interception (`rhTraceSources` in
+  hardware). Rez/install credits are `RA` cost modifiers, and icebreaker credits are `RH.breakerCredits`.
+* currents: `rotOperationTriggers` trashes (`TrashLingeringEffect`, idempotent) every other current when a current is
+  played, Corp currents on a steal and Runner currents on a score. This covers any card whose implementation has
+  `staysInPlay` and the Current subtype. `RE.lingering` handles only the other durations.
+* secret spending (`SecretSpendEffect`, events), damage choice and tag avoidance (`RH.damageChoice` / `RH.avoidTags`,
+  hardware), and trace-margin measuring (`MarginTraceEffect` in operations, `RememberCreditsEffect` / `TraceKickerEffect` in
+  ice) each exist only once.

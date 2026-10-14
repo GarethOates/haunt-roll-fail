@@ -259,7 +259,7 @@ trait SU21Rules { game : Game =>
 
         case RefillCreditsEffect(c, n) =>
             val cur = counter(c, "credit")
-            if (cur < n && isInstalled(c)) {
+            if (cur < n && (isInstalled(c) || (zone(c).is[IdentityZone] && isActive(c)))) {     // identities too (rotated recurring-credit identities)
                 addCounter(c, "credit", n - cur)
                 log(c, "refills to", n.credits)
                 trigger(CounterAdded(c, "credit"))

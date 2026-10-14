@@ -149,3 +149,15 @@ first successful remote run each turn; the Sunny Lebeau preset was 2 cards short
 Pre-existing issue, not in these files: with the "Elevation Weyland (Zwicky)" Corp preset the bot can loop forever
 rezzing Plutus (rez cost 0, additional cost unpayable → derezzed → rezzed again; `cards-elev.scala` Plutus has no
 `canRez`), which the harness reports as "game too long" (1 game in 300 in a run that included that deck).
+
+## Merge note (2026-10-14)
+
+After the eight rotated ports were merged into `netrunner`, mechanics that several ports had defined independently were
+reduced to one definition each (see `ENGINE.md` §8.1 and `rules-ext-rot-shared.scala`). Expose is now
+`ExposeEffect(cards)` / `Exposed(cards)`, facedown installs are `InstallFacedownEffect`, and the shared effects are
+`LoseAllCreditsEffect`, `BreachNoRootEffect` and `SwapRootEffect`. The trace result event is `TraceResolved(successful, spent)`,
+the psi result event is `RotPsiRevealed(corp, runner)`, recurring refills use `RefillCreditsEffect`, and the currents
+rule lives in `rotOperationTriggers`. Renames made to avoid clashes: the agendas/upgrades base class `RA` became `RAg`, and
+the purpose traits became `RotIcePurpose` / `RotProgPurpose` / `RotResPurpose` / `RotAgPurpose`. The agendas' `rotActive`
+became `rotAgActive`, and the events' `LevyAction` became `LevyARLabAccessAction`. Apex no longer offsets the MU of facedown
+programs, because facedown programs now use no MU at all. Some notes above may still name the old definitions.

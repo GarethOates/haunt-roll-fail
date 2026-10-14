@@ -703,7 +703,7 @@ object RotEventCards2 {
             case _ => $
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.foreach(c => g.push(RunnerInstallFacedownEffect(c)))
+            cards.foreach(c => g.push(InstallFacedownEffect(c)))
             NextAction
         }
     }

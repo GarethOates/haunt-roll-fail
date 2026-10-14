@@ -21,18 +21,13 @@ import Helpers._
 
 // ---- new events -----------------------------------------------------------------------------------------------------
 case class ClickLost(f : Faction, n : Int) extends Event                    // f lost clicks through a card ability (ClickLossEffect)
-case class Exposed(cards : $[Card]) extends Event                           // cards were exposed
 
 // ---- new effects ----------------------------------------------------------------------------------------------------
-case class ExposeEffect(cards : $[Card]) extends ForcedAction                         // expose installed unrezzed corp cards
-case class InstallFacedownEffect(card : Card) extends ForcedAction                    // install a runner card facedown (Hunting Grounds)
 case class FlipFaceupEffect(card : Card) extends ForcedAction                         // turn a facedown installed runner card faceup (an event is trashed instead)
 case class ClickLossEffect(f : Faction, n : Int) extends ForcedAction                 // lose clicks, triggering ClickLost (Adjusted Chronotype)
 case class BreakSubIndexEffect(ice : Card, idx : Int, breaker : Card) extends ForcedAction  // break one specific subroutine of the encountered ice
 case class RunnerForfeitEffect(card : Card) extends ForcedAction                      // the Runner forfeits an agenda in the Runner's score area
 case class HostUninstalledEffect(card : Card, host : Card, facedown : Boolean) extends ForcedAction  // host a runner card on another card without installing it
-case class BreachNoRootEffect(server : Server) extends ForcedAction                   // breach a server outside of a run without accessing its root
-case class LoseAllCreditsEffect(f : Faction) extends ForcedAction
 case class AccessRandomFromHQEffect(n : Int, noStealOrTrash : Boolean) extends ForcedAction   // access n random cards from HQ outside of a breach
 case class AccessRandomHQPickedAction(noStealOrTrash : Boolean, shuffled : $[Card]) extends ShuffledAction[Card]
 
@@ -90,26 +85,6 @@ trait RotResourceRules { game : Game =>
     }
 
     def performRotResources : PartialFunction[Action, Continue] = {
-        case ExposeEffect(l) =>
-            val ll = l.%(c => location.contains(c) && isInstalled(c) && !isRezzed(c))
-            if (ll.any) {
-                ll.foreach(c => state(c).seen = true)
-                log(Runner, "exposes", ll./(cardElem).comma)
-                trigger(Exposed(ll))
-            }
-            NextAction
-
-        case InstallFacedownEffect(c) =>
-            if (!location.get(c).exists(inPlayZone)) {
-                moveTo(c, RigZone)
-                state(c).installedTurn = turn
-                state(c).facedown = true
-                state(c).seen = false
-                log(Runner, "installs a card facedown")
-                regInc("installed")
-            }
-            NextAction
-
         case FlipFaceupEffect(c) =>
             if (zone(c) == RigZone && state(c).facedown) {
                 if (c.data.isEvent) {
@@ -165,17 +140,6 @@ trait RotResourceRules { game : Game =>
             }
             NextAction
 
-        case BreachNoRootEffect(s) =>
-            val l = root(s)./~(c => c +: allHosted(c))
-            pushAll(l./(c => AddFlagEffect(Flag("access-exclude", |(c), None, "run", 0, $)) : ForcedAction) ++ $(BreachServerEffect(s)) ++ l./(c => RemoveFlagEffect("access-exclude", |(c)) : ForcedAction))
-            NextAction
-
-        case LoseAllCreditsEffect(f) =>
-            val n = credits(f)
-            if (n > 0)
-                push(LoseCreditsEffect(f, n))
-            NextAction
-
         case AccessRandomFromHQEffect(n, noSteal) =>
             val h = hand(Corp)
             if (h.none || n <= 0)
@@ -195,21 +159,20 @@ trait RotResourceRules { game : Game =>
 // ---------------------------------------------------------------------------------------------------------------------
 
 // purposes resolved by the base class (shared by several cards)
-trait RotPurpose extends CardPurpose
+trait RotResPurpose extends CardPurpose
 
-case class RotInstallIgnoringPurpose(card : Card) extends RotPurpose                     // install the chosen card ignoring all costs
-case class RotInstallPayingPurpose(card : Card, discount : Int) extends RotPurpose       // install the chosen card paying discount less
-case class RotHostPurpose(card : Card, facedown : Boolean) extends RotPurpose             // host the chosen card on card, uninstalled
-case class RotPlayPurpose(card : Card, payCost : Boolean) extends RotPurpose              // play the chosen event
-case class RotRfgGainPurpose(card : Card, n : Int) extends RotPurpose                    // remove the chosen card from the game and gain n credits
-case class RotPumpPurpose(card : Card, n : Int, run : Boolean) extends RotPurpose         // give the chosen breaker +n strength (run / turn)
-case class RotTrashPayingPurpose(card : Card) extends RotPurpose                          // pay the trash cost of the chosen rezzed card and trash it
-case class RotRevealPurpose(card : Card) extends RotPurpose                               // reveal the chosen cards (owner reveals)
-case class RotMoveVirusPurpose(card : Card) extends RotPurpose                            // move 1 virus counter from card to the chosen card
-case class RotUnhostInstallPurpose(card : Card, discount : Int) extends RotPurpose        // install the chosen hosted (uninstalled) card paying discount less
-case class RotForfeitPurpose(card : Card) extends RotPurpose                              // the Runner forfeits the chosen agenda
-case class RotExposePurpose(card : Card) extends RotPurpose                               // expose the chosen cards
-case class RotFlipFaceupPurpose(card : Card) extends RotPurpose                           // turn the chosen facedown installed card faceup
+case class RotInstallIgnoringPurpose(card : Card) extends RotResPurpose                     // install the chosen card ignoring all costs
+case class RotInstallPayingPurpose(card : Card, discount : Int) extends RotResPurpose       // install the chosen card paying discount less
+case class RotHostPurpose(card : Card, facedown : Boolean) extends RotResPurpose             // host the chosen card on card, uninstalled
+case class RotPlayPurpose(card : Card, payCost : Boolean) extends RotResPurpose              // play the chosen event
+case class RotRfgGainPurpose(card : Card, n : Int) extends RotResPurpose                    // remove the chosen card from the game and gain n credits
+case class RotPumpPurpose(card : Card, n : Int, run : Boolean) extends RotResPurpose         // give the chosen breaker +n strength (run / turn)
+case class RotTrashPayingPurpose(card : Card) extends RotResPurpose                          // pay the trash cost of the chosen rezzed card and trash it
+case class RotRevealPurpose(card : Card) extends RotResPurpose                               // reveal the chosen cards (owner reveals)
+case class RotMoveVirusPurpose(card : Card) extends RotResPurpose                            // move 1 virus counter from card to the chosen card
+case class RotUnhostInstallPurpose(card : Card, discount : Int) extends RotResPurpose        // install the chosen hosted (uninstalled) card paying discount less
+case class RotForfeitPurpose(card : Card) extends RotResPurpose                              // the Runner forfeits the chosen agenda
+case class RotFlipFaceupPurpose(card : Card) extends RotResPurpose                           // turn the chosen facedown installed card faceup
 
 abstract class RR(val code : String) extends CardImpl {
     def trashOnEmpty(self : Card, e : Event, kind : String)(implicit g : Game) : $[ForcedAction] = e match {
@@ -259,7 +222,7 @@ abstract class RR(val code : String) extends CardImpl {
     def forfeitChoice(self : Card, prompt : String)(implicit g : Game) : ForcedAction = ChooseCardEffect(Runner, runnerAgendas, RotForfeitPurpose(self), prompt, false)
 
     final override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) : Continue = p match {
-        case p : RotPurpose => RotResourceExt.chosen(this, p, cards)
+        case p : RotResPurpose => RotResourceExt.chosen(this, p, cards)
         case _ => chosenCard(p, cards)
     }
 
@@ -267,7 +230,7 @@ abstract class RR(val code : String) extends CardImpl {
 }
 
 object RotResourceExt {
-    def chosen(impl : RR, p : RotPurpose, cards : $[Card])(implicit g : Game) : Continue = {
+    def chosen(impl : RR, p : RotResPurpose, cards : $[Card])(implicit g : Game) : Continue = {
         p match {
             case RotInstallIgnoringPurpose(self) =>
                 cards.single.foreach(c => g.pushAll(g.installRunner(c, 99)))
@@ -313,9 +276,6 @@ object RotResourceExt {
 
             case RotForfeitPurpose(self) =>
                 cards.foreach(c => g.push(RunnerForfeitEffect(c)))
-
-            case RotExposePurpose(self) =>
-                g.push(ExposeEffect(cards))
 
             case RotFlipFaceupPurpose(self) =>
                 cards.foreach(c => g.push(FlipFaceupEffect(c)))

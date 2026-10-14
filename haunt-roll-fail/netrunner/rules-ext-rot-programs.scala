@@ -21,11 +21,8 @@ import Helpers._
 // ---------------------------------------------------------------------------------------------------------------------
 
 // ---- new events -----------------------------------------------------------------------------------------------------
-case class Exposed(card : Card) extends Event                                   // a Corp card was exposed
 
 // ---- new effects ----------------------------------------------------------------------------------------------------
-case class ExposeEffect(card : Card) extends ForcedAction                        // expose an unrezzed / facedown Corp card
-case class InstallFacedownEffect(card : Card) extends ForcedAction               // install a Runner card from the heap facedown in the rig (Harbinger)
 case class PreventSubsEffect(ice : Card, n : Int) extends ForcedAction           // the first n unbroken subroutines of ice do not resolve this encounter (Tracker, Mass-Driver)
 case class ChangeRunServerEffect(server : Server) extends ForcedAction           // the attacked server becomes server (Sneakdoor Prime)
 case class SetRunPositionEffect(n : Int) extends ForcedAction                     // set the Runner's position in the attacked server (Surfer)
@@ -36,16 +33,13 @@ case class SpendVirusEffect(card : Card, n : Int, any : Boolean) extends ForcedA
 case class SpendVirusPurposeAction(from : Card, card : Card, n : Int) extends ForcedAction   // remove up to n virus counters from from (for card), continue with the rest
 
 // purposes resolved by RotProgramRules (not by a card)
-trait RotPurpose extends Purpose
-case class HostIceSelfPurpose(card : Card) extends RotPurpose                                   // host card on the chosen piece of ice (card keeps its state)
-case class MoveVirusPurpose(from : |[Card], to : |[Card], n : Int) extends RotPurpose            // move n virus counters; the chosen card fills the missing side
-case class SpendVirusPurpose(card : Card, n : Int) extends RotPurpose                            // remove virus counters from the chosen card to pay for card's ability
+trait RotProgPurpose extends Purpose
+case class HostIceSelfPurpose(card : Card) extends RotProgPurpose                                   // host card on the chosen piece of ice (card keeps its state)
+case class MoveVirusPurpose(from : |[Card], to : |[Card], n : Int) extends RotProgPurpose            // move n virus counters; the chosen card fills the missing side
+case class SpendVirusPurpose(card : Card, n : Int) extends RotProgPurpose                            // remove virus counters from the chosen card to pay for card's ability
 
 
 trait RotProgramRules { game : Game =>
-
-    // cards installed facedown by InstallFacedownEffect (a facedown Harbinger is not turned facedown again when trashed)
-    var rotFacedown : $[Card] = $
 
     // virus counters of a virus program including those hosted on Hivemind
     def virusCounters(c : Card) : Int =
@@ -58,25 +52,6 @@ trait RotProgramRules { game : Game =>
     lazy val iceSubtypes : $[String] = Cards.all.%(_.isIce)./~(_.subtypes).distinct.%(s => s.forall(_ < 128)).sorted
 
     def performRotPrograms : PartialFunction[Action, Continue] = {
-        case ExposeEffect(c) =>
-            if (location.contains(c) && owner(c).isCorp && !isRezzed(c)) {
-                state(c).seen = true
-                log(Runner, "exposes", c)
-                regInc("exposed")
-                trigger(Exposed(c))
-            }
-            NextAction
-
-        case InstallFacedownEffect(c) =>
-            if (zone(c) == DiscardZone(Runner)) {
-                place(c, RigZone)
-                state(c).facedown = true
-                state(c).installedTurn = turn
-                rotFacedown :+= c
-                log(Runner, "installs", c, "facedown")
-            }
-            NextAction
-
         case ForgetFacedownEffect(c) =>
             rotFacedown = rotFacedown.but(c)
             NextAction

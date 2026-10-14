@@ -43,17 +43,15 @@ case object CancelBypassEffect extends ForcedAction                             
 case class RotStealPaidAction(card : Card) extends ForcedAction                                    // steal after the non-Cost additional costs were paid
 case class RotJackOutPaidAction(f : Faction) extends ForcedAction                                  // jack out after the additional costs were paid
 case class CorpInstallIceAtEffect(card : Card, server : Server, index : Int) extends ForcedAction   // install ice at a position (0 = innermost), ignoring all costs
-case class SwapRootEffect(a : Card, b : Card) extends ForcedAction                                 // swap two cards installed in the roots of servers
 case class CorpHostInstallEffect(card : Card, host : Card) extends ForcedAction                    // install a Corp card hosted on another installed Corp card (unrezzed, ignoring costs)
-case class LoseAllCreditsEffect(f : Faction) extends ForcedAction
 case class RezIgnoringAllCostsEffect(card : Card) extends ForcedAction                             // rez a non-agenda installed card ignoring all costs (no-op otherwise)
 case class SetPositionAfterInstallEffect(card : Card, server : Server, index : Int) extends ForcedAction
 case class RotSwapIceEffect(a : Card, b : Card) extends ForcedAction                                // swap two installed pieces of ice (logged without naming unrezzed ice)
 
 // ---- generic purposes -----------------------------------------------------------------------------------------------
-trait RotPurpose extends Purpose
-case object CorpChosenHQAccessPurpose extends RotPurpose                     // the Corp chose which cards the Runner accesses from HQ (Dedicated Neural Net)
-case class ShuffleInstalledIntoStackPurpose(f : Faction) extends RotPurpose  // the chosen installed cards are shuffled into their owner's deck
+trait RotAgPurpose extends Purpose
+case object CorpChosenHQAccessPurpose extends RotAgPurpose                     // the Corp chose which cards the Runner accesses from HQ (Dedicated Neural Net)
+case class ShuffleInstalledIntoStackPurpose(f : Faction) extends RotAgPurpose  // the chosen installed cards are shuffled into their owner's deck
 
 
 trait RotAgendaRules extends TurnRules with CardRules with AccessRules with EffectRules with AbilityRules with StartupRules { game : Game =>
@@ -63,13 +61,13 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
     var rotStackPrev : $[Card] = $
 
     // ---- helpers ----------------------------------------------------------------------------------------------------------
-    def rotImpl(c : Card) : |[RA] = CardImpls(c.code) match {
-        case r : RA => |(r)
+    def rotImpl(c : Card) : |[RAg] = CardImpls(c.code) match {
+        case r : RAg => |(r)
         case _ => None
     }
 
     // active cards implemented in the rotated agenda / upgrade files
-    def rotActive : $[(Card, RA)] = allActive.%!(isDisabled)./~(c => rotImpl(c)./(r => (c, r)))
+    def rotAgActive : $[(Card, RAg)] = allActive.%!(isDisabled)./~(c => rotImpl(c)./(r => (c, r)))
 
     // the server a Corp card is in, or the central server whose zone it is in (HQ / R&D / Archives)
     def rotFromServer(c : Card) : |[Server] = zoneServer(zone(c))
@@ -92,7 +90,7 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
 
     // net damage the Runner suffers as an additional cost to steal agenda c
     def rotStealDamage(c : Card) : Int =
-        rotActive./{ case (x, r) => r.stealDamage(x, c)(this) }.sum +
+        rotAgActive./{ case (x, r) => r.stealDamage(x, c)(this) }.sum +
         (!allActive.has(c)).??(rotImpl(c)./(_.stealDamage(c, c)(this)).|(0)) +
         flagsOf("rot-steal-net").%(f => f.server.exists(s => rotFromServer(c).has(s)))./(_ => 2).sum
 
@@ -104,20 +102,20 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
     def rotCanPayStealExtra(c : Card) = runnerInstalled.num >= rotStealShuffle(c)
 
     // additional costs to jack out: "program" (trash an installed program), "grip" (trash a card from the grip)
-    def rotJackOutCosts : $[String] = run.exists(r => !r.ended).??(rotActive./~{ case (x, r) => r.jackOutCosts(x)(this) })
+    def rotJackOutCosts : $[String] = run.exists(r => !r.ended).??(rotAgActive./~{ case (x, r) => r.jackOutCosts(x)(this) })
 
     def rotCanPayJackOut : Boolean = {
         val l = rotJackOutCosts
         runnerInstalledOf("Program").num >= l.count("program") && hand(Runner).num >= l.count("grip")
     }
 
-    def rotTraceBonus : Int = rotActive./{ case (x, r) => r.traceBonus(x)(this) }.sum
+    def rotTraceBonus : Int = rotAgActive./{ case (x, r) => r.traceBonus(x)(this) }.sum
 
-    def rotLinkZero : Boolean = rotActive.exists { case (x, r) => r.linkZero(x)(this) }
+    def rotLinkZero : Boolean = rotAgActive.exists { case (x, r) => r.linkZero(x)(this) }
 
-    def rotMeatBonus : Int = rotActive./{ case (x, r) => r.meatBonus(x)(this) }.sum
+    def rotMeatBonus : Int = rotAgActive./{ case (x, r) => r.meatBonus(x)(this) }.sum
 
-    def rotBlocksRunnerAbility(c : Card) : Boolean = owner(c).isRunner && !isIcebreaker(c) && rotActive.exists { case (x, r) => r.blocksRunnerAbilities(x)(this) }
+    def rotBlocksRunnerAbility(c : Card) : Boolean = owner(c).isRunner && !isIcebreaker(c) && rotAgActive.exists { case (x, r) => r.blocksRunnerAbilities(x)(this) }
 
     def rotMustTrash(c : Card) : Boolean = isInstalled(c) && rotImpl(c).exists(_.mustTrashOnAccess(c)(this))
 
@@ -411,20 +409,6 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
             }
             NextAction
 
-        case SwapRootEffect(a, b) =>
-            (zone(a), zone(b)) match {
-                case (za @ RootZone(sa), zb @ RootZone(sb)) if a != b =>
-                    val la = root(sa)
-                    val lb = root(sb)
-                    zones += za -> la.updated(la.indexOf(a), b)
-                    zones += zb -> lb.updated(lb.indexOf(b), a)
-                    location += a -> zb
-                    location += b -> za
-                    log(Corp, "swaps", hiddenCorpElem(a), "and", hiddenCorpElem(b))
-                case _ =>
-            }
-            NextAction
-
         case CorpHostInstallEffect(c, h) =>
             if (isInstalled(h) && !location.get(c).exists(inPlayZone)) {
                 place(c, HostedZone(h))
@@ -435,11 +419,6 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
                 regInc("installed")
                 trigger(Installed(Corp, c))
             }
-            NextAction
-
-        case LoseAllCreditsEffect(f) =>
-            if (credits(f) > 0)
-                push(LoseCreditsEffect(f, credits(f)))
             NextAction
 
         case RezIgnoringAllCostsEffect(c) =>
@@ -454,7 +433,7 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
 // Base class of the rotated agenda / upgrade implementations: the Startup helpers plus the hooks read by RotAgendaRules
 // ---------------------------------------------------------------------------------------------------------------------
 
-abstract class RA(code : String) extends Startup(code) {
+abstract class RAg(code : String) extends Startup(code) {
     // ---- hooks read by RotAgendaRules -------------------------------------------------------------------------------
     def installOnly(self : Card, server : |[Server])(implicit g : Game) : Boolean = true             // server restriction (None = new remote)
     def stealDamage(self : Card, agenda : Card)(implicit g : Game) : Int = 0                          // net damage as an additional cost to steal agenda

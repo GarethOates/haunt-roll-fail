@@ -131,3 +131,15 @@ idempotent: `TrashLingeringEffect` checks that the card is still in a play area)
   (Patch strength and trash with host, Sub Boost subroutine, MCA Informant tag/ability/trash), trace margin (Midseason
   Replacements), Enhanced Login Protocol + Service Outage, Defective Brainchips, An Offer You Can't Refuse, Subcontract, Success.
   The 40 Startup `ScriptTest` checks still pass.
+
+## Merge note (2026-10-14)
+
+After the eight rotated ports were merged into `netrunner`, mechanics that several ports had defined independently were
+reduced to one definition each (see `ENGINE.md` §8.1 and `rules-ext-rot-shared.scala`). Expose is now
+`ExposeEffect(cards)` / `Exposed(cards)`, facedown installs are `InstallFacedownEffect`, and the shared effects are
+`LoseAllCreditsEffect`, `BreachNoRootEffect` and `SwapRootEffect`. The trace result event is `TraceResolved(successful, spent)`,
+the psi result event is `RotPsiRevealed(corp, runner)`, recurring refills use `RefillCreditsEffect`, and the currents
+rule lives in `rotOperationTriggers`. Renames made to avoid clashes: the agendas/upgrades base class `RA` became `RAg`, and
+the purpose traits became `RotIcePurpose` / `RotProgPurpose` / `RotResPurpose` / `RotAgPurpose`. The agendas' `rotActive`
+became `rotAgActive`, and the events' `LevyAction` became `LevyARLabAccessAction`. Apex no longer offsets the MU of facedown
+programs, because facedown programs now use no MU at all. Some notes above may still name the old definitions.

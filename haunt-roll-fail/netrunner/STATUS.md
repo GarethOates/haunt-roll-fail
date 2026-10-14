@@ -50,7 +50,8 @@
 
 ## Card sets
 
-All cards of eleven sets have an implementation object (695 cards). Per-set details, simplifications and the list of
+Every card of the card database has an implementation object: **2,056 cards** = 695 cards of the eleven current sets
+(table below) + 1,361 rotated / FFG-era cards (second table). Per-set details, simplifications and the list of
 generic mechanics each set introduced are in the set status files; the engine side of the merge is described in
 `ENGINE.md` section 8.
 
@@ -70,7 +71,40 @@ generic mechanics each set introduced are in the set status files; the engine si
 
 Preset decks (`Decks.presets`, 48): 7 System Gateway starters, 15 su21/ms decks (decks.scala), 8 Startup decks
 (`StartupDecks`, cards-vp.scala), 8 ph/tai decks (`decks-ph-tai.scala`), 10 rwr/df/ur decks (`decks-rwr-df-ur.scala`); all
-validate.
+validate. With the rotated ports, `Decks.presets` holds **195** decks (all validate): the 48 above plus 8 rot-ice, 10
+rot-programs, 11 rot-resources, 13 rot-events, 7 rot-ops, 8 rot-assets, 12 RotAg and 78 generated per-identity
+rot-hardware/identity decks.
+
+### Rotated / FFG-era cards (eight ports, merged 2026-10-14)
+
+Ported from jinteki.net (`src/clj/game/cards/*.clj`, behaviour checked against the `*_test.clj` files), one port per card
+type. "Simplified" counts the cards whose printed text is approximated or partly unenforced; each port's status file lists
+them by name.
+
+| Type | Cards | Implemented | Simplified / approximated | Files | Details |
+|---|---|---|---|---|---|
+| ICE | 211 | 211 | ~21 (Vikram 1.0, Wendigo, Jua, Interrupt 0, Tithonium, RSVP, Mind Game, the grail ice, Data Hound, Waiver, encounter-on-access ice, Formicary, ...) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
+| Programs | 164 | 164 | ~26 (stealth / recurring-credit breakers, Hivemind, LLDS Energy Regulator, Net Shield, Tracker, Mass-Driver, Copycat, Sneakdoor Prime A/B, Customized Secretary, ...) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| Resources | 164 | 164 | ~23 (no trash-prevention hook: Dummy Box, Sacrificial Construct, Fall Guy; Wireless Net Pavilion, The Black File, Paparazzi, Chrome Parlor, Starlight Crusade Funding; approximations: Aeneas Informant, Inside Man, Crash Space, Network Exchange, DJ Fenris, ...) | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
+| Events | 148 | 148 | ~24 (Escher, Corporate Scandal, Cold Read, Immolation Script, Divide and Conquer, ask-level restrictions of Interdiction / Hacktivist Meeting / Security Leak / Blackmail, Apocalypse / Reboot faceup flip, ...) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Operations | 146 | 146 | ~25 (Surveillance Sweep, Net Watchlist, Enhanced Login Protocol, Media Blitz, Oversight AI, "name a card" lists, alliance influence, ...) | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
+| Assets | 144 | 144 | ~25 (recurring credits as cost modifiers, Broadcast Square, Director Haas / Victoria Jenkins clicks, Jeeves, Sundew, Genetics Pavilion, Blacklist, Warden Fatuma, ...) | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
+| Agendas | 114 | 114 | ~12 (Mandatory Upgrades / Seed Replacement, Accelerated Beta Test, Bacterial Programming, Personality Profiles, Unorthodox Predictions, Evidence Collection 1-3 no effect, ...) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Upgrades | 79 | 79 | ~16 (Satellite Grid no effect, Navi Mumbai, Midway Station / Armored Servers break costs, Simone Diego / DTT / Khondi recurring credits, Heinlein Grid, Tyr's Hand, Tori Hanzo, ...) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Hardware | 101 | 101 | ~18 (install/play-only recurring credits as discounts, MemStrips / Knobkierie / Deep Red, Ekomind, Patchwork, Skorpios, Gagarin, Acme, Top Hat, Q-Coherence, Respirocytes, ...) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| Identities | 90 | 90 | ~16 (Apex, Adam, SSO Industries, Seidr, Archives Interface, Harishchandra, Kabonesa Wu, Hayley Kaplan, Cyber Bureau / NEXT Design timing, deck-building restrictions not enforced: The Professor, Custom Biotics, ...) | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| **Total rotated** | **1,361** | **1,361** | **~206** | | |
+| **All cards** | **2,056** | **2,056** | ~330 (current sets ~120 + rotated ~206) | | |
+
+Mechanics that several rotated ports defined independently were unified in the merge (one definition each, see
+`ENGINE.md` section 8): expose (`ExposeEffect(cards)` / one `Exposed(cards)` event, Corp responses such as Zaibatsu
+Loyalty, `ExposePurpose`), facedown installs (`InstallFacedownEffect`, `FacedownInstalled`; facedown programs use no MU,
+so Apex's MU offset was dropped), `LoseAllCreditsEffect`, `BreachNoRootEffect`, `SwapRootEffect` (`rules-ext-rot-shared.scala`);
+trace results (`TraceResolved(successful, spent)`, fired once per trace; replaces `RotTraceSucceeded` / `RHTraceResolved`),
+psi results (`RotPsiRevealed(corp, runner)`; replaces `RHPsiRevealed`), recurring-credit refills (`RefillCreditsEffect`,
+now also for identities; replaces `RHRefillEffect`), recurring trace credits (one interception for hardware/identity and
+asset sources: Making News + Net Police no longer double count), currents (one rule in `rotOperationTriggers` for Corp
+and Runner currents; the duplicate in the events' `RE.lingerTriggers` was removed).
 
 ### Merge of the four set branches (unification)
 
@@ -297,6 +331,29 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   with installs and events played from the hand pane, runs, ETR choices, Tao's ice swap prompt); a bot-vs-bot game
   (`?speed=20`) to the end (8 servers, 10 ice: the Corp board shrinks to fit). No plugin exceptions in the consoles
   (only the shell's `NetworkError` font entries and 404s for images missing from the local cache).
+
+### Tested after the merge of the eight rotated ports (2026-10-14)
+
+* `sbt -batch compile` and `sbt -batch fastOptJS` green.
+* JVM harness (`MergeHost` over all 195 presets, every offered and chosen action round-tripped through the serializer,
+  empty asks and over-long games counted as errors): 40 + 3 × 300 games over all presets (seeds 1, 1001, 2002, 3003) and
+  2 × 400 games rotated Corp presets (rot-ice / rot-ops / rot assets / RotAg) against rotated Runner presets (programs /
+  rot-res / events / hardware-identity), seeds 11 and 22: **1,740 games, 0 exceptions, 0 empty asks, 0 serialization
+  mismatches, 0 over-long games**. In the focused runs 179-183/211 ice, 123-135/164 programs, 121-126/164 resources,
+  115-126/148 events, 137-138/146 operations, 133-139/144 assets, 106-107/114 agendas, 77-78/79 upgrades, 95-97/101 hardware
+  were named in the logs (identities: 75/90 over the all-preset runs).
+* Scripted checks, all passing against the merged code: Startup `ScriptTest` (40), `RotIceScript` (211 ice, 633
+  encounters, 0 failures), `RotAssetScript` (52), the agendas/upgrades (34), events (40), hardware/identities (80),
+  operations (56) and programs (50) `RotScriptTest`s, plus a new merge check (`RotMergeScript`, 20 checks: one `Exposed`
+  event for a group with Zamba / Aumakua / Psychic Field, Zaibatsu Loyalty preventing one of two exposes, Runner and Corp
+  currents trashing each other and on score/steal, `TraceResolved` once with Spinal Modem + Aryabhata Tech, Making News +
+  Primary Transmission Dish trace credits without creating credits, `RotPsiRevealed` once with Nisei Division + Hyoubu,
+  Apex facedown program using no MU, identity refill).
+* Browser (headless Chrome, good-game server on 7070): a bot-vs-bot game (`?speed=20`) to the end; a hotseat game with
+  "Weyland A ice (rot-ice)" (Weyland Consortium: Building a Better World, core) against "Anarch Events I (Rotated)" played
+  for 9 turns through 180 random human clicks (installs, rotated ice rezzed: Negotiator, Battlement, Salvage, Formicary;
+  rotated events: Frame Job, Itinerant Protesters, I've Had Worse, Amped Up, Vamp, Forked; runs, an agenda steal). No
+  plugin exceptions in the console (only the known `NetworkError` / 404 entries of the shell).
 
 ## Known bugs
 

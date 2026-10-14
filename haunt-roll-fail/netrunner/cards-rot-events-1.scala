@@ -30,7 +30,7 @@ case class RompPurpose(card : Card) extends CardPurpose
 case class FreelancePurpose(card : Card) extends CardPurpose
 case class ScavengePurpose(card : Card) extends CardPurpose
 case class ScavengeInstallAction(card : Card, discount : Int) extends CardAction
-case class LevyAction(card : Card) extends CardAction
+case class LevyARLabAccessAction(card : Card) extends CardAction
 case class FrameJobPurpose(card : Card) extends CardPurpose
 case class EurekaAction(card : Card) extends CardAction
 case class LeverageAction(card : Card) extends CardAction
@@ -213,9 +213,9 @@ object RotEventCards1 {
     }
 
     object LevyARLabAccess extends RE("03035") {
-        override def onPlay(self : Card)(implicit g : Game) = $(LevyAction(self), ShuffleDeckEffect(Runner), draw(Runner, 5), RemoveFromGameEffect(self))
+        override def onPlay(self : Card)(implicit g : Game) = $(LevyARLabAccessAction(self), ShuffleDeckEffect(Runner), draw(Runner, 5), RemoveFromGameEffect(self))
         override def perform(a : CardAction)(implicit g : Game) = a match {
-            case LevyAction(self) =>
+            case LevyARLabAccessAction(self) =>
                 (g.hand(Runner) ++ g.discard(Runner)).foreach(c => g.moveTo(c, DeckZone(Runner)))
                 g.log(Runner, "shuffles the grip and the heap into the stack")
                 NextAction

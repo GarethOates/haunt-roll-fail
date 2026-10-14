@@ -55,27 +55,27 @@ object RotUpgradeCards {
 
     // ---- Core Set / Genesis / Spin ----------------------------------------------------------------------------------------
 
-    object ExperientialData extends RA("01066") {
+    object ExperientialData extends RAg("01066") {
         override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = protecting(self, ice).?(1).|(0)
     }
 
-    object AkitaroWatanabe extends RA("01079") {
+    object AkitaroWatanabe extends RAg("01079") {
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (g.isActive(self) && protecting(self, card)).?(-2).|(0)
     }
 
-    object ResearchStation extends RA("01105") {
+    object ResearchStation extends RAg("01105") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = server.has(HQ)
         override def handSize(self : Card, f : Faction)(implicit g : Game) = f.isCorp.?(2).|(0)
     }
 
-    object ChiLoCityGrid extends RA("02036") {
+    object ChiLoCityGrid extends RAg("02036") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TraceResolved(true, _) if runHere(self) => $(MessageEffect(Corp, "uses ChiLo City Grid"), tag(1))
             case _ => $
         }
     }
 
-    object AmazonIndustrialZone extends RA("02038") {
+    object AmazonIndustrialZone extends RAg("02038") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Installed(Corp, c) if c.data.isIce && protecting(self, c) && !g.isRezzed(c) && g.credits(Corp) >= g.rezCost(c) - 3 =>
                 $(OptionalEffect(Corp, "Amazon Industrial Zone: rez the ice, lowering its rez cost by 3?", $(DiscountRezEffect(c, 3)), $))
@@ -83,7 +83,7 @@ object RotUpgradeCards {
         }
     }
 
-    object SimoneDiego extends RA("02099") {
+    object SimoneDiego extends RAg("02099") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 2)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) => $(RefillCreditsEffect(self, 2))
@@ -93,11 +93,11 @@ object RotUpgradeCards {
         }
     }
 
-    object RuhrValley extends RA("02111") {
+    object RuhrValley extends RAg("02111") {
         override def runCost(self : Card, server : Server)(implicit g : Game) = thisServer(self, server).$(ClickCost(1))
     }
 
-    object Midori extends RA("02113") {
+    object Midori extends RAg("02113") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case ApproachIce(c) if runHere(self) && protecting(self, c) && !g.state(self).usedRun.has("midori") && g.hand(Corp).exists(_.data.isIce) =>
                 $(OptionalEffect(Corp, "Midori: swap the approached ice with a piece of ice from HQ?", $(MarkRunUsedEffect(self, "midori"),
@@ -111,7 +111,7 @@ object RotUpgradeCards {
         }
     }
 
-    object AwakeningCenter extends RA("03021") {
+    object AwakeningCenter extends RAg("03021") {
         def hostedIce(self : Card)(implicit g : Game) = g.hosted(self).%(c => c.data.isIce && !g.isRezzed(c))
         def rezzable(self : Card)(implicit g : Game) = hostedIce(self).%(c => g.credits(Corp) >= g.rezCost(c) - 7)
         override def abilities(self : Card)(implicit g : Game) = {
@@ -142,7 +142,7 @@ object RotUpgradeCards {
         }
     }
 
-    object TyrsHand extends RA("03022") {
+    object TyrsHand extends RAg("03022") {
         def target(self : Card)(implicit g : Game) = encounteredIce.%(i => protecting(self, i) && g.has(i, "Bioroid") && g.state(i).brokenSubs.any)
         override def abilities(self : Card)(implicit g : Game) = $(Ability("prevent a subroutine from being broken on the encountered bioroid ice", $(TrashSelfCost), $(RaTyrAction(self)),
             ok = target(self).any, reason = "no broken subroutine on bioroid ice protecting this server"))
@@ -161,7 +161,7 @@ object RotUpgradeCards {
 
     // ---- Lunar / SanSan cycles ----------------------------------------------------------------------------------------------
 
-    object OffTheGrid extends RA("04038") {
+    object OffTheGrid extends RAg("04038") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = remoteOnly(server)
         override def allowsRun(self : Card, server : Server)(implicit g : Game) = !(g.isRezzed(self) && thisServer(self, server))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -170,19 +170,19 @@ object RotUpgradeCards {
         }
     }
 
-    object PanicButton extends RA("04072") {
+    object PanicButton extends RAg("04072") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = server.has(HQ)
         override def abilities(self : Card)(implicit g : Game) = $(Ability("draw 1 card", c(1), $(draw(Corp, 1)), ok = g.run.exists(r => !r.ended && r.server == HQ) && g.deck(Corp).any, reason = "only during a run on HQ"))
     }
 
-    object CapriceNisei extends RA("04114") {
+    object CapriceNisei extends RAg("04114") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassedAllIce(s) if thisServer(self, s) => $(MessageEffect(Corp, "uses Caprice Nisei"), PsiEffect($, $(MessageEffect(Corp, "ends the run with Caprice Nisei"), etr)))
             case _ => $
         }
     }
 
-    object NeoTokyoGrid extends RA("05021") {
+    object NeoTokyoGrid extends RAg("05021") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Advanced(c, _) if inRoot(self, c) && !g.usedThisTurn(self, "neotokyo") => $(MarkUsedEffect(self, "neotokyo"), MessageEffect(Corp, "uses NeoTokyo Grid"), gain(Corp, 1))
             case AdvancementPlaced(c, _) if inRoot(self, c) && !g.usedThisTurn(self, "neotokyo") => $(MarkUsedEffect(self, "neotokyo"), MessageEffect(Corp, "uses NeoTokyo Grid"), gain(Corp, 1))
@@ -190,12 +190,12 @@ object RotUpgradeCards {
         }
     }
 
-    object ToriHanzo extends RA("05022") {
+    object ToriHanzo extends RAg("05022") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
             (kind == "net" && runHere(self) && !g.state(self).usedRun.has("tori")).$(Ability("pay 2 credits to do 1 core damage instead", c(2), $(MarkRunUsedEffect(self, "tori"), PreventWindowAction("core", 1))))
     }
 
-    object MidwayStationGrid extends RA("06007") {
+    object MidwayStationGrid extends RAg("06007") {
         override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) = !runHere(self) || !g.isIcebreaker(breaker) || g.availableCredits(Runner, None) >= 1
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SubsBroken(_, _, b) if runHere(self) && g.isIcebreaker(b) => $(MessageEffect(Runner, "pays 1 credit for Midway Station Grid"), LoseCreditsEffect(Runner, 1))
@@ -203,7 +203,7 @@ object RotUpgradeCards {
         }
     }
 
-    object HeinleinGrid extends RA("06023") {
+    object HeinleinGrid extends RAg("06023") {
         // the Runner's unspent clicks are recorded during runs on this server; whenever they drop, the Runner loses all credits
         override def triggers(self : Card, e : Event)(implicit g : Game) = if (!runHere(self)) $ else {
             val key = g.rotRunKey + ":"
@@ -215,7 +215,7 @@ object RotUpgradeCards {
         }
     }
 
-    object WillOTheWisp extends RA("06032") {
+    object WillOTheWisp extends RAg("06032") {
         def used(implicit g : Game) = g.flagsOf("rot-breaker")./~(_.card).distinct.%(c => g.isInstalled(c) && g.isIcebreaker(c))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if thisServer(self, s) && used.any =>
@@ -225,17 +225,17 @@ object RotUpgradeCards {
         }
     }
 
-    object PortAnsonGrid extends RA("06044") {
+    object PortAnsonGrid extends RAg("06044") {
         override def jackOutCosts(self : Card)(implicit g : Game) = runHere(self).$("program")
     }
 
-    object ShellCorporation extends RA("06092") {
+    object ShellCorporation extends RAg("06092") {
         override def abilities(self : Card)(implicit g : Game) = $(
             Ability("place 3 credits on Shell Corporation", click(), $(AddCounterEffect(self, "credit", 3)), click = true, once = once("shell")),
             Ability("take all credits from Shell Corporation", click(), $(TakeCreditsEffect(Corp, self, g.counter(self, "credit"))), click = true, once = once("shell"), ok = g.counter(self, "credit") > 0, reason = "no credits"))
     }
 
-    object SelfDestruct extends RA("06112") {
+    object SelfDestruct extends RAg("06112") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = remoteOnly(server)
         override def abilities(self : Card)(implicit g : Game) = $(Ability("trash all cards in this server, Trace X: do 3 net damage", $(TrashSelfCost), g.serverOf(self).$./(s => RaSelfDestructAction(self, s)),
             ok = runHere(self), reason = "only during a run on this server"))
@@ -248,9 +248,9 @@ object RotUpgradeCards {
         }
     }
 
-    object SatelliteGrid extends RA("07023")
+    object SatelliteGrid extends RAg("07023")
 
-    object TheTwins extends RA("07024") {
+    object TheTwins extends RAg("07024") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(c) if runHere(self) && g.isRezzed(c) && protecting(self, c) && g.hand(Corp).exists(_.code == c.code) =>
                 $(OptionalEffect(Corp, "The Twins: reveal and trash a copy of the passed ice from HQ to make the Runner encounter it again?",
@@ -264,7 +264,7 @@ object RotUpgradeCards {
         }
     }
 
-    object DedicatedTechnicianTeam extends RA("07026") {
+    object DedicatedTechnicianTeam extends RAg("07026") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 2)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) => $(RefillCreditsEffect(self, 2))
@@ -276,14 +276,14 @@ object RotUpgradeCards {
         }
     }
 
-    object CyberdexVirusSuite extends RA("07027") {
+    object CyberdexVirusSuite extends RAg("07027") {
         def offer(implicit g : Game) : $[ForcedAction] = $(OptionalEffect(Corp, "Cyberdex Virus Suite: purge virus counters?", $(PurgeEffect), $))
         override def onAccess(self : Card)(implicit g : Game) = offer
         override def onArchivesAccess(self : Card)(implicit g : Game) = offer
         override def abilities(self : Card)(implicit g : Game) = $(Ability("purge virus counters", $(TrashSelfCost), $(PurgeEffect)))
     }
 
-    object ValleyGrid extends RA("08015") {
+    object ValleyGrid extends RAg("08015") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SubsBroken(ice, _, _) if protecting(self, ice) && g.unbrokenSubs(ice).none =>
                 val until = g.active.isRunner.?(g.halfTurn).|(g.halfTurn + 1)
@@ -293,19 +293,19 @@ object RotUpgradeCards {
         override def handSize(self : Card, f : Faction)(implicit g : Game) = f.isRunner.??(-g.flagsOf("rot-valley").count(_.card.has(self)))
     }
 
-    object BreakerBayGrid extends RA("08040") {
+    object BreakerBayGrid extends RAg("08040") {
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (g.isActive(self) && card != self && inRoot(self, card)).?(-5).|(0)
     }
 
-    object OaktownGrid extends RA("08053") {
+    object OaktownGrid extends RAg("08053") {
         override def trashCostMod(self : Card, card : Card)(implicit g : Game) = inRoot(self, card).?(3).|(0)
     }
 
-    object RyonKnight extends RA("08054") {
+    object RyonKnight extends RAg("08054") {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("do 1 core damage", $(TrashSelfCost), $(core(1)), ok = runHere(self) && g.clicks(Runner) == 0, reason = "only during a run on this server when the Runner has no clicks"))
     }
 
-    object MarcusBatty extends RA("08074") {
+    object MarcusBatty extends RAg("08074") {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("psi game: resolve a subroutine on a piece of ice protecting this server", $(TrashSelfCost),
             g.serverOf(self).$./(s => PsiEffect($, $(RaBattyAction(self, s))) : ForcedAction), ok = runHere(self), reason = "only during a run on this server"))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -317,19 +317,19 @@ object RotUpgradeCards {
         }
     }
 
-    object UnderwayGrid extends RA("08080") {
+    object UnderwayGrid extends RAg("08080") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case IceBypassed(ice) if protecting(self, ice) => $(MessageEffect(Corp, "uses Underway Grid: the ice cannot be bypassed"), CancelBypassEffect)
             case _ => $
         }
     }
 
-    object OldHollywoodGrid extends RA("08097") {
+    object OldHollywoodGrid extends RAg("08097") {
         override def protectsFromAccess(self : Card, target : Card)(implicit g : Game) = target.data.isAgenda && fromThisServer(self, target) && !g.scored(Runner).exists(_.title == target.title)
         override def onTrash(self : Card, by : Faction)(implicit g : Game) = persist(self, by, "rot-no-steal-server")
     }
 
-    object ExpoGrid extends RA("08119") {
+    object ExpoGrid extends RAg("08119") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.serverOf(self).exists(s => g.root(s).exists(c => c.data.isAsset && g.isRezzed(c))) => $(MessageEffect(Corp, "uses Expo Grid"), gain(Corp, 1))
             case _ => $
@@ -338,7 +338,7 @@ object RotUpgradeCards {
 
     // ---- Data and Destiny / Mumbad cycle ------------------------------------------------------------------------------------
 
-    object KeeganLane extends RA("09024") {
+    object KeeganLane extends RAg("09024") {
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.runnerInstalledOf("Program")
             $(Ability("remove 1 tag: trash 1 program", $(TrashSelfCost), $(RemoveTagsEffect(1), ChooseCardEffect(Corp, l, TrashPurpose(Corp), "Keegan Lane: choose a program to trash", false)),
@@ -346,11 +346,11 @@ object RotUpgradeCards {
         }
     }
 
-    object RutherfordGrid extends RA("09025") {
+    object RutherfordGrid extends RAg("09025") {
         override def traceBonus(self : Card)(implicit g : Game) = runHere(self).?(2).|(0)
     }
 
-    object MumbadCityGrid extends RA("10014") {
+    object MumbadCityGrid extends RAg("10014") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(c) if runHere(self) && protecting(self, c) && g.serverOf(self).exists(s => g.ice(s).num >= 2) =>
                 val l = g.serverOf(self)./~(s => g.ice(s)).but(c)
@@ -364,14 +364,14 @@ object RotUpgradeCards {
         }
     }
 
-    object DisposableHQ extends RA("10034") {
+    object DisposableHQ extends RAg("10034") {
         def offer(implicit g : Game) : $[ForcedAction] = g.hand(Corp).any.$(OptionalEffect(Corp, "Disposable HQ: add cards from HQ to the bottom of R&D?",
             $(ChooseCardsEffect(Corp, g.hand(Corp), 0, g.hand(Corp).num, BottomOfDeckPurpose(Corp), "Disposable HQ: choose any number of cards in HQ")), $))
         override def onAccess(self : Card)(implicit g : Game) = offer
         override def onArchivesAccess(self : Card)(implicit g : Game) = offer
     }
 
-    object SuratCityGrid extends RA("10057") {
+    object SuratCityGrid extends RAg("10057") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Rezzed(c) if c != self && inThisServer(self, c) =>
                 val l = g.installedCards(Corp).%(x => !g.isRezzed(x) && !x.data.isAgenda && g.credits(Corp) >= g.rezCost(x) - 2 && g.impl(x).canRez(x))
@@ -380,17 +380,17 @@ object RotUpgradeCards {
         }
     }
 
-    object MumbadVirtualTour extends RA("10076") {
+    object MumbadVirtualTour extends RAg("10076") {
         override def mustTrashOnAccess(self : Card)(implicit g : Game) = true
     }
 
-    object NaviMumbaiCityGrid extends RA("10110") {
+    object NaviMumbaiCityGrid extends RAg("10110") {
         override def blocksRunnerAbilities(self : Card)(implicit g : Game) = runHere(self)
     }
 
     // ---- Flashpoint / Red Sand cycles ------------------------------------------------------------------------------------------
 
-    object GeorgiaEmelyov extends RA("11014") {
+    object GeorgiaEmelyov extends RAg("11014") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case UnsuccessfulRun(s) if thisServer(self, s) => $(MessageEffect(Corp, "uses Georgia Emelyov"), net(1))
             case _ => $
@@ -398,26 +398,26 @@ object RotUpgradeCards {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("move to another server", c(2), $(ChooseServerMoveEffect(self, g.servers))))
     }
 
-    object Prisec extends RA("11040") {
+    object Prisec extends RAg("11040") {
         override def onAccess(self : Card)(implicit g : Game) = (g.isInstalled(self) && g.credits(Corp) >= 2).$(OptionalEffect(Corp, "Prisec: pay 2 credits to do 1 meat damage and give the Runner 1 tag?",
             $(LoseCreditsEffect(Corp, 2), meat(1), tag(1)), $))
     }
 
-    object DroneScreen extends RA("11076") {
+    object DroneScreen extends RAg("11076") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case RunInitiated(s) if thisServer(self, s) && g.tagged => $(MessageEffect(Corp, "uses Drone Screen"), TraceEffect(3, $(meat(1)), $))
             case _ => $
         }
     }
 
-    object MantaGrid extends RA("11091") {
+    object MantaGrid extends RAg("11091") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case RunEnds(s, true, _) if thisServer(self, s) && (g.credits(Runner) < 6 || g.clicks(Runner) == 0) => $(MessageEffect(Corp, "uses Manta Grid"), ExtraClicksEffect(Corp, 1))
             case _ => $
         }
     }
 
-    object NihongaiGrid extends RA("11093") {
+    object NihongaiGrid extends RAg("11093") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if thisServer(self, s) && (g.availableCredits(Runner, None) < 6 || g.hand(Runner).num < 2) && g.hand(Corp).any && g.deck(Corp).any =>
                 $(OptionalEffect(Corp, "Nihongai Grid: look at the top 5 cards of R&D and swap one with a card in HQ?", $(RaNihongaiAction(self)), $))
@@ -449,7 +449,7 @@ object RotUpgradeCards {
         }
     }
 
-    object BryanStinson extends RA("11117") {
+    object BryanStinson extends RAg("11117") {
         def transactions(implicit g : Game) = g.discard(Corp).%(c => c.data.isOperation && g.has(c, "Transaction") && g.impl(c).canPlay(c))
         override def abilities(self : Card)(implicit g : Game) = $(Ability("play a transaction operation from Archives ignoring all costs and remove it from the game", click(),
             $(ChooseCardEffect(Corp, transactions, PlayPurpose(self, false, true), "Bryan Stinson: choose a transaction in Archives", false)), click = true,
@@ -458,7 +458,7 @@ object RotUpgradeCards {
 
     // ---- Daedalus Complex / Earth's Scion / Blood and Water / Free Mars / Crimson Dust ---------------------------------------
 
-    object DefenseConstruct extends RA("12011") {
+    object DefenseConstruct extends RAg("12011") {
         override def advanceable(self : Card)(implicit g : Game) = true
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.discard(Corp).%(c => !g.state(c).seen)
@@ -468,7 +468,7 @@ object RotUpgradeCards {
         }
     }
 
-    object OberthProtocol extends RA("12018") {
+    object OberthProtocol extends RAg("12018") {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
         override def onRez(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "forfeits an agenda to rez Oberth Protocol"), ChooseForfeitEffect)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -477,7 +477,7 @@ object RotUpgradeCards {
         }
     }
 
-    object KhondiPlaza extends RA("12019") {
+    object KhondiPlaza extends RAg("12019") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> g.remotes.num)
         override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (g.isActive(self) && card.data.isIce && protecting(self, card)).?(-g.counter(self, "credit")).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -496,12 +496,12 @@ object RotUpgradeCards {
         }
     }
 
-    object SignalJamming extends RA("12020") {
+    object SignalJamming extends RAg("12020") {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("cards cannot be installed until the end of the run", $(TrashSelfCost),
             $(MessageEffect(Corp, "prevents cards from being installed until the end of the run"), AddFlagEffect(Flag("rot-no-install", None, None, "run", 0, $))), ok = runHere(self), reason = "only during a run on this server"))
     }
 
-    object BambooDome extends RA("12053") {
+    object BambooDome extends RAg("12053") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = server.has(RnD)
         override def abilities(self : Card)(implicit g : Game) = $(Ability("reveal the top 3 cards of R&D, add 1 to HQ", click(), $(RaBambooAction(self)), click = true, ok = g.deck(Corp).any, reason = "R&D is empty"))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -512,19 +512,19 @@ object RotUpgradeCards {
         }
     }
 
-    object BenMusashi extends RA("12054") {
+    object BenMusashi extends RAg("12054") {
         override def stealDamage(self : Card, agenda : Card)(implicit g : Game) = fromThisServer(self, agenda).?(2).|(0)
         override def onTrash(self : Card, by : Faction)(implicit g : Game) = persist(self, by, "rot-steal-net")
     }
 
-    object HenryPhillips extends RA("12056") {
+    object HenryPhillips extends RAg("12056") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SubsBroken(_, subs, _) if runHere(self) && g.tagged => $(MessageEffect(Corp, "uses Henry Phillips"), gain(Corp, 2 * subs.num))
             case _ => $
         }
     }
 
-    object WarroidTracker extends RA("12068") {
+    object WarroidTracker extends RAg("12068") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Trashed(c, Runner, _) if g.owner(c).isCorp && trashedFrom.exists(s => thisServer(self, s)) => $(MessageEffect(Corp, "uses Warroid Tracker"), TraceEffect(4, $(RaWarroidAction(self)), $))
             case _ => $
@@ -538,19 +538,19 @@ object RotUpgradeCards {
         }
     }
 
-    object TrafficAnalyzer extends RA("12075") {
+    object TrafficAnalyzer extends RAg("12075") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Rezzed(c) if c.data.isIce && protecting(self, c) => $(MessageEffect(Corp, "uses Traffic Analyzer"), TraceEffect(2, $(gain(Corp, 1)), $))
             case _ => $
         }
     }
 
-    object HelheimServers extends RA("12091") {
+    object HelheimServers extends RAg("12091") {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("all ice protecting this server has +2 strength for the remainder of the run", $(TrashFromHandCost(1)),
             g.serverOf(self)./~(s => g.ice(s))./(i => PumpIceEffect(i, 2, RunDuration) : ForcedAction), ok = runHere(self) && g.hand(Corp).any, reason = "only during a run on this server"))
     }
 
-    object FractalThreatMatrix extends RA("12119") {
+    object FractalThreatMatrix extends RAg("12119") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SubsBroken(ice, _, _) if protecting(self, ice) && g.unbrokenSubs(ice).none => $(MessageEffect(Corp, "uses Fractal Threat Matrix"), MillEffect(Runner, 2))
             case _ => $
@@ -559,7 +559,7 @@ object RotUpgradeCards {
 
     // ---- Terminal Directive / Revised Core Set ------------------------------------------------------------------------------
 
-    object BlackLevelClearance extends RA("13039") {
+    object BlackLevelClearance extends RAg("13039") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if thisServer(self, s) => $(ChooseOneEffect(Runner, "Black Level Clearance: choose one", $(
                 Alt("Suffer 1 core damage", $(core(1))),
@@ -568,19 +568,19 @@ object RotUpgradeCards {
         }
     }
 
-    object KPLynn extends RA("13052") {
+    object KPLynn extends RAg("13052") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassedAllIce(s) if thisServer(self, s) => $(ChooseOneEffect(Runner, "K. P. Lynn: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("End the run", $(etr)))))
             case _ => $
         }
     }
 
-    object Strongbox extends RA("20076") {
+    object Strongbox extends RAg("20076") {
         override def stealCostMod(self : Card, agenda : Card)(implicit g : Game) = fromThisServer(self, agenda).$(ClickCost(1))
         override def onTrash(self : Card, by : Faction)(implicit g : Game) = persist(self, by, "rot-steal-click")
     }
 
-    object BerniceMai extends RA("20123") {
+    object BerniceMai extends RAg("20123") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if thisServer(self, s) => $(MessageEffect(Corp, "uses Bernice Mai"), TraceEffect(5, $(tag(1)), $(MessageEffect(Corp, "trashes Bernice Mai"), TrashEffect(self, Corp, false))))
             case _ => $
@@ -589,7 +589,7 @@ object RotUpgradeCards {
 
     // ---- Kitara cycle ----------------------------------------------------------------------------------------------------------
 
-    object CalibrationTesting extends RA("21017") {
+    object CalibrationTesting extends RAg("21017") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = remoteOnly(server)
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.serverOf(self)./~(s => g.root(s)).but(self)
@@ -598,7 +598,7 @@ object RotUpgradeCards {
         }
     }
 
-    object JinjaCityGrid extends RA("21031") {
+    object JinjaCityGrid extends RAg("21031") {
         def installable(self : Card, l : $[Card])(implicit g : Game) = l.%(c => g.zone(c) == HandZone(Corp) && g.credits(Corp) >= g.installCost(c, g.serverOf(self)) - 4)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case CardsDrawn(Corp, l) if l.exists(_.data.isIce) => $(RaJinjaAction(self, l.%(_.data.isIce)))
@@ -618,11 +618,11 @@ object RotUpgradeCards {
         }
     }
 
-    object ForcedConnection extends RA("21037") {
+    object ForcedConnection extends RAg("21037") {
         override def onAccess(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "uses Forced Connection"), TraceEffect(3, $(tag(2)), $))
     }
 
-    object CodeReplicator extends RA("21052") {
+    object CodeReplicator extends RAg("21052") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(c) if runHere(self) && g.isRezzed(c) && protecting(self, c) =>
                 $(OptionalEffect(Corp, "Code Replicator: trash it to make the Runner approach the passed ice again?", $(RaCodeReplicatorAction(self)), $))
@@ -638,19 +638,19 @@ object RotUpgradeCards {
         }
     }
 
-    object Tempus extends RA("21071") {
+    object Tempus extends RAg("21071") {
         override def onAccess(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "uses Tempus"), TraceEffect(3, $(ChooseOneEffect(Runner, "Tempus: choose one", $(
             Alt("Lose 2 clicks", $(LoseClicksEffect(Runner, 2)), g.clicks(Runner) >= 2),
             Alt("Suffer 1 core damage", $(core(1)))))), $))
     }
 
-    object BioVault extends RA("21072") {
+    object BioVault extends RAg("21072") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = remoteOnly(server)
         override def advanceable(self : Card)(implicit g : Game) = true
         override def abilities(self : Card)(implicit g : Game) = $(Ability("end the run", $(CounterCost("advancement", 2), TrashSelfCost), $(etr), ok = g.run.exists(r => !r.ended), reason = "only during a run"))
     }
 
-    object MwanzaCityGrid extends RA("21096") {
+    object MwanzaCityGrid extends RAg("21096") {
         override def installOnly(self : Card, server : |[Server])(implicit g : Game) = server.has(HQ) || server.has(RnD)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case BreachServer(s) if thisServer(self, s) && g.run.exists(r => !r.ended && !r.accessOnly) =>
@@ -669,7 +669,7 @@ object RotUpgradeCards {
         }
     }
 
-    object Intake extends RA("21098") {
+    object Intake extends RAg("21098") {
         override def onAccess(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "uses Intake"), TraceEffect(4, $(RaIntakeAction(self)), $))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case RaIntakeAction(self) =>
@@ -680,7 +680,7 @@ object RotUpgradeCards {
         }
     }
 
-    object OverseerMatrix extends RA("21100") {
+    object OverseerMatrix extends RAg("21100") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Trashed(c, Runner, _) if g.owner(c).isCorp && trashedFrom.exists(s => thisServer(self, s)) && g.credits(Corp) >= 1 =>
                 $(OptionalEffect(Corp, "Overseer Matrix: pay 1 credit to give the Runner 1 tag?", $(LoseCreditsEffect(Corp, 1), MessageEffect(Corp, "uses Overseer Matrix"), tag(1)), $))
@@ -691,7 +691,7 @@ object RotUpgradeCards {
 
     // ---- Reign and Reverie / Magnum Opus / System Core 2019 / Midnight Sun Booster ---------------------------------------------
 
-    object GiordanoMemorialField extends RA("22033") {
+    object GiordanoMemorialField extends RAg("22033") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if thisServer(self, s) =>
                 val cost = 2 * g.scored(Runner).num
@@ -702,7 +702,7 @@ object RotUpgradeCards {
         }
     }
 
-    object Daruma extends RA("22041") {
+    object Daruma extends RAg("22041") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case ApproachServer(s) if thisServer(self, s) && g.root(s).but(self).any =>
                 $(OptionalEffect(Corp, "Daruma: trash it to swap a card in this server with another card?", $(ChooseCardEffect(Corp, g.root(s).but(self), RaDarumaPurpose(self), "Daruma: choose a card in this server", false)), $))
@@ -725,7 +725,7 @@ object RotUpgradeCards {
         }
     }
 
-    object ArellaSalvatore extends RA("22049") {
+    object ArellaSalvatore extends RAg("22049") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaScored(_) if g.lastScoredFrom.exists(s => thisServer(self, s)) && g.hand(Corp).exists(c => corpInstallable(c)) =>
                 $(ChooseCardEffect(Corp, g.hand(Corp).%(c => corpInstallable(c)), RaArellaPurpose(self), "Arella Salvatore: install a card from HQ ignoring all costs and place 1 advancement counter on it?", true))
@@ -741,7 +741,7 @@ object RotUpgradeCards {
         }
     }
 
-    object HiredHelp extends RA("23101") {
+    object HiredHelp extends RAg("23101") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case RunInitiated(s) if thisServer(self, s) && !g.successfulRunsThisTurn.has(HQ) =>
                 $(ChooseOneEffect(Runner, "Hired Help: trash 1 agenda from your score area or end the run", $(
@@ -751,7 +751,7 @@ object RotUpgradeCards {
         }
     }
 
-    object Ash2X3ZB9CY extends RA("25082") {
+    object Ash2X3ZB9CY extends RAg("25082") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(s) if thisServer(self, s) => $(MessageEffect(Corp, "uses Ash 2X3ZB9CY"), TraceEffect(4, $(MessageEffect(Corp, "prevents the Runner from accessing cards other than Ash 2X3ZB9CY"),
                 AddFlagEffect(Flag("access-only", |(self), None, "run", 0, $))), $))
@@ -759,23 +759,23 @@ object RotUpgradeCards {
         }
     }
 
-    object MasonBellamy extends RA("25083") {
+    object MasonBellamy extends RAg("25083") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterEnds(ice) if runHere(self) && protecting(self, ice) && g.flagsOf("broken-by").any => $(MessageEffect(Corp, "uses Mason Bellamy"), LoseClicksEffect(Runner, 1))
             case _ => $
         }
     }
 
-    object ProductPlacement extends RA("25120") {
+    object ProductPlacement extends RAg("25120") {
         override def onAccess(self : Card)(implicit g : Game) = $(MessageEffect(Corp, "uses Product Placement"), gain(Corp, 2))
     }
 
-    object RedHerrings extends RA("25121") {
+    object RedHerrings extends RAg("25121") {
         override def stealCostMod(self : Card, agenda : Card)(implicit g : Game) = fromThisServer(self, agenda).$(CreditCost(5))
         override def onTrash(self : Card, by : Faction)(implicit g : Game) = persist(self, by, "rot-steal-credits")
     }
 
-    object Embolus extends RA("28003") {
+    object Embolus extends RAg("28003") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.credits(Corp) >= 1 => $(OptionalEffect(Corp, "Embolus: pay 1 credit to place 1 power counter on it?", $(LoseCreditsEffect(Corp, 1), AddCounterEffect(self, "power", 1)), $))
             case SuccessfulRun(_) if g.counter(self, "power") > 0 => $(AddCounterEffect(self, "power", -1))

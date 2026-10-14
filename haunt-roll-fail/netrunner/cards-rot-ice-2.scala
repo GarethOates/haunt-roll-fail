@@ -124,12 +124,12 @@ object RotIceCards2 {
     object Metamorph extends RI("12094") {
         def nonIce(implicit g : Game) = g.installedCards(Corp).%(c => !c.data.isIce && g.zone(c).is[RootZone])
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Swap 2 pieces of ice or swap 2 installed non-ice cards", ChooseOneEffect(Corp, "Metamorph: choose one", $(
-            Alt("Swap 2 pieces of ice", $(ChooseCardsEffect(Corp, g.allIce, 2, 2, RotPurpose(self, 1), "Metamorph: choose 2 pieces of ice to swap")), g.allIce.num >= 2),
-            Alt("Swap 2 installed non-ice cards", $(ChooseCardsEffect(Corp, nonIce, 2, 2, RotPurpose(self, 2), "Metamorph: choose 2 installed non-ice cards to swap")), nonIce./~(g.serverOf).distinct.num >= 2)))))
+            Alt("Swap 2 pieces of ice", $(ChooseCardsEffect(Corp, g.allIce, 2, 2, RotIcePurpose(self, 1), "Metamorph: choose 2 pieces of ice to swap")), g.allIce.num >= 2),
+            Alt("Swap 2 installed non-ice cards", $(ChooseCardsEffect(Corp, nonIce, 2, 2, RotIcePurpose(self, 2), "Metamorph: choose 2 installed non-ice cards to swap")), nonIce./~(g.serverOf).distinct.num >= 2)))))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards match {
                 case List(a, b) => p match {
-                    case RotPurpose(_, 1) => g.push(SwapIceEffect(a, b))
+                    case RotIcePurpose(_, 1) => g.push(SwapIceEffect(a, b))
                     case _ => g.push(SwapRootEffect(a, b))
                 }
                 case _ =>
@@ -314,7 +314,7 @@ object RotIceCards2 {
 
     object Otoroshi extends RI("22038") {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Place 3 advancement counters on an installed card; the Runner accesses it unless they pay 3[c]",
-            ChooseCardEffect(Corp, g.installedCards(Corp).%(c => !c.data.isIce && g.zone(c).is[RootZone]), RotPurpose(self, 1), "Otoroshi: choose an installed card", false)))
+            ChooseCardEffect(Corp, g.installedCards(Corp).%(c => !c.data.isIce && g.zone(c).is[RootZone]), RotIcePurpose(self, 1), "Otoroshi: choose an installed card", false)))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 g.push(PlaceAdvancementEffect(c, 3), choose("choose one", $(
@@ -404,7 +404,7 @@ object RotIceCards2 {
                         OptionalEffect(Corp, "Sadaka: draw 1 card?", $(draw(Corp, 1)), $))
                 NextAction
             case RotSubAction(self, 2) =>
-                g.push(ChooseCardEffect(Corp, g.hand(Corp), RotPurpose(self, 1), "Sadaka: choose a card in HQ to trash", true), TrashEffect(self, Corp, false))
+                g.push(ChooseCardEffect(Corp, g.hand(Corp), RotIcePurpose(self, 1), "Sadaka: choose a card in HQ to trash", true), TrashEffect(self, Corp, false))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -627,7 +627,7 @@ object RotIceCards2 {
     }
 
     object Thimblerig extends RI("22039") {
-        def offer(self : Card)(implicit g : Game) = (g.allIce.num >= 2).$(OptionalEffect(Corp, "Thimblerig: swap it with another piece of ice?", $(ChooseCardEffect(Corp, g.allIce.but(self), RotPurpose(self, 1), "Thimblerig: choose a piece of ice to swap with", false)), $))
+        def offer(self : Card)(implicit g : Game) = (g.allIce.num >= 2).$(OptionalEffect(Corp, "Thimblerig: swap it with another piece of ice?", $(ChooseCardEffect(Corp, g.allIce.but(self), RotIcePurpose(self, 1), "Thimblerig: choose a piece of ice to swap with", false)), $))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(c) if c == self => offer(self)
             case TurnBegins(Corp) => offer(self)

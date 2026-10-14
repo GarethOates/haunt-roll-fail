@@ -183,7 +183,7 @@ object RotAssetCardsB {
 
     object AryabhataTech extends RA("10070") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RotTraceSucceeded => $(MessageEffect(Corp, "uses Aryabhata Tech"), gain(Corp, 1), LoseCreditsEffect(Runner, 1))
+            case TraceResolved(true, _) => $(MessageEffect(Corp, "uses Aryabhata Tech"), gain(Corp, 1), LoseCreditsEffect(Runner, 1))
             case _ => $
         }
     }

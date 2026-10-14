@@ -20,7 +20,6 @@ import netrunner.elem._
 
 // ---- effects ----------------------------------------------------------------------------------------------------------
 case class MoveIceToIndexEffect(card : Card, index : Int) extends ForcedAction       // move an installed piece of ice to a position of its server (0 = innermost); the Runner keeps facing the same ice
-case class SwapRootEffect(a : Card, b : Card) extends ForcedAction                    // swap the positions of two installed non-ice Corp cards
 case class PhantomEncounterEffect(card : Card) extends ForcedAction                   // the Runner encounters an uninstalled piece of ice (accessed from R&D / HQ): it protects the attacked server, rezzed, for the encounter
 case class PhantomRestoreAction(card : Card, zone : Zone, index : Int) extends ForcedAction
 case class RunFlagEffect(key : String, on : Boolean) extends ForcedAction              // set or clear a run flag: "cannot-jack-out"
@@ -74,16 +73,6 @@ trait RotIceRules { game : Game =>
                             r.position += 1
                     }
                     log(hiddenCorpElem(c), "is now at position", (i + 1).hl, "of", s)
-                case _ =>
-            }
-            NextAction
-
-        case SwapRootEffect(a, b) =>
-            (zone(a), zone(b)) match {
-                case (RootZone(sa), RootZone(sb)) if sa != sb =>
-                    place(a, RootZone(sb))
-                    place(b, RootZone(sa))
-                    log(Corp, "swaps", hiddenCorpElem(a), "and", hiddenCorpElem(b))
                 case _ =>
             }
             NextAction
@@ -153,7 +142,7 @@ trait RotIceRules { game : Game =>
         case ResolveSubOnIceEffect(c, t, allowSelf) =>
             val l = rezzedIce.%(x => (allowSelf || x != c) && (t == "" || has(x, t)) && impl(x).subroutines(x).any)
             if (l.any)
-                push(ChooseCardEffect(Corp, l, RotPurpose(c, 99), asciiTitle(c) + ": choose a piece of ice to resolve a subroutine of", true))
+                push(ChooseCardEffect(Corp, l, RotIcePurpose(c, 99), asciiTitle(c) + ": choose a piece of ice to resolve a subroutine of", true))
             NextAction
 
         case EndRunIfTaggedEffect =>

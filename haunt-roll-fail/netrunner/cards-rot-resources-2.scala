@@ -328,7 +328,7 @@ object RotResourceCards2 {
         }
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.installedCards(Corp).%(c => !g.isRezzed(c))
-            $(Ability("expose 1 card", $(TrashSelfCost), $(ChooseCardEffect(Runner, l, RotExposePurpose(self), "Raymond Flint: choose a card to expose", false)), ok = l.any, reason = "no unrezzed card"))
+            $(Ability("expose 1 card", $(TrashSelfCost), $(ChooseCardEffect(Runner, l, ExposePurpose, "Raymond Flint: choose a card to expose", false)), ok = l.any, reason = "no unrezzed card"))
         }
     }
 
