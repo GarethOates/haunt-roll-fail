@@ -370,7 +370,7 @@ object RotProgramCards2 {
             $(Ability("run a remote server (change the attacked server to a central when approaching it)", $(ClickCost(2)), $(RunAnyServerEffect(|(self), l)), click = true, ok = l.any, reason = "no remote server"))
         }
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ApproachServer(s) if thisCardRun(self) && s.isRemote => $(ChooseOneEffect(Runner, "Sneakdoor Prime A: choose a central server to attack instead", Server.centrals./(x => Alt(x.name, $(ChangeRunServerEffect(x))))))
+            case RunWouldSucceed(s) if thisCardRun(self) && s.isRemote => $(ChooseOneEffect(Runner, "Sneakdoor Prime A: the successful run is on which central server?", Server.centrals./(x => Alt(x.name, $(ChangeRunServerEffect(x))))))
             case _ => $
         }
     }
@@ -381,7 +381,7 @@ object RotProgramCards2 {
             $(Ability("run a central server (change the attacked server to a remote when approaching it)", $(ClickCost(2)), $(RunAnyServerEffect(|(self), l)), click = true, ok = l.any, reason = "cannot run"))
         }
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ApproachServer(s) if thisCardRun(self) && s.isCentral && g.remotes.any => $(ChooseOneEffect(Runner, "Sneakdoor Prime B: choose a remote server to attack instead", Alt("Keep attacking " + s.name, $) +: g.remotes./(x => Alt(x.name, $(ChangeRunServerEffect(x))))))
+            case RunWouldSucceed(s) if thisCardRun(self) && s.isCentral && g.remotes.any => $(ChooseOneEffect(Runner, "Sneakdoor Prime B: the successful run is on which remote server?", g.remotes./(x => Alt(x.name, $(ChangeRunServerEffect(x))))))
             case _ => $
         }
     }

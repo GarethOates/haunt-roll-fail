@@ -63,14 +63,10 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
   counter of another card.
 * Harbinger: when trashed from play it is installed facedown from the heap (facedown programs use no MU; Blacklist does not
   stop it, since the card never really reaches the heap).
-* LLDS Energy Regulator: there is no trash-prevention window; when the Corp trashes installed hardware, LLDS offers to pay 3
-  or trash itself and the hardware is reinstalled (its "when trashed" effects have already been queued).
-* Net Shield: usable once per turn (instead of "only on the first net damage of the turn").
 * Tracker: the prevented subroutine is the first unbroken subroutine of the first rezzed ice with unbroken subroutines
   encountered during the Tracker run (chosen at encounter time, so it counts as broken); Mass-Driver likewise marks the
   first 3 subroutines of the next encountered ice as broken.
-* Copycat is an optional "after you pass a rezzed piece of ice" trigger rather than a paid ability.
-* Sneakdoor Prime A/B change the attacked server when the Runner approaches the server (instead of on "pre-successful-run").
+* Copycat is an optional "whenever you pass a piece of ice" trigger (as printed), offered after passing rezzed ice.
 * Endless Hunger breaks any subroutine of ice that has an "end the run" subroutine (jinteki does not enforce the restriction
   at all).
 * Faust: the grip card for the break is chosen right after the break.
@@ -91,7 +87,8 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
 * `PreventSubsEffect(ice, n)` — the first n unbroken subroutines do not resolve this encounter (Tracker, Mass-Driver).
 * `ChangeRunServerEffect(server)` (Sneakdoor Prime A/B), `SetRunPositionEffect(n)` (Surfer).
 * `PayCreditsEffect(f, n)` — pay credits (hosted run credits first) as part of an effect (X costs, optional costs).
-* `ReinstallEffect(card)` — put a just trashed Runner card back into the rig (LLDS).
+* `ReinstallEffect(card)` — put a just trashed Runner card back into the rig (no longer used: LLDS uses the trash prevention
+  window of `rules-ext-prevention.scala`).
 * `SpendVirusEffect(card, n, any)` (+ `SpendVirusPurposeAction`, `SpendVirusPurpose`) — virus counter costs paid from the
   card and Hivemind, or from any installed card; `virusCounters(c)`, `anyVirusCounters`.
 * Purposes `HostIceSelfPurpose(card)` (Caissa / Ika re-hosting) and `MoveVirusPurpose(from, to, n)` (Hivemind).

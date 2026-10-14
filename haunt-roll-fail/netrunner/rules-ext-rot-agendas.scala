@@ -226,7 +226,7 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
                 log("The trace is", "successful".hl)
             else
                 log("The trace is", "unsuccessful".hl)
-            pushAll(ok.?(traceSuccess).|(traceFail) :+ TriggerEventAction(TraceResolved(ok, n)))
+            pushAll(TriggerEventAction(TraceResolved(ok, n)) +: ok.?(traceSuccess).|(traceFail))
             NextAction
 
         case DamageEffect("meat", n) if n > 0 && rotMeatBonus > 0 =>

@@ -120,9 +120,7 @@ object DFCards {
 
     object ClimacticShowdown extends NC("26006") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) if !g.usedThisTurn(self, "bonus") => $(ClimacticAction(self))
-            case BreachServer(s) if (s == HQ || s == RnD) && g.usedThisTurn(self, "bonus") && !g.usedThisTurn(self, "bonus-done") => $(MarkUsedEffect(self, "bonus-done"), AccessBonusEffect(s, 2))
-            case TurnEnds(Runner) if g.usedThisTurn(self, "bonus") => $(RemoveFromGameEffect(self))
+            case TurnBegins(Runner) if g.isInstalled(self) => $(RemoveFromGameEffect(self), ClimacticAction(self))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -130,13 +128,11 @@ object DFCards {
                 val l = g.servers.%(s => g.ice(s).any)
                 if (l.any)
                     g.push(ChooseOneEffect(Runner, "Climactic Showdown: choose a server protected by ice", l./(s => Alt(s.name, $(ClimacticCorpAction(self, s))))))
-                else
-                    g.push(RemoveFromGameEffect(self))
                 NextAction
             case ClimacticCorpAction(self, s) =>
                 g.push(OptionalEffect(Corp, "Climactic Showdown: trash a piece of ice protecting " + s.name + "? (otherwise the Runner accesses 2 additional cards from HQ or R&D this turn)",
-                    $(ChooseCardEffect(Corp, g.ice(s), TrashPurpose(Corp), "Choose a piece of ice to trash", false), RemoveFromGameEffect(self)),
-                    $(MarkUsedEffect(self, "bonus"), MessageEffect(Runner, "will access 2 additional cards the first time they breach HQ or R&D this turn"))))
+                    $(ChooseCardEffect(Corp, g.ice(s), TrashPurpose(Corp), "Choose a piece of ice to trash", false)),
+                    $(BreachBonusEffect(2), MessageEffect(Runner, "will access 2 additional cards the first time they breach HQ or R&D this turn"))))
                 NextAction
         }
     }
@@ -227,7 +223,7 @@ object DFCards {
 
     object LuckyCharm extends NC("26014") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "end-run" && g.successfulRunsThisTurn.has(HQ)).$(Ability("prevent the run from ending", $(RemoveSelfCost), $(MessageEffect(Runner, "prevents the run from ending (Lucky Charm)"))))
+            (kind == "end-run" && g.successfulRunsThisTurn.has(HQ) && Prevent.ctx.exists(_.by.isCorp)).$(Ability("prevent the run from ending", $(RemoveSelfCost), $(Prevent.endRun)))
     }
 
     object Masterwork extends NC("26015") {

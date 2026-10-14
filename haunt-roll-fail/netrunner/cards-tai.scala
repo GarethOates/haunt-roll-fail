@@ -278,13 +278,10 @@ object TAICards {
 
     object AirbladeX extends PT("34022") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("power" -> 3)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "power") ++ (e match {
-            case EncounterIce(ice) if g.counter(self, "power") > 0 && g.impl(ice).onEncounter(ice).any =>
-                $(OptionalEffect(Runner, "AirbladeX: spend 1 hosted power counter to prevent the encounter ability of the ice?", $(AddCounterEffect(self, "power", -1), PreventEncounterAbilityEffect(ice)), $))
-            case _ => $
-        })
+        override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "power")
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" && g.run.any && g.counter(self, "power") > 0).$(Ability("prevent 1 net damage (1 hosted power counter)", $, $(AddCounterEffect(self, "power", -1), DamageEffect("net", n - 1))))
+            (kind == "net" && g.run.any).$(Ability("prevent 1 net damage", $(CounterCost("power", 1)), $(Prevent.damage(1), TriggerEventAction(CounterAdded(self, "power"))))) ++
+            (kind == "encounter").$(Ability("prevent the encounter ability", $(CounterCost("power", 1)), $(Prevent.encounter, TriggerEventAction(CounterAdded(self, "power")))))
     }
 
     object LilyPAD extends PT("34023") {

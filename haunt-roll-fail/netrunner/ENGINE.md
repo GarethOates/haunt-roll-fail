@@ -90,7 +90,7 @@ installable/playable/accessible generically and shows its printed text in the UI
 | `abilities(self)` | **paid abilities** (click abilities included): `$[Ability]` |
 | `runnerAbilities(self)` | abilities the Runner may use on a Corp card (bioroid "lose [click]: break") |
 | `accessAbility(self, target)` | ability usable while accessing `target` (Carnivore) |
-| `preventions(self, kind, n)` | prevention abilities offered before damage (`"net"`, `"meat"`, `"core"`) or `"tag"` is applied |
+| `preventions(self, kind, n)` | prevention abilities offered in the prevention windows (§8.2): `"net"` / `"meat"` / `"core"` damage, `"tag"`, `"trash"`, `"end-run"`, `"jack-out"`, `"bad-pub"`, `"encounter"`, `"break"` (`n` = amount left); their effects change the window (`PreventEffect`, ...) |
 | `subroutines(self)` | ice subroutines `$[Sub(label, effect)]`, in order |
 | `onEncounter(self)` | "when the Runner encounters this ice" effects (Funhouse) |
 | `breaks(self)` | icebreaker break abilities `BreakAbility(costs, n, subtypes, label, after)`; `n = 0` = any number, empty subtypes = any ice |
@@ -116,7 +116,9 @@ All effects are plain `ForcedAction` records from rules-effects.scala, so they a
   `LoseClicksEffect`, `TakeCreditsEffect(f, card, n)` (move hosted credits to the pool), `AddCounterEffect(card, kind, n)`,
   `PlaceAdvancementEffect(card, n)`, `MillEffect(f, n)`.
 * Damage / tags: `DamageEffect("net"|"meat"|"core", n)` (random discards via `ShuffleTake`, flatline check,
-  prevention window), `TagsEffect(n)`, `RemoveTagsEffect(n)`, `BadPubEffect(n)`.
+  prevention window), `TagsEffect(n)`, `RemoveTagsEffect(n)`, `BadPubEffect(n)`. Inside a prevention window: `PreventEffect(kind, n)`
+  (`Prevent.damage(n)`, `Prevent.allDamage`, `Prevent.tags(n)`, `Prevent.endRun`, ...), `PreventTrashChooseEffect`, `PreventBoostEffect`,
+  `PreventConvertDamageEffect`, `PreventBreakChooseEffect` (§8.2).
 * Runs: `EndRunEffect`, `JackOutOfferEffect` ("the Runner may jack out"), `RunEffect(server, source)`,
   `RunAnyServerEffect(source, servers)` (Runner chooses), `AccessBonusEffect(server, n)`, `CannotStealOrTrashEffect`,
   `PumpIceEffect(ice, n, duration)`, `PumpBreakerEffect`, `BypassEffect()`, `BioroidBreakEffect(ice)`.
@@ -353,7 +355,7 @@ not collide with another file of the package.
     class Game ... with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
         with StartupRules with SU21Rules with PHTAIRules with RWRRules
         with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules
-        with RotAssetRules with RotAgendaRules with CreditRules with RestrictionRules
+        with RotAssetRules with RotAgendaRules with CreditRules with RestrictionRules with PreventionRules
 
 Only `RotAssetRules` and `RotAgendaRules` override engine methods. They extend the core traits they refine (assets:
 `EffectRules, TurnRules, CardRules, RunRules, PHTAIRules, RWRRules`; agendas: `TurnRules, CardRules, AccessRules,
@@ -407,7 +409,7 @@ The bookkeeping registers of the events, operations and assets ports are counted
   separate effects.
 * `LoseAllCreditsEffect(f)`, `BreachNoRootEffect(server)` (`access-exclude` flags around `BreachServerEffect`),
   `SwapRootEffect(a, b)` (shared).
-* trace result: `TraceResolved(successful, spent)` (agendas). It is fired once per trace, after the success/fail effects.
+* trace result: `TraceResolved(successful, spent)` (agendas). It is fired once per trace, before the success/fail effects.
 * psi result: `RotPsiRevealed(corp, runner)` (assets). It is fired once per psi game.
 * recurring credits: `RefillCreditsEffect(card, n)` (su21) refills installed cards and active identities. What they pay for
   is declared with `paysFor` (`RH.breakerCredits` and `RA.recurring` are turned into `paysFor` by the base classes) and
@@ -468,3 +470,41 @@ Threat, Interdiction, Hacktivist Meeting), `playBlock(card)` (The News Now Hour,
 * `DeckRules` (object) is the per-identity part of `Decks.validate` and of the deck preview: copy limits (draft / singleton
   identities), allowed cards (agenda factions, Custom Biotics), influence (The Professor, alliance cards, unlimited when the
   identity has no influence limit).
+
+
+### 8.4 Prevention, interrupts and timing windows (`rules-ext-prevention.scala`)
+
+`PreventionRules` is mixed in last, so its stackable overrides (`performEffects`, `performRun`, `performAbilities`,
+`performTurn`, `performCards`, `performManual`, `performAccess`, `trashCard`, `payCosts`, `resolvePurpose`) run before all
+others and delegate everything else to `super`. Modelled on jinteki's `game.core.prevention`:
+
+* A **window** is a `PreventCtx` on `preventStack` (kind, amount left, cards, source, `by`, `firstThisTurn` / `firstThisRun`,
+  uses). It opens when something preventable would happen: damage (`DamageEffect` -> the rules below adjust the amount ->
+  `PreventOpenDamageAction`), tags (`TagsEffect`, after the hardware rules' automatic avoidance), bad publicity
+  (`BadPubEffect` n > 0), end the run (`EndRunEffect` during a run; `preventSubs` knows whether a subroutine ends it), jack out
+  (`JackOutAction` / `JackOutEffect` when a Corp card can prevent it), trash (`trashCard` of an installed Runner card, not as a
+  cost (`payCosts`, `TrashInstalledCost`) nor by the game rules (memory limit, uniqueness, console limit, manual), when a card
+  can prevent it; the trashes of one effect are batched), the "when encountered" ability of ice (`encounterAbility(ice)` ->
+  `EncounterAbilityEffect`), and breaking a subroutine on bioroid ice protecting a server with Tyr's Hand ("break").
+* **Forced interrupts** resolve first: the event `PreventionInterrupt(kind, stage, n)` goes to the cards' `triggers` (stage 0:
+  increases, e.g. Defective Brainchips; stage 1: constant / forced preventions, e.g. Leverage, The Noble Path, Paparazzi,
+  Guru Davinder, Muresh Bodysuit, Chrome Parlor, Shred, Broadcast Square). `kind` is `"net"` / `"meat"` / `"core"` for damage.
+* Then **priority**: the active player first; a player keeps using `preventions` abilities until they pass
+  (`PreventPassAction`), the window closes when both passed in a row or nothing is left (`PreventStepAction`, `Reaskable`).
+  A used ability (`PreventUseAction`) pays its costs, resolves its effects and returns to the window. Abilities may be used
+  any number of times (cards with a printed limit check `g.preventUses(self)` or the window flags; cap 20 per window).
+* Effects for cards: `PreventEffect(kind, n)` (n < 0 = all), `PreventBoostEffect`, `PreventConvertDamageEffect(dtype, n)`
+  (Tori Hanzō), `PreventTrashOfEffect(card)`, `PreventTrashChooseEffect(self, kinds)`, `PreventBreakChooseEffect(self)`;
+  helpers in `object Prevent` (`Prevent.ctx`, `Prevent.damageCtx`, `Prevent.damage(n)`, `Prevent.allTags`, ...).
+  `SourcedDamageEffect(kind, n, card)` records the card doing the damage (Runner cards' "when you install" damage).
+* After the window: damage -> `DamageApplyEffect`, tags -> `TagsApplyEffect`, bad publicity -> `BadPubNowEffect`, end the run
+  -> `EndRunNowEffect`, jack out -> the jack out (or back to the paid ability window, `cannotJackOut` set), trash -> the
+  remaining cards are trashed, encounter -> the ice's `onEncounter` effects, break -> the break action with the prevented
+  subroutines left unbroken.
+* Timing events added: `ClicksSpentOrLost(f, n)` (during runs), `AccessFinished(card)` (after each access),
+  `BreachFinished(server)` (after the breach of a run, before it ends), `RunWouldSucceed(server)` (before the run is declared
+  successful). `PersistentEffect(card, server)` keeps a trashed card's run-end trigger until the run ends (AMAZE Amusements);
+  `BreachBonusEffect(n)` is a turn-lasting access bonus (Climactic Showdown). Patchwork is an interrupt of `PlayCardAction` /
+  `RunnerInstallAction`.
+* The older one-shot "trace" ask of `TraceEffect` (Flip Switch, Disrupter, Power Tap, Compromised Employee) and the legacy
+  continuation `PreventWindowAction(kind, n)` (sets the amount left of an open damage window) still work.

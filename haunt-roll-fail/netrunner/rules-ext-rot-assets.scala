@@ -23,7 +23,7 @@ import netrunner.elem._
 // RotAssetRules is mixed into Game like the other extension traits. Besides performRotAssets and rotAssetTriggers it
 // uses stackable overrides (each one calls super and is guarded by the card being in play), so that no shared rules
 // file had to be edited:
-//   performEffects  psi reveal event (RotPsiRevealed), Broadcast Square, Genetics Pavilion draw limit, Blacklist (AddToHandEffect / MoveEffect / RemoveFromGameEffect out of the heap)
+//   performEffects  psi reveal event (RotPsiRevealed), Genetics Pavilion draw limit, Blacklist (AddToHandEffect / MoveEffect / RemoveFromGameEffect out of the heap)
 //   performCards    Blacklist (installing from the heap)
 //   performTurn     Genetics Pavilion / The News Now Hour greying of Runner actions
 //   performRun      remembers the unbroken subroutines of an encounter that ends (Chief Slee)
@@ -81,11 +81,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
                 val x = base(a)
                 trigger(RotPsiRevealed(c, r))
                 x
-
-            case BadPubEffect(n) if n > 0 && rotLive("04112").any =>
-                log(Corp, "would take", n.hl, "bad publicity: Broadcast Square initiates a trace")
-                push(TraceEffect(3, $(MessageEffect(Corp, "prevents the bad publicity (Broadcast Square)")), $(RotBadPubNowEffect(n))))
-                NextAction
 
             case RotBadPubNowEffect(n) =>
                 base(BadPubEffect(n))

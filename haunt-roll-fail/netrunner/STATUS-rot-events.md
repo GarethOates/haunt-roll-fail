@@ -52,19 +52,17 @@ tests only.
 
 ## Simplifications
 
+* (Immolation Script, Divide and Conquer, Leverage and The Noble Path were fixed by the prevention / timing pass: see
+  `STATUS-fix-prevention.md`.)
 * Escher: rearranging is done by up to 6 pairwise swaps of installed ice (any arrangement of up to 7 pieces is reachable).
 * Corporate Scandal: implemented as a real bad publicity gained on play and removed when the current leaves play.
 * Cold Read: the program trashed at the end of the run is any installed program (no tracking of "used during the run").
-* Immolation Script: the replacement is offered once when Archives is breached (choose a faceup ice in Archives with a rezzed
-  copy), not per accessed ice.
-* Divide and Conquer: the HQ and R&D breaches (no root cards) happen when the Archives run ends.
 * Prey: only rezzed ice can be trashed.
 * Forked / Knifed / Spooned: "fully broken" is checked on the engine's `SubsBroken` event, which bioroid click-breaking does
   not emit.
 * The restrictions of Interdiction, Hacktivist Meeting, Unscheduled Maintenance, Blackmail and Cyber Threat apply to every rez /
   install path, card effects included (see `STATUS-fix-restrictions.md`); Security Leak and The Price of Freedom restrict the basic advance
   action (no card effect "advances" a card). A Corp window whose only option is greyed out by them still shows its "pass" button.
-* Leverage / The Noble Path: damage prevention is offered as a free prevention ability (not applied automatically).
 * Watch the World Burn: later accesses remove copies with the same card code (other printings of the title are not matched).
 * Rebirth: the candidates are all format-legal Runner identities of the same faction (not restricted to the deck's format).
 * Apocalypse / Reboot: facedown Runner cards have no abilities and use no MU; turning them faceup again is left to manual

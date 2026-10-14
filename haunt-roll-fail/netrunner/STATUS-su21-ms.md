@@ -26,9 +26,8 @@ Partially implemented / simplified:
   the Runner moved past (`lastRun.position`).
 * **Daily Business Show** — the extra draw applies to the first draw of the turn (register `drawn-Corp == 0`); with several
   rezzed DBS each one asks for one card to put on the bottom (jinteki asks once for n cards).
-
-* **Sneakdoor Beta** — the server is changed to HQ when the Runner approaches Archives (before the approach-server window), not
-  exactly "when the run would be declared successful".
+* **Sneakdoor Beta** — fixed: the server is changed to HQ when the run would be declared successful (`RunWouldSucceed`, see
+  `STATUS-fix-prevention.md`).
 * **Ayla** — the 4 set-aside cards are hosted on the identity (not shown in the UI yet); the `[click]` ability works.
 * **Atman** — the break option is simply absent (not greyed out) when the ice strength differs.
 * **Oaktown Renovation** — installed faceup by marking it rezzed+seen (so its advance trigger is active).

@@ -467,7 +467,7 @@ object URCards {
 
     object PranaCondenser extends NC("26107") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" && g.isRezzed(self)).$(Ability("prevent 1 net damage, place 1 power counter and gain 3 credits", NoCost, $(AddCounterEffect(self, "power", 1), gain(Corp, 3), PreventWindowAction("net", n - 1))))
+            (kind == "net" && g.isRezzed(self) && Prevent.ctx.exists(_.by.isCorp) && g.preventUses(self) == 0).$(Ability("prevent 1 net damage, place 1 power counter and gain 3 credits", NoCost, $(Prevent.damage(1), AddCounterEffect(self, "power", 1), gain(Corp, 3))))
         override def abilities(self : Card)(implicit g : Game) = $(Ability("do " + g.counter(self, "power") + " net damage", $(ClickCost(2), TrashSelfCost), $(net(g.counter(self, "power"))), click = true, ok = g.isRezzed(self) && g.counter(self, "power") > 0, reason = "no power counters"))
     }
 

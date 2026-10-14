@@ -76,7 +76,7 @@ overrides, each calling `super` and guarded by the relevant card being in play:
 
 | Override | Purpose |
 |---|---|
-| `performEffects` | `RotPsiRevealed` after `PsiResolveAction`; recurring trace credits in `TraceCorpBoostAction` / `TraceCorpAction` (Net Police, Primary Transmission Dish); `RotTraceSucceeded` after `TraceRunnerAction`; Broadcast Square trace on `BadPubEffect`; Genetics Pavilion cap on `DrawNowEffect(Runner)`; Blacklist on `AddToHandEffect` / `MoveEffect` / `RemoveFromGameEffect` out of the heap |
+| `performEffects` | `RotPsiRevealed` after `PsiResolveAction`; recurring trace credits in `TraceCorpBoostAction` / `TraceCorpAction` (Net Police, Primary Transmission Dish); `RotTraceSucceeded` after `TraceRunnerAction`; (Broadcast Square: moved to the prevention window); Genetics Pavilion cap on `DrawNowEffect(Runner)`; Blacklist on `AddToHandEffect` / `MoveEffect` / `RemoveFromGameEffect` out of the heap |
 | `performCards` | Blacklist on `RunnerInstallEffect` from the heap |
 | `performTurn` | greys the Runner's click draw (Genetics Pavilion) and current events (The News Now Hour) |
 | `performRun` | remembers the unbroken subroutines when an encounter ends (`EncounterEndsAction` resets them before the event; Chief Slee) |
@@ -91,8 +91,7 @@ If another worktree also overrides one of these, both compose as long as each ca
 
 * Recurring credits (Dedicated Server, Net Police, Primary Transmission Dish, The Root, Mumba Temple) are credit sources of
   `rules-ext-credits.scala` (`RA.paysFor` from `RA.recurring`). Net Police refills to the current link at the start of the Corp's turn.
-* Broadcast Square resolves its trace when the bad publicity would be taken; on failure the bad publicity is taken normally (no
-  separate "prevent" window).
+* (Broadcast Square now uses the bad publicity prevention window of `rules-ext-prevention.scala`: see `STATUS-fix-prevention.md`.)
 * Director Haas / Victoria Jenkins: +1 / −1 allotted click applied as next-turn clicks at the end of the opponent's / own turn
   (`ExtraClicksEffect`); MCA Austerity Policy's "lose [click] when the Runner's next turn begins" is a −1 allotted click.
 * Mark Yale gains for agenda counters spent through a scored agenda's ability (the first ability with an agenda counter cost is

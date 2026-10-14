@@ -141,21 +141,11 @@ object RotUpgradeCards {
         }
     }
 
+    // [interrupt] when a subroutine would be broken on bioroid ice protecting this server: the Corp may rez it (the rules'
+    // break window offers the rez) and trash it to prevent 1 subroutine from being broken
     object TyrsHand extends RAg("03022") {
-        def target(self : Card)(implicit g : Game) = encounteredIce.%(i => protecting(self, i) && g.has(i, "Bioroid") && g.state(i).brokenSubs.any)
-        override def abilities(self : Card)(implicit g : Game) = $(Ability("prevent a subroutine from being broken on the encountered bioroid ice", $(TrashSelfCost), $(RaTyrAction(self)),
-            ok = target(self).any, reason = "no broken subroutine on bioroid ice protecting this server"))
-        override def performCard(a : CardAction)(implicit g : Game) = a match {
-            case RaTyrAction(self) =>
-                encounteredIce.foreach { i =>
-                    val s = g.state(i)
-                    if (s.brokenSubs.any) {
-                        s.brokenSubs = s.brokenSubs.dropRight(1)
-                        g.log("A subroutine on", i, "is no longer broken")
-                    }
-                }
-                NextAction
-        }
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "break" && Prevent.ctx.exists(_.source.exists(i => protecting(self, i) && g.has(i, "Bioroid")))).$(Ability("prevent a subroutine from being broken", $(TrashSelfCost), $(PreventBreakChooseEffect(self))))
     }
 
     // ---- Lunar / SanSan cycles ----------------------------------------------------------------------------------------------
@@ -191,7 +181,7 @@ object RotUpgradeCards {
 
     object ToriHanzo extends RAg("05022") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" && runHere(self) && !g.state(self).usedRun.has("tori")).$(Ability("pay 2 credits to do 1 core damage instead", c(2), $(MarkRunUsedEffect(self, "tori"), PreventWindowAction("core", 1))))
+            (kind == "net" && runHere(self) && Prevent.damageCtx.exists(x => x.firstThisRun && x.by.isCorp) && g.preventUses(self) == 0).$(Ability("pay 2 credits to do 1 core damage instead", c(2), $(PreventConvertDamageEffect("core", 1))))
     }
 
     object MidwayStationGrid extends RAg("06007") {
@@ -200,14 +190,10 @@ object RotUpgradeCards {
     }
 
     object HeinleinGrid extends RAg("06023") {
-        // the Runner's unspent clicks are recorded during runs on this server; whenever they drop, the Runner loses all credits
-        override def triggers(self : Card, e : Event)(implicit g : Game) = if (!runHere(self)) $ else {
-            val key = g.rotRunKey + ":"
-            val st = g.state(self)
-            val now = g.clicks(Runner)
-            val before = st.memo.startsWith(key).?(st.memo.drop(key.length).toInt).|(now)
-            st.memo = key + now
-            (now < before && g.credits(Runner) > 0).$(MessageEffect(Corp, "uses Heinlein Grid"), LoseAllCreditsEffect(Runner))
+        // whenever the Runner spends (costs) or loses (effects) clicks during a run on this server
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case ClicksSpentOrLost(Runner, _) | ClickLost(Runner, _) if runHere(self) && g.credits(Runner) > 0 => $(MessageEffect(Corp, "uses Heinlein Grid: the Runner loses all credits"), LoseAllCreditsEffect(Runner))
+            case _ => $
         }
     }
 

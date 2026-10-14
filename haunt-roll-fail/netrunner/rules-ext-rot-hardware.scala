@@ -249,7 +249,7 @@ object RotHardwareExt {
                     g.moveTo(c, DiscardZone(Runner))
                     g.log(Runner, "trashes", c, "from the grip")
                 }
-                g.push(PreventWindowAction(kind, n - 1))
+                g.push(Prevent.damage(1))
 
             case RHAddCounterPurpose(_, kind, n) =>
                 cards.foreach(c => g.push(AddCounterEffect(c, kind, n)))

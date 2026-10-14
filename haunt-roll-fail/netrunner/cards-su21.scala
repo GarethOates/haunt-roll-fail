@@ -266,7 +266,7 @@ object SU21Cards {
     object SneakdoorBeta extends Ext("31023") {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("run Archives (successful runs become runs on HQ)", click(), $(RunEffect(Archives, |(self))), click = true))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ApproachServer(Archives) if thisCardRun(self) => $(SneakdoorAction(self))
+            case RunWouldSucceed(Archives) if thisCardRun(self) => $(SneakdoorAction(self))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {

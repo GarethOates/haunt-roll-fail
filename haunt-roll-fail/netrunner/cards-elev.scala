@@ -135,18 +135,17 @@ object ElevCards {
     object Shred extends Startup("35005") {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(RunAnyServerEffect(|(self), g.servers))
-        override def endRunPrevention(self : Card)(implicit g : Game) =
-            (thisCardRun(self) && !g.state(self).usedRun.has("shred")).?(ShredAction(self))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt("end-run", 1, _) if thisCardRun(self) && Prevent.ctx.exists(_.firstThisRun) => $(ShredAction(self))
+            case _ => $
+        }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case ShredAction(self) =>
-                g.state(self).usedRun :+= "shred"
                 val x = g.run./(r => g.root(r.server).num).|(0)
-                if (x == 0)
-                    g.push(EndRunEffect)
-                else
+                if (x > 0)
                     g.push(ChooseOneEffect(Corp, "Shred: the run does not end unless you reveal and trash " + x + " random cards from HQ", $(
-                        Alt("Reveal and trash " + x + " random cards from HQ", $(TrashRandomFromHandEffect(self, Corp, x, true), EndRunEffect), g.hand(Corp).num >= x),
-                        Alt("The run does not end", $(MessageEffect(Runner, "prevents the run from ending (Shred)"))))))
+                        Alt("Reveal and trash " + x + " random cards from HQ", $(TrashRandomFromHandEffect(self, Corp, x, true)), g.hand(Corp).num >= x),
+                        Alt("The run does not end", $(MessageEffect(Runner, "prevents the run from ending (Shred)"), Prevent.endRun)))))
                 NextAction
         }
     }

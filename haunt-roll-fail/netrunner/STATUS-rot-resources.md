@@ -46,17 +46,15 @@ Shipping.
 
 ## Simplifications / partial cards
 
+(Dummy Box, Sacrificial Construct, Fall Guy, Chrome Parlor and Aeneas Informant were fixed by the prevention / timing pass:
+see `STATUS-fix-prevention.md`.)
+
 Not modelled because the engine has no hook for it (and adding one would need edits to shared files):
 
-* **Trash prevention** — Dummy Box, Sacrificial Construct: no effect; Fall Guy: only its "[trash]: gain 2" ability.
 * **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
-* **Chrome Parlor** — the engine does not record the source of damage: no effect.
 * **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
 
 Approximations:
-
-* **Aeneas Informant** — the "reveal and gain 1" offer for each accessed card with a trash cost that was not trashed
-  is made when the run ends instead of right after that access.
 
 * **Hernando Cortez** — the additional cost is modelled as a rez-cost increase (same credits, same timing).
 * **Jackpot!** — offered whenever an agenda is stolen.

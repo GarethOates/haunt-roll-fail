@@ -250,7 +250,13 @@ object RotAssetCardsA {
         }
     }
 
-    object BroadcastSquare extends RA("04112")       // the bad publicity trace is in RotAssetRules.performEffects
+    object BroadcastSquare extends RA("04112") {
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt("bad-pub", 1, n) =>
+                $(MessageEffect(Corp, "would take " + n + " bad publicity: Broadcast Square initiates a trace"), TraceEffect(3, $(MessageEffect(Corp, "prevents the bad publicity (Broadcast Square)"), Prevent.badPub), $))
+            case _ => $
+        }
+    }
 
     object ChairmanHiro extends RA("05008") {
         override def executive = true

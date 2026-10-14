@@ -57,7 +57,8 @@ Hooks on `RH` (read by the rules through `impl(c)`, so disabled cards lose them)
 `recurring` (max recurring credits, refilled when the owner's turn begins, also for identities), `breakerCredits(self, breaker)`,
 `hostsWithoutMU`, `modHosts`, `blocksInstall`, `winPointsMod`, `removeTagExtraCost` / `trashResourceCostMod`,
 `damageChoice`, `avoidTags`, `afterAccess`, `startingHandBonus`, `rezSurcharge`, and `prevent` (prevention abilities, offered only
-while the amount is > 0; the engine re-offers prevention abilities after a "prevent 1" leaves 0, which looped).
+while the amount is > 0; the re-offer loop after a "prevent 1" left 0 is fixed by the prevention windows of
+`rules-ext-prevention.scala`, see `STATUS-fix-prevention.md`).
 
 Effects: `RHExposeEffect` (expose, `RHExposed` event), `RHFacedownInstallEffect` (Apex, `RHFacedownInstalled`), `RHRefillEffect`,
 `RHDamageResolveEffect` / `RHDamageRandomAction` / `RHDamageDiscardEffect` / `RHDamageApplyNowEffect` (chosen + random damage
@@ -78,7 +79,9 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   Lockpick, Silencer, Dyson Fractal Generator, Spinal Modem, Cyberfeeder, Omni-drive, Flame-out, Ele "Smoke"; install / play credits
   of Cybsoft MacroDrive, Cyberfeeder, Public Terminal; Weyland BWBI's advance credit; Whizzard's trash credits; Making News' trace
   credits). Māui's credits pay for anything during HQ runs (the printed text).
-  Patchwork is a once-per-turn ability (trash 1 grip card: the next play/install this turn costs 2 less), not an interrupt.
+  Patchwork is an interrupt of the basic play / install actions (fixed, see `STATUS-fix-prevention.md`); its once-per-turn
+  ability (trash 1 grip card: the next play/install this turn costs 2 less) remains for installs by card effects and to make a
+  card affordable.
 * **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3).
   Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size, but the limit is only
   re-checked when a Runner card leaves play. Facedown programs use no MU (engine-wide).
@@ -86,7 +89,8 @@ Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for 
   can't be turned faceup by any card implemented so far.
 * **Adam.** The 3 directives (of the 4 Directive resources in the database) are installed as extra copies `Card(code, 100+i)`
   outside the deck. Their own abilities depend on their implementations (resources, other sets).
-* **Expose** reveals unrezzed installed cards only. Zaibatsu Loyalty-style expose prevention doesn't exist.
+* **Expose** reveals unrezzed installed cards only. The Corp's responses (Zaibatsu Loyalty) are offered by `ExposeEffect`
+  (rules-ext-rot-shared.scala).
 * Skorpios works on cards already in the heap (once per turn the Corp may remove one just-trashed card from the game), not as a
   set-aside interrupt. Gagarin charges 1 credit automatically when a remote root card is accessed (cards are not accessed while the
   Runner has 0 credits). Acme Consulting adds a real tag for the duration of the encounter. SSO Industries counts installed

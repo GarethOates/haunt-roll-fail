@@ -94,13 +94,13 @@ object RotResourceCards1 {
 
     object AeneasInformant extends RR("12044") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Accessed(c) if c.data.trashCost.any && !g.zone(c).is[DiscardZone] => $(AtRunEndEffect($(AeneasCheckAction(self, c))))
+            case AccessFinished(c) if c.data.trashCost.any && g.location.contains(c) && !g.zone(c).is[DiscardZone] => $(AeneasCheckAction(self, c))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case AeneasCheckAction(self, c) =>
                 if (g.zone(c) != DiscardZone(Corp) && g.isInstalled(self))
-                    g.push(OptionalEffect(Runner, "Aeneas Informant: reveal the accessed card and gain 1 credit?", $(MessageEffect(Runner, "uses Aeneas Informant to reveal the accessed card and gain 1 credit"), RevealCardsEffect(Corp, $(c)), gain(Runner, 1)), $))
+                    g.push(OptionalEffect(Runner, "Aeneas Informant: reveal the accessed card and gain 1 credit?", $(MessageEffect(Runner, "uses Aeneas Informant to reveal the accessed card and gain 1 credit")) ++ (!g.isInstalled(c)).$(RevealCardsEffect(Corp, $(c))) :+ gain(Runner, 1), $))
                 NextAction
         }
     }
@@ -246,12 +246,12 @@ object RotResourceCards1 {
 
     object BioModeledNetwork extends RR("12006") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" && n > 1).$(Ability("prevent all but 1 net damage", $(TrashSelfCost), $(PreventWindowAction("net", 1))))
+            (kind == "net" && n > 1).$(Ability("prevent all but 1 net damage", $(TrashSelfCost), $(Prevent.damage(n - 1))))
     }
 
     object BiometricSpoofing extends RR("13026") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" || kind == "meat" || kind == "core").$(Ability("prevent 2 " + kind + " damage", $(TrashSelfCost), (n > 2).$(PreventWindowAction(kind, n - 2))))
+            (kind == "net" || kind == "meat" || kind == "core").$(Ability("prevent 2 " + kind + " damage", $(TrashSelfCost), $(Prevent.damage(2))))
     }
 
     object BlockadeRunner extends RR("11065") {
@@ -298,7 +298,7 @@ object RotResourceCards1 {
 
     object Caldera extends RR("12105") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" || kind == "core").$(Ability("prevent 1 " + kind + " damage", c(3), (n > 1).$(PreventWindowAction(kind, n - 1))))
+            (kind == "net" || kind == "core").$(Ability("prevent 1 " + kind + " damage", c(3), $(Prevent.damage(1))))
     }
 
     object Charlatan extends RR("13010") {
@@ -341,7 +341,11 @@ object RotResourceCards1 {
     }
 
     object ChromeParlor extends RR("08044") {
-        // the source of damage is not tracked by the engine: no effect
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt(k, 1, n) if g.damageKinds.has(k) && Prevent.damageCtx.exists(_.source.exists(c => g.has(c, "Cybernetic"))) =>
+                $(MessageEffect(Runner, "prevents " + n + " " + k + " damage from a cybernetic card (Chrome Parlor)"), Prevent.allDamage)
+            case _ => $
+        }
     }
 
     object CitadelSanctuary extends RR("11070") {
@@ -350,7 +354,7 @@ object RotResourceCards1 {
             case _ => $
         }
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "meat").$(Ability("trash all cards in the grip: prevent all meat damage", $(TrashSelfCost), $(CitadelAction(self))))
+            (kind == "meat").$(Ability("trash all cards in the grip: prevent all meat damage", $(TrashSelfCost), $(CitadelAction(self), Prevent.allDamage)))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case CitadelAction(self) =>
                 val h = g.hand(Runner)
@@ -450,7 +454,7 @@ object RotResourceCards1 {
         // "You can spend hosted credits to take the basic action to remove 1 tag."
         override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.is("remove-tag")
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "meat").$(Ability("prevent up to 3 meat damage", $(TrashSelfCost), (n > 3).$(PreventWindowAction(kind, n - 3))))
+            (kind == "meat").$(Ability("prevent up to 3 meat damage", $(TrashSelfCost), $(Prevent.damage(3))))
     }
 
     object Crowdfunding extends RR("28002") {
@@ -533,7 +537,7 @@ object RotResourceCards1 {
 
     object Decoy extends RR("01032") {
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "tag").$(Ability("avoid 1 tag", $(TrashSelfCost), $(TagsEffect(n - 1))))
+            (kind == "tag").$(Ability("avoid 1 tag", $(TrashSelfCost), $(Prevent.tags(1))))
     }
 
     object District99 extends RR("22007") {
@@ -605,7 +609,19 @@ object RotResourceCards1 {
     }
 
     object DummyBox extends RR("12108") {
-        // trash prevention is not modelled by the engine: no effect
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "trash").??(Prevent.ctx.%(_.by.isCorp).$./~(x => $("Hardware", "Program", "Resource").%(t => x.cards.exists(_.data.kind == t) && g.hand(Runner).exists(_.data.kind == t))./(t =>
+                Ability("trash a " + t.toLowerCase + " from the grip to prevent the Corp from trashing an installed " + t.toLowerCase, NoCost, $(ChooseCardEffect(Runner, g.hand(Runner).%(_.data.kind == t), PrevDummyBoxPurpose(self, t), "Dummy Box: choose a " + t.toLowerCase + " in the grip to trash", false))))))
+        override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
+            case PrevDummyBoxPurpose(self, t) =>
+                cards.foreach { c =>
+                    g.moveTo(c, DiscardZone(Runner))
+                    g.log(Runner, "trashes", c, "from the grip")
+                }
+                if (cards.any)
+                    g.push(PreventTrashChooseEffect(self, $(t)))
+                NextAction
+        }
     }
 
     abstract class Shard(code : String, val server : Server) extends RR(code) {
@@ -642,8 +658,9 @@ object RotResourceCards1 {
     }
 
     object FallGuy extends RR("20035") {
-        // trash prevention is not modelled by the engine: only the credit ability
         override def abilities(self : Card)(implicit g : Game) = $(Ability("gain 2 credits", $(TrashSelfCost), $(gain(Runner, 2))))
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "trash" && Prevent.ctx.exists(_.cards.exists(c => c != self && c.data.isResource))).$(Ability("prevent another installed resource from being trashed", $(TrashSelfCost), $(PreventTrashChooseEffect(self, $("Resource")))))
     }
 
     object FanSite extends RR("08085") {
@@ -727,8 +744,10 @@ object RotResourceCards1 {
     }
 
     object GuruDavinder extends RR("10084") {
-        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "net" || kind == "meat").$(Ability("prevent all " + kind + " damage (then pay 4 credits or trash Guru Davinder)", NoCost, $(GuruAction(self))))
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case PreventionInterrupt(k, 1, n) if k == "net" || k == "meat" => $(MessageEffect(Runner, "prevents " + n + " " + k + " damage (Guru Davinder)"), Prevent.allDamage, GuruAction(self))
+            case _ => $
+        }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case GuruAction(self) =>
                 g.push(ChooseOneEffect(Runner, "Guru Davinder: choose one", $(
@@ -763,11 +782,8 @@ object RotResourceCards1 {
     }
 
     object HuntingGrounds extends RR("09035") {
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(ice) if g.impl(ice).onEncounter(ice).any && unused(self, "hg") =>
-                $(OptionalEffect(Runner, "Hunting Grounds: prevent the encounter ability of " + g.promptTitle(ice) + "?", $(mark(self, "hg"), MessageEffect(Runner, "uses Hunting Grounds to prevent the encounter ability"), PreventEncounterAbilityEffect(ice)), $))
-            case _ => $
-        }
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "encounter").$(Ability("prevent the encounter ability", NoCost, $(Prevent.encounter), once = |("hg")))
         override def abilities(self : Card)(implicit g : Game) =
             $(Ability("install the top 3 cards of the stack facedown", $(TrashSelfCost), g.deck(Runner).take(3)./(c => InstallFacedownEffect(c)), ok = g.deck(Runner).any, reason = "empty stack"))
     }
@@ -867,7 +883,7 @@ object RotResourceCards1 {
         override def onInstall(self : Card)(implicit g : Game) = $(tag(1), JarogniewAction(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "power")
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
-            (kind == "meat" && g.counter(self, "power") > 0).$(Ability("prevent 1 meat damage (hosted power counter)", NoCost, $(AddCounterEffect(self, "power", -1)) ++ (n > 1).$(PreventWindowAction(kind, n - 1))))
+            (kind == "meat").$(Ability("prevent 1 meat damage", $(CounterCost("power", 1)), $(Prevent.damage(1), TriggerEventAction(CounterAdded(self, "power")))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case JarogniewAction(self) =>
                 g.push(AddCounterEffect(self, "power", 3 + g.tags))
