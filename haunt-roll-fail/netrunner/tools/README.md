@@ -1,7 +1,7 @@
 # netrunner/tools
 
 Scripts that generate the static card database and the image assets of the
-Netrunner plugin. Run them from the repository root (`haunt-roll-fail/haunt-roll-fail`)
+Netrunner plugin (`gen-cards.py`, `fetch-assets.py`, `make-placeholder-cards.py`). Run them from the repository root (`haunt-roll-fail/haunt-roll-fail`)
 with `python3 -I` (isolated mode: the data they read is untrusted). Stdlib only,
 except `fetch-assets.py` which needs Pillow with WebP support.
 
@@ -57,13 +57,33 @@ the export's top-level `:rotated` flag is false for every card).
    v3 (`api-preview`) and v2 card APIs; codes without any image are listed in
    `netrunner/assets-cache/missing.txt` (currently 014001 The Collective and
    014002 Chronos Protocol, two unreleased identities that NetrunnerDB does not
-   know; the UI draws them as the card back with the title).
+   know). A card image is generated for each of them from the card data by
+   `make-placeholder-cards.py` (see below), after the faction logos exist.
 3. Converts each jpg to `webp2/netrunner/images/<code>.webp` (quality 82, native
    300x420 size, metadata stripped; skipped when already up to date).
 4. Converts the jinteki.net card backs and faction logos from
    `/Users/gareth/Developer/HRF/netrunner-src/resources/public/img` (override with
    `--src-img DIR`): `corp-back.webp`, `runner-back.webp`, `faction-<name>.webp`
    (`faction-corp-hb`, `faction-runner-anarch`, ...; all names lowercase).
+
+## Generated card images
+
+    python3 -I netrunner/tools/make-placeholder-cards.py [--codes 014001,014002] [--force] [--out DIR]
+
+Renders a 300x419 card image for printings that have no downloadable image, in
+the layout of the Null Signal Games identities: frame and title band in the
+faction colour, the subtitle (the part of the title after the colon), an art
+panel with the faction logo (`webp2/netrunner/images/faction-*.webp`), minimum
+deck size and influence limit in circles plus the base link for Runner
+identities (cost / strength or agenda points for other card types), the
+`IDENTITY: subtypes` line, the rules text wrapped to the text box (`[click]`,
+`[credit]`... drawn as small icons) and a footer naming the set. The data comes
+from `netrunner/cards-data-*.scala`. Without `--codes` it renders 014001, 014002
+and every code in `assets-cache/missing.txt` into
+`webp2/netrunner/images/<code>.webp` (quality 90); an existing image of another
+size (a real card image) is kept unless `--force` is given. Needs Pillow with
+WebP and FreeType (fonts: macOS system fonts, then DejaVu, then Pillow's default).
+`fetch-assets.py` calls it automatically for codes without any image.
 
 A full run takes about 10 minutes (rate limit); rerunning only converts what changed.
 `--codes 30001,30002` restricts the run to a few cards, `--no-download` only converts

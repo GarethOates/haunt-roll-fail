@@ -445,7 +445,7 @@ object DataUrlLoader extends Loader[String] {
     def process(url : String) {
         var xhr = new dom.XMLHttpRequest()
         xhr.onerror = (e : dom.ProgressEvent) => fail(url)
-        xhr.onload = (e : dom.Event) => {
+        xhr.onload = (e : dom.Event) => if (xhr.status >= 400) fail(url) else {
             val r = new dom.FileReader()
             r.onload = (e : dom.Event) => put(url, r.result.asInstanceOf[String])
             r.readAsDataURL(xhr.response.asInstanceOf[dom.Blob])

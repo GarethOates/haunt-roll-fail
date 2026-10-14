@@ -43,9 +43,11 @@
   current prompt, or opens a menu of the matching actions (install destinations, break/pump, rez, advance, score,
   select toggles...), or opens the zoom overlay; cards with available actions are outlined. Hovering a card shows a
   large image of it. Deck selection is a gallery of presets with identity images on the board plus a decklist import
-  overlay with readable error messages; a selected deck is previewed (its cards on the board) before it is confirmed. Three layouts (boards left + log/actions right, wide, single
+  overlay with readable error messages; a selected deck is previewed (its cards on the board) before it is confirmed; the
+  gallery has faction / era filter tabs (see "Final pass"). Three layouts (boards left + log/actions right, wide, single
   column) for common resolutions. Hidden information is hidden by the viewer (`lastSelf`): R&D order never shown,
-  unrezzed/facedown cards as backs, the opponent's hand only as the "hand" count in their header.
+  unrezzed/facedown cards as backs, the opponent's hand only as the "hand" count in their header; the spectator of an
+  online game sees public information only (see "Final pass").
 * Bots: `Random` (uniform over non-manual choices) and `Basic` (weighted heuristics: scores, steals, breaks, economy).
 * JVM harness `host.scala` (excluded from the JS build): bot-vs-bot games with log dumps.
 
@@ -141,19 +143,17 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   (bad pub, agenda, ...), bad publicity hosted on cards, per-card lingering flags (disabled, cannot break, net damage
   subs, ...) as tags, game-level lingering flags as an "in effect:" line, run restrictions/bonuses in the run line
   ("cannot steal or trash", "no access", "+1 access (R&D)", ...). Header stats are singular/plural aware.
-* Card images: a printing without an image (the two unreleased identities 014001 The Collective and 014002 Chronos
-  Protocol have none on NetrunnerDB; `fetch-assets.py` now also tries the v1 hosts and the v2/v3 APIs) or whose image
-  failed to load is drawn as the card back with the title on top (board, hand, zoom, menus, deck gallery). Card
+* Card images: a printing whose image failed to load (or is not embedded in a saved replay) is drawn as the card back
+  with the title on top (board, hand, zoom, menus, deck gallery). The two unreleased identities without an image on
+  NetrunnerDB (014001 The Collective, 014002 Chronos Protocol) now have generated images (see "Final pass"). Card
   images have a fixed height so the layout does not jump while images load lazily.
 * Layout robustness: each board is scaled to fit its pane (all card sizes are in ex; see "UI rework" for the current
   rule), so many remotes and 10+ ice per server stay on screen (tested with 24 cards in HQ, 8 remotes and 9 ice on HQ
   before the rework; 8 servers / 10 ice in a bot game after it). Multi-value `margin`/`padding` styles were silently
   dropped by the HRF CSS generator; they are now written per side.
-* Game end: the run line / attacked-server marker / "turn N" badge are hidden once the game is over. "Save Replay"
-  (self-contained HTML) is not offered: the framework embeds every declared image asset as a data URL and Netrunner
-  declares ~2,000 lazily loaded card images (62 MB), so the save crashed with "url not loaded". Online games show
-  "This game is saved on the server: open any of its links to replay it"; local games offer "Save Game Online" (as Coup
-  does) and "Play Again".
+* Game end: the run line / attacked-server marker / "turn N" badge are hidden once the game is over. The game-over
+  prompt offers "Save Replay" (restored in the final pass, see there), online games add "This game is also saved on the
+  server: open any of its links to replay it"; local games offer "Save Game Online" (as Coup does) and "Play Again".
 
 ### UI rework after the first play test (product owner requests)
 
@@ -178,8 +178,9 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   rendered through the asker's `ZOption`s with hover zoom), titled "HQ / Grip (n cards, maximum m)". Clicking a hand
   card there does exactly what a board click does (the single matching action, or the menu of matching actions, or
   the zoom). Cards with available actions are outlined. When a selection prompt already lists the hand cards
-  (discard to hand size, choose cards from HQ...) the hand is not repeated. A viewer without a seat (spectator link,
-  bot-vs-bot) sees both hands, labelled. The opponent's hand is only the "n/m hand" stat in their header. The
+  (discard to hand size, choose cards from HQ...) the hand is not repeated. A viewer without a seat sees both hands,
+  labelled: faceup in a local bot-vs-bot game or a replay file, as card backs for the online spectator. The opponent's
+  hand is only the "n/m hand" stat in their header. The
   Info items are built by the UI rather than `Game.info` so that `game.scala` (shared with the set ports) is untouched.
 * Server orientation: with the Corp on top, each server box shows its name, then the root (central pile / installed
   cards), then the ice with the innermost piece just under the root and the outermost at the bottom; the "Runner"
@@ -215,6 +216,48 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   (reopens the overlay with the text) and "Back to the deck list". The overlay no longer has a direct "Import" button.
 * `rules-setup.scala` is unchanged (the preview is entirely UI state).
 
+### Final pass: spectators, Save Replay, generated card images, deck gallery filters (2026-10-14)
+
+* Spectators (`UI.viewer`, `UI.seats`, `UI.omniscient`, `UI.sees`, `UI.canSee`, `UI.handInfos`). Rule, documented at
+  `UI.viewer`: a seated viewer sees their own hidden information plus everything public; a viewer without a seat sees
+  everything only in a local game (bot-vs-bot, hotseat between prompts: `callbacks.canPlayAgain`, the journal is in
+  memory) or in a replay file (`HRF.replay`, saved once the game is over); the spectator of an online game sees public
+  information only: both hands as card backs under "Corp HQ (n cards)" / "Runner Grip (n cards)", unrezzed ice and
+  root cards as backs (advancement counters stay visible), facedown Runner cards (rig, hosted, stashed) as backs, the
+  facedown part of Archives as a count with a card back on top, R&D / the stack as backs and counts, no hover zoom or
+  overlay on hidden cards, "unrezzed ice" in the run line. Secret choices are not on the board; the log only says
+  "Corp bids secretly" / "spends credits secretly" until the reveal (engine, unchanged). Because the framework asks
+  with no faction on the game-over screen, the UI remembers the seats this client played (`seats`, from `ask` / `wait`)
+  and, after reloading a finished online game, reads the seat from the page title HRF sets for player links
+  ("Corp - <title> - Netrunner"); before this, players saw both hands at game over and the spectator saw everything.
+* Save Replay restored (`UI.saveReplay`, game-over prompt). Framework change (`quine.scala`): a `MetaGame` mixing in the
+  new marker trait `hrf.quine.EmbedLoadedOnDemandAssetsOnly` gets its `Laziness.OnDemand` image assets embedded only if
+  they were loaded in this browser session (`resources.images.loader.has(url)`); every other asset of every game is
+  embedded as before. Any asset whose load failed is now left out (logged) instead of throwing "url not loaded", and a
+  CSS `url(...)` that failed keeps its original URL. `netrunner.Meta` mixes the trait in; before saving, the UI loads
+  the images of every card of the game (both decks, identities, cards in any zone), the two card backs and the two
+  identities' faction logos (overlay "Preparing the replay file"; images that fail or take more than 30 s are left
+  out). `hrf.scala` (`startGame` and the "Offline Version" download): when a page runs from a file with embedded
+  assets, a lazy asset without an embedded `<img id="asset-...">` is skipped instead of throwing "embedded asset not
+  found" (Immediate assets are handled as before). `loader.scala`: `DataUrlLoader` treats an HTTP status >= 400 as a
+  failed load (it used to embed the error page as the image). `UI.imageMissing` treats a card that is not embedded in a
+  replay file as missing (card back + title). A replay of a Netrunner game is ~68-70 MB with the development build
+  (66 MB of fastOpt script + 2-4 MB of images for ~50-110 assets).
+* Card images for 014001 The Collective and 014002 Chronos Protocol: `tools/make-placeholder-cards.py` renders 300x419
+  cards in the NSG identity layout (faction frame and title band, subtitle, faction logo panel, minimum deck size /
+  influence / base link, `IDENTITY: subtypes`, wrapped rules text with a click icon, set footer) into
+  `webp2/netrunner/images/`; `fetch-assets.py` calls it for every code without a downloadable image (see
+  `tools/README.md`). The UI no longer special-cases the two codes (`knownMissingImages` removed).
+* Deck gallery (`UI.deckSelection`, `galleryTabs`, `eraOf`, `presetFaction`, `presetShown`; styles `tabRow`, `tab`,
+  `tabOn`, `tabCount`): two rows of small tabs with counts above the gallery, factions of the side's identities
+  (coloured: HB / Jinteki / NBN / Weyland / Neutral, Anarch / Criminal / Shaper / Adam / Apex / Sunny / Neutral) and
+  eras (Starter: System Gateway cards only; NSG era: only cards of NSG sets, Downfall onwards; FFG era: at least one
+  card of an FFG set); counts of one row follow the selection of the other; "n of m decks shown". Gallery thumbnails
+  are larger (15ex wide) and the setup gallery / deck preview are never scaled below 75% (the pane scrolls instead of
+  shrinking ~100 identities to stamps). The action pane deck list shows the same filtered decks (plus the previewed
+  one) and "n more decks hidden by the filters above the board gallery"; preview / Confirm / Back work as before and
+  the filters survive "Back to the deck list". Each gallery item shows its era next to size and influence.
+
 ## Simplifications / known gaps
 
 * Paid ability windows follow the NSG structure (see ENGINE.md): start of turn (before and after "when your turn
@@ -233,10 +276,11 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
   damage (Mr. Hendrik) preventions exist; no card of the eleven implemented sets avoids or prevents tags, so the
   "tag" prevention window is reachable only by future cards.
 * Bot play is weak; bots never use the manual menu or concede; bots pass paid ability windows most of the time.
-* Hidden information is hidden by the UI only; the Manual menu lets the Corp move the top cards of R&D. A viewer
-  without a seat (the spectator link, bot-vs-bot games) sees everything, including both hands and facedown cards
-  (the game creator receives all links anyway). The shared log never names a Corp card the Runner has not seen
-  (Hansei Review / sabotage / random trashes from HQ are logged as "a card").
+* Hidden information is hidden by the UI only (every client replays the whole journal, so a determined spectator could
+  read it from the browser's memory; the game creator receives all links anyway); the Manual menu lets the Corp move
+  the top cards of R&D. The visibility rule is in `UI.omniscient` / `UI.canSee` (see "Final pass"). The shared log never
+  names a Corp card the Runner has not seen (Hansei Review / sabotage / random trashes from HQ are logged as "a card"),
+  never names the Runner's draws, and says only that a psi bid / secret spend was made until it is revealed.
 * Online play: both clients (and the spectator) race to append framework milestones and shuffle results; the losers
   get `HTTP 409` (players) / `HTTP 500` (spectator, read-only) in the console. This is the HRF framework's design and
   harmless (the journal stays consistent, replays are identical).
@@ -398,6 +442,37 @@ cards set aside on identities was closed in the QA pass, see "UI additions of th
 * Screenshots: scratchpad `ui3/shots/` (`s2-preview-corp-zoom-1440`, `s7-preview-runner-confirm-1440/1920`,
   `s13-corp-preview-1440`, `s3-import-preview-1440/1920`, `s5-run-1440/1920`, `s10-runner-run-1440/1920`,
   `s12-midgame-run-1920`, `s11-after-auto-1440`).
+
+### Tested in the final pass (2026-10-14, final build)
+
+* `sbt -batch fastOptJS` green. Headless Chrome on port 9666 over the DevTools protocol, good-game on 7070, each link in
+  its own browser context (separate cookies: anonymous visitors), driver in the scratchpad `fin/` (`daemon.mjs`,
+  `helpers.js`, `play.mjs`).
+* Online game "Steal versus Ice" (Play Online > New Online Game > Corp + Runner > Start Setup > Start): Corp
+  `qnxihhxxekmdfele`, Runner `yvicchjugwloldgp`, spectator `uxywrhbpfcsyhqgl`; both player links asked only for a
+  name. Corp: gallery filtered to FFG era + Weyland (20 of 103 decks), previewed and confirmed "Titan Transnational"
+  (FFG-era preset, Titan Transnational: Investing In Your Future, 46 cards). Runner: NetrunnerDB decklist import
+  (Zahya Sadeghi, 45 cards, 7/15 influence), "Check and preview", "Import Zahya Sadeghi". Both kept; then about 300 rounds of
+  clicks alternating between the two links (installs into new remotes, Business As Usual, Key Performance Indicators,
+  advancing, rezzes in windows, Abagnale / Carmen / Marjanah / Pennyshaver installs, Jailbreak, runs on HQ / R&D /
+  Archives / remotes, an agenda steal (3 points), Archives breach turning cards faceup, Syailendra's subroutines) until
+  the Corp won on turn 11 by flatlining the Runner. Every 8 rounds the card images rendered in the spectator tab were
+  compared with both player tabs: the spectator never showed a card image that was not visible in both players' views
+  (36 checks, 0 differences); screenshots show both hands as backs, unrezzed ice / root cards as backs, Archives'
+  facedown card hidden. Game-over screen on all three tabs; reloading the finished game on each link (Corp sees its
+  HQ and unrezzed cards, spectator still sees backs). Save Replay from the Runner link produced a 70 MB file with 108
+  embedded assets that opened from `file://` (game over screen, full information, clicking a log line rewound to turn 6).
+  No exceptions in any console (only the shell's `NetworkError` / 404 font noise of the local setup and the known
+  `HTTP 409` append races).
+* Local bot-vs-bot game (`?speed=20`): Save Replay (68 MB, 47 assets) opens offline and shows the final position with
+  the hands. Coup (local quick game with placeholder webp images in the git-ignored `webp2/coup/images`, which this
+  checkout lacked): Save Replay still embeds all 33 assets and the file replays offline.
+* Local game as the Runner against the Basic Corp bot with an imported "The Collective" deck: the generated 014001
+  image in the gallery preview, the hover zoom and on the board; several turns, no exceptions.
+* Screenshots (scratchpad `fin/`): `o2-corp-gallery.png`, `o3-corp-filter.png`, `o4-corp-preview.png`,
+  `o6-runner-import.png`, `o7-spec.png`, `o11-spec-mid.png` / `o11-corp-mid.png`, `o12-spec.png`,
+  `o13-iso-spec-over.png`, `o15-offline-replay.png`, `o16-offline-rewind.png`, `o17-local-gallery.png`,
+  `o19-collective-zoom.png`, `o21-iso-corp-reload-over.png`, `coup-replay.png`.
 
 ## Known bugs
 

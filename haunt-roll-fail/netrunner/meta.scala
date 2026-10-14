@@ -13,7 +13,8 @@ import hrf.logger._
 import hrf.meta._
 import hrf.elem._
 
-object Meta extends MetaGame { mmm =>
+// Save Replay embeds only the card images loaded in this session (UI.saveReplay loads the cards of the game first)
+object Meta extends MetaGame with hrf.quine.EmbedLoadedOnDemandAssetsOnly { mmm =>
     val gaming = netrunner.gaming
 
     type F = Faction

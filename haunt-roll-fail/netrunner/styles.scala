@@ -38,7 +38,7 @@ package object elem {
         object zoomImg extends CustomStyle(display("block"), height("64vh"), max.height("630px"), border.radius("1.2ex"))
         // hand cards in the action pane
         object cardHand extends CustomStyle(display("block"), width("9ex"), height("12.57ex"), border.radius("0.5ex"))
-        object cardGallery extends CustomStyle(display("block"), width("12ex"), height("16.76ex"), border.radius("0.6ex"), margin.ver("0"), margin.hor("auto"))
+        object cardGallery extends CustomStyle(display("block"), width("15ex"), height("20.95ex"), border.radius("0.7ex"), margin.ver("0"), margin.hor("auto"))
         // a preset deck in the action pane: identity thumbnail, deck name, identity
         object presetOption extends CustomStyle(display("flex"), align.items("center"), justify.content("flex-start"), text.align("left"))
         object presetThumb extends CustomStyle(margin.right("1ex"), flex.shrink("0"))
@@ -150,8 +150,13 @@ package object elem {
         object menuItemOff extends CustomStyle(display("block"), margin.ver("0.6ex"), margin.hor("1ex"), padding.ver("0.6ex"), padding.hor("2ex"), outline.color("#444444"), outline.style("solid"), outline.width("0.3vmin"), background.color("#111111"), color("#777777"), text.align("center"), min.width("30ex"))
         object menuQ extends CustomStyle(font.size("85%"), color("#a0a0a0"), display("block"))
         object gallery extends CustomStyle(display("flex"), flex.wrap("wrap"), justify.content("center"), align.items("flex-start"))
-        object galleryItem extends CustomStyle(display("inline-block"), margin("0.6ex"), padding("0.6ex"), text.align("center"), cursor("pointer"), outline.color("#555555"), outline.style("solid"), outline.width("1px"), border.radius("0.8ex"), background.color("#181818"), width("13ex"), vertical.align("top"))
+        object galleryItem extends CustomStyle(display("inline-block"), margin("0.6ex"), padding("0.6ex"), text.align("center"), cursor("pointer"), outline.color("#555555"), outline.style("solid"), outline.width("1px"), border.radius("0.8ex"), background.color("#181818"), width("16ex"), vertical.align("top"))
         object galleryName extends CustomStyle(display("block"), font.weight("bold"), margin.top("0.4ex"), white.space("normal"))
+        // gallery filter tabs (faction / era) with counts
+        object tabRow extends CustomStyle(display("flex"), flex.wrap("wrap"), justify.content("center"), margin.ver("0.3ex"), margin.hor("0"))
+        object tab extends CustomStyle(display("inline-block"), margin.ver("0.2ex"), margin.hor("0.25ex"), padding.ver("0.15ex"), padding.hor("0.9ex"), border.radius("1ex"), border.style("solid"), border.width("1px"), border.color("#444444"), background.color("#1a1a1a"), cursor("pointer"), font.size("clamp(12px, 100%, 19px)"), white.space("nowrap"))
+        object tabOn extends CustomStyle(border.color("#dddddd"), background.color("#3a3a3a"), font.weight("bold"))
+        object tabCount extends CustomStyle(color("#8a8a8a"), font.size("85%"))
         object galleryInfo extends CustomStyle(display("block"), font.size("80%"), color("#9a9a9a"), white.space("normal"))
         // deck preview before the deck is confirmed (UI.deckPreviewElem)
         object previewHead extends CustomStyle(display("block"), margin.bottom("0.4ex"))

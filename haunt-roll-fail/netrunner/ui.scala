@@ -50,31 +50,57 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // Visibility
     // ---------------------------------------------------------------------------------------------------------------
 
-    def viewer : |[Faction] = lastSelf
+    // Who sees what. Every client has the whole game state, hidden information is hidden by the UI only.
+    // * A seated viewer (lastSelf: the player of this link, the human of a local game against a bot, or the player
+    //   being asked in a hotseat game) sees their own hand and their own unrezzed / facedown cards, plus everything public.
+    // * A viewer without a seat in a local game (bot-vs-bot, or a hotseat game between prompts: the journal is in
+    //   memory, callbacks.canPlayAgain) or in a saved replay file (HRF.replay, offered once the game is over) sees
+    //   everything ("omniscient").
+    // * Any other viewer without a seat (the spectator link of an online game) sees public information only: both
+    //   hands as counts and card backs, unrezzed ice / Corp cards and facedown cards as backs, the facedown part of
+    //   Archives as a count, never the order of R&D / the stack. Secret choices (psi bids, secret credit spends) are not
+    //   on the board; the log only says that a player bid / spent secretly until the reveal.
+    //   The seat is lastSelf while the viewer is asked or waits; the framework asks with no faction on the game-over
+    //   screen, so the seats this client played are remembered (seats) and, after reloading a finished online game (no
+    //   ask or wait happens before the game-over screen), read from the page title that HRF sets to
+    //   "<faction> - <game title> - Netrunner" for a player link (a spectator's title has no faction).
+    var seats : $[Faction] = $
+
+    def titleSeat : |[Faction] = hrf.HRF.lobby.any.??(dom.document.title.split(" - ").$ match {
+        case f :: _ :: _ :: _ => Meta.parseFaction(f)
+        case _ => None
+    })
+
+    def viewer : |[Faction] = lastSelf || seats.single || seats.none.??(titleSeat)
+
+    def omniscient : Boolean = viewer.none && (callbacks.canPlayAgain || hrf.HRF.replay)
+
+    // the viewer sees the hidden information of side f
+    def sees(f : Faction) : Boolean = omniscient || viewer.contains(f)
 
     def canSee(c : Card) : Boolean = {
         val g = game
         // cards accessed during the current run are revealed
         if (g.run.exists(r => !r.ended && r.accessed.has(c)))
             return true
-        viewer match {
-            case None => true
-            case Some(v) =>
-                g.zone(c) match {
-                    case HandZone(f) => f == v
-                    case DeckZone(f) => false
-                    case DiscardZone(Corp) => v.isCorp || g.state(c).seen
-                    case DiscardZone(Runner) => true
-                    case RootZone(_) | IceZone(_) => v.isCorp || g.isRezzed(c) || g.state(c).seen
-                    // cards set aside on an identity (Ayla) are known to their owner only
-                    case HostedZone(h) if g.zone(h).is[IdentityZone] => g.owner(c) == v || g.state(c).seen
-                    case HostedZone(h) => g.owner(c) == v || (g.owner(c).isCorp && (g.isRezzed(c) || g.state(c).seen)) || (g.owner(c).isRunner && !g.state(c).facedown)
-                    // cards hosted without being installed (Bling, Detente, Read-Write Share, Asmund Pudlat, Matryoshka...)
-                    case StashZone(_) => g.owner(c) == v || g.state(c).seen || (g.owner(c).isRunner && !g.state(c).facedown)
-                    case RigZone => v.isRunner || !g.state(c).facedown
-                    case RemovedZone(_) => g.owner(c) == v || g.state(c).seen || g.owner(c).isRunner
-                    case _ => true
-                }
+        if (omniscient)
+            return true
+        val owner = g.owner(c)
+        val mine = viewer.contains(owner)
+        g.zone(c) match {
+            case HandZone(f) => viewer.contains(f)
+            case DeckZone(f) => false
+            case DiscardZone(Corp) => sees(Corp) || g.state(c).seen
+            case DiscardZone(Runner) => true
+            case RootZone(_) | IceZone(_) => sees(Corp) || g.isRezzed(c) || g.state(c).seen
+            // cards set aside on an identity (Ayla) are known to their owner only
+            case HostedZone(h) if g.zone(h).is[IdentityZone] => mine || g.state(c).seen
+            case HostedZone(h) => mine || (owner.isCorp && (g.isRezzed(c) || g.state(c).seen)) || (owner.isRunner && !g.state(c).facedown)
+            // cards hosted without being installed (Bling, Detente, Read-Write Share, Asmund Pudlat, Matryoshka...)
+            case StashZone(_) => mine || g.state(c).seen || (owner.isRunner && !g.state(c).facedown)
+            case RigZone => sees(Runner) || !g.state(c).facedown
+            case RemovedZone(_) => mine || g.state(c).seen || owner.isRunner
+            case _ => true
         }
     }
 
@@ -84,17 +110,16 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // Card images with a fallback for missing assets
     // ---------------------------------------------------------------------------------------------------------------
 
-    // printings without an image on NetrunnerDB (the asset script logs them in assets-cache/missing.txt)
-    val knownMissingImages : Set[String] = Set("014001", "014002")
-
-    // true when the image of a card is known to be unavailable (not declared, or its load failed)
+    // true when the image of a card is known to be unavailable: not declared, not embedded in a saved replay file
+    // (only the cards of the game are), or its load failed (printings without an image on NetrunnerDB get a generated
+    // one, see tools/make-placeholder-cards.py)
     def imageMissing(code : String) : Boolean = {
-        if (knownMissingImages.contains(code))
-            return true
         val images = resources.images
         if (images.has(code))
             return false
         if (!images.hasSource(code))
+            return true
+        if (hrf.HRF.embedded)
             return true
         try { images.loader.error(images.getSource(code)) } catch { case e : Throwable => true }
     }
@@ -253,7 +278,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             case Archives =>
                 val l = g.discard(Corp)
                 val faceup = l.%(c => g.state(c).seen)
-                val top = l.lastOption./(c => (g.state(c).seen || viewer.forall(_.isCorp)).?(c.code).|("corp-back")).|("corp-back")
+                val top = l.lastOption./(c => (g.state(c).seen || sees(Corp)).?(c.code).|("corp-back")).|("corp-back")
                 Div(clickable(cardFace(top, styles.cardSmall, $(styles.actionable) ++ l.none.$(styles.unrezzed)), "archives") ~ (l.num + " cards" + (l.num > faceup.num).??(" (" + (l.num - faceup.num) + " facedown)")).spn(styles.serverCount), styles.slot)
             case _ => Empty
         }
@@ -404,7 +429,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         val g = game
         val ph = r.phase match {
             case InitiationPhase => "initiated".txt
-            case ApproachIcePhase => "approaching " ~ r.ice./(c => (g.isRezzed(c) || viewer.forall(_.isCorp)).?(g.cardElem(c)).|("unrezzed ice".hl)).|(Empty)
+            case ApproachIcePhase => "approaching " ~ r.ice./(c => (g.isRezzed(c) || sees(Corp)).?(g.cardElem(c)).|("unrezzed ice".hl)).|(Empty)
             case EncounterPhase => "encountering " ~ r.ice./(g.cardElem).|(Empty)
             case MovementPhase => "passed ice, moving on".txt
             case ApproachServerPhase => "approaching the server".txt
@@ -447,15 +472,20 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         val g = game
         if (g.phase == "setup" && g.hand(Corp).none && g.hand(Runner).none)
             return $
-        // a seated player sees their own hand; a viewer without a seat (spectator, bot-vs-bot) sees both hands
-        val sides = self./(f => $(f)).|($(Corp, Runner))
+        // a seated player sees their own hand; a viewer without a seat sees both hands: faceup in a local game or a
+        // replay file, as card backs for the spectator of an online game (see omniscient)
+        val who = self || viewer
+        val sides = who./(f => $(f)).|($(Corp, Runner))
         sides./~ { f =>
             val l = g.hand(f)
-            val title = Break ~ (self.none.?(f.name.styled(f) ~ " ").|(Empty) ~ f.isCorp.?("HQ").|("Grip") ~ " (" ~ l.num.hl ~ " card".s(l.num) ~ ", maximum " ~ g.handSize(f).atLeast(0).hl ~ ")").spn(styles.handTitle)
+            val title = Break ~ (who.none.?(f.name.styled(f) ~ " ").|(Empty) ~ f.isCorp.?("HQ").|("Grip") ~ " (" ~ l.num.hl ~ " card".s(l.num) ~ ", maximum " ~ g.handSize(f).atLeast(0).hl ~ ")").spn(styles.handTitle)
             if (selectingHand(f, aa))
                 $
             else
+            if (sees(f))
                 l./(c => HandCardInfoAction(f, c)(title, Div(cardFace(c.code, styles.cardHand, highlightOf(c)) ~ badges(c), styles.handSlot)))
+            else
+                l./(c => HandCardInfoAction(f, c)(title, Div(Image(back(c), styles.cardHand), styles.handSlot)))
         }
     }
 
@@ -529,7 +559,8 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             case None if mine && previewFor(f).any =>
                 deckPreviewElem(previewFor(f).get)
             case None if mine && lastActions.exists(_.is[ChoosePresetDeckAction]) =>
-                val presets = lastActions.of[ChoosePresetDeckAction].%(_.self == f)
+                val all = lastActions.of[ChoosePresetDeckAction].%(_.self == f)
+                val presets = all.%(presetShown)
                 val items = presets./ { a =>
                     val d = Decks.presets(a.index)
                     val idc = Cards.get(d.identity)
@@ -538,15 +569,68 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     Parameter(("deck", a), OnOverOut(OnClick(Div(
                         idc./(c => cardFace(c.code, styles.cardGallery)).|(Empty) ~
                         cleanDeckName(d.name).spn(styles.galleryName) ~
-                        check.message.spn(styles.galleryInfo),
+                        (eraOf(a.index) + " | " + check.message).spn(styles.galleryInfo),
                         styles.galleryItem))))
                 }
                 val importItem = Parameter("import", OnClick(Div(Image(f.isCorp.?("corp-back").|("runner-back"), styles.cardGallery) ~ "Import a decklist".spn(styles.galleryName) ~ "paste a NetrunnerDB export".spn(styles.galleryInfo), styles.galleryItem)))
-                // only the gallery is scaled to the pane (see fitPane)
-                Div(Div("Choose a deck".spn(styles.menuTitle) ~ "(click a deck to see its cards)".spn(styles.dim)) ~ Div((items :+ importItem).merge, styles.gallery), styles.boardArea)
+                val none = presets.none.?(Div("No preset deck matches these filters".spn(styles.dim), styles.galleryItem)).|(Empty)
+                // only the gallery is scaled to the pane, never below a readable size (see fitPane): it scrolls instead
+                Div(Div("Choose a deck".spn(styles.menuTitle) ~ (presets.num + " of " + all.num + " decks shown, click a deck to see its cards").spn(styles.dim)) ~ galleryTabs(f, all) ~ Div((items ++ $(none, importItem)).merge, styles.gallery), styles.boardArea)
             case None =>
                 Div("choosing a deck...".spn(styles.dim))
         }
+    }
+
+    // Gallery filters (UI state per side): the faction of the identity and the era of the deck, as two rows of small
+    // tabs with counts above the gallery; the action pane list shows the same decks.
+    var galleryFaction : Map[Faction, String] = Map()
+    var galleryEra : Map[Faction, String] = Map()
+
+    val eras = $("Starter", "NSG era", "FFG era")
+
+    // sets published by Null Signal Games (Downfall onwards); every other set is from the FFG era
+    val nsgSets = Set("df", "mor", "urbp", "ur", "sm", "sg", "su21", "msbp", "ms", "ph", "tai", "rwr", "elev", "vp")
+
+    val presetEras = scala.collection.mutable.Map[Int, String]()
+
+    // Starter: System Gateway cards only; NSG era: only cards of NSG sets; FFG era: at least one card of an FFG set
+    def eraOf(i : Int) : String = presetEras.getOrElseUpdate(i, {
+        val cards = Decks.presets(i).codes.distinct./~(Cards.get)
+        if (cards.forall(_.setCode == "sg")) "Starter"
+        else if (cards.forall(c => nsgSets.contains(c.setCode))) "NSG era"
+        else "FFG era"
+    })
+
+    def presetFaction(i : Int) : String = Cards.get(Decks.presets(i).identity)./(_.faction).|("Neutral")
+
+    def factionOrder(f : Faction) : $[String] = f.isCorp.?($("Haas-Bioroid", "Jinteki", "NBN", "Weyland Consortium", "Neutral")).|($("Anarch", "Criminal", "Shaper", "Adam", "Apex", "Sunny Lebeau", "Neutral"))
+
+    def shortFaction(s : String) : String = s match {
+        case "Haas-Bioroid" => "HB"
+        case "Weyland Consortium" => "Weyland"
+        case "Sunny Lebeau" => "Sunny"
+        case s => s
+    }
+
+    def presetShown(a : ChoosePresetDeckAction) : Boolean = {
+        val fs = galleryFaction.get(a.self).|("")
+        val es = galleryEra.get(a.self).|("")
+        (fs == "" || presetFaction(a.index) == fs) && (es == "" || eraOf(a.index) == es)
+    }
+
+    def galleryTabs(f : Faction, presets : $[ChoosePresetDeckAction]) : Elem = {
+        val fs = galleryFaction.get(f).|("")
+        val es = galleryEra.get(f).|("")
+        val byEra = presets.%(a => es == "" || eraOf(a.index) == es)
+        val byFaction = presets.%(a => fs == "" || presetFaction(a.index) == fs)
+        def tab(label : Elem, n : Int, on : Boolean, p : Any) : Elem =
+            Parameter(p, OnClick(Span(label ~ (" " + n).spn(styles.tabCount), styles.tab)(on.$(styles.tabOn))))
+        val factions = factionOrder(f).%(x => presets.exists(a => presetFaction(a.index) == x)) ++ presets./(a => presetFaction(a.index)).distinct.diff(factionOrder(f))
+        val ftabs = tab("All factions".txt, byEra.num, fs == "", ("gallery-faction", f, "")) +:
+            factions./(x => tab(Span(shortFaction(x).txt, styles.get(NRFaction.of(x))), byEra.%(a => presetFaction(a.index) == x).num, fs == x, ("gallery-faction", f, x)))
+        val etabs = tab("All eras".txt, byFaction.num, es == "", ("gallery-era", f, "")) +:
+            eras.%(e => presets.exists(a => eraOf(a.index) == e))./(e => tab(e.txt, byFaction.%(a => eraOf(a.index) == e).num, es == e, ("gallery-era", f, e)))
+        Div(Div(ftabs.merge, styles.tabRow) ~ Div(etabs.merge, styles.tabRow))
     }
 
     val corpKinds = $("Agenda", "Asset", "Upgrade", "Operation", "ICE")
@@ -688,7 +772,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             area.removeChild(probe)
             // at the cap a board card (cardSmall in a slot: 10.48ex * 80%) is 40% of the pane height
             val cap = (ex10 > 0).?(node.clientHeight * 0.40 / (ex10 * 0.8384) * 100).|(200.0).max(60.0).min(500.0)
-            var lo = 25.0
+            var lo = (game.phase == "setup").?(75.0).|(25.0).min(cap)
             var hi = cap
             area.style.fontSize = hi.round + "%"
             if (overflows) {
@@ -872,6 +956,14 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         case "preview-back" =>
             setPreview(None)
 
+        case ("gallery-faction", f : Faction, x : String) =>
+            galleryFaction += f -> x
+            redrawAsk()
+
+        case ("gallery-era", f : Faction, x : String) =>
+            galleryEra += f -> x
+            redrawAsk()
+
         case ("zoom", c : Card) =>
             showOverlay(overlayScrollX(cardOverlay(c)), onClick)
 
@@ -1030,6 +1122,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     val layoutKey = "v" + 3
 
     override def ask(faction : |[Faction], actions : $[UserAction], then : UserAction => Unit) {
+        seats = (seats ++ faction.$).distinct
         lastThen = then
         lastActions = actions
         super.ask(faction, actions, then)
@@ -1037,6 +1130,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     }
 
     override def wait(self : $[Faction], factions : $[Faction], message : Elem) {
+        seats = (seats ++ self).distinct
         lastThen = null
         lastActions = $
         super.wait(self, factions, message)
@@ -1053,11 +1147,12 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         aa.exists(_.is[ImportDeckMarker]).$(
             ZBasic(Break, "Import NetrunnerDB decklist".hh, () => { onClick("import") }, ZBasic.infoch).copy(clear = false)
         ) ++
-        // "Save Replay" (a self-contained HTML file) is not offered: the framework embeds every declared image asset
-        // as a data URL and Netrunner declares ~2,000 lazily loaded card images (62 MB), so the save fails.
-        // Online games are already saved on the server (any link replays the game); a local game can be saved online.
+        // "Save Replay": a self-contained HTML file that replays the game offline (see saveReplay)
+        (currentGame.isOver && hrf.HRF.flag("replay").not).$(
+            ZBasic(Break ~ Break ~ Break, "Save Replay".hh, () => { saveReplay() }).copy(clear = false)
+        ) ++
         (currentGame.isOver && callbacks.canPlayAgain.not && hrf.HRF.flag("replay").not).$(
-            ZBasic(Break ~ Break ~ Break, "This game is saved on the server: open any of its links to replay it".spn(xstyles.smaller85), null).copy(clear = false)
+            ZBasic(Break, "This game is also saved on the server: open any of its links to replay it".spn(xstyles.smaller85), null).copy(clear = false)
         ) ++
         (callbacks.canPlayAgain && hrf.HRF.offline.not && hrf.HRF.flag("replay").not).$(
             ZBasic(Break ~ Break ~ Break, "Save Game Online".hh, () => {
@@ -1080,6 +1175,66 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         $(ZBasic(Break ~ Break, "Interface".spn, () => { callbacks.editSettings { updateStatus() } }, ZBasic.infoch).copy(clear = false))
     }
 
+    // Save Replay. The framework (hrf.quine.Quine) embeds the image assets of a game in the HTML file; Netrunner
+    // declares ~2,000 lazily loaded card images, so Meta opts in to EmbedLoadedOnDemandAssetsOnly: only the images
+    // loaded in this browser are embedded. Before saving, the images of every card of the game (both decks, the
+    // identities, cards created during the game), the card backs and the faction logos of the two identities are
+    // loaded; images that fail or take longer than 30 seconds are left out (the replay then draws the card back with
+    // the title, as for any missing image).
+    var savingReplay = false
+
+    def saveReplay() {
+        if (savingReplay)
+            return
+
+        val g = game
+        val images = resources.images
+        val codes = (g.decks.values.$.flatten ++ g.location.keys.$./(_.code) ++ g.identity.values.$./(_.code)).distinct
+        val logos = g.identity.values.$./~(c => NRFaction.logo(c.data.faction))
+        val names = (codes ++ $("corp-back", "runner-back") ++ logos).distinct.%(images.hasSource)
+        val urls = names.%!(images.has)./(n => images.sources(n.toLowerCase)).distinct
+        val loader = images.loader
+
+        savingReplay = true
+
+        var left = urls.%(u => loader.has(u).not && loader.error(u).not)
+
+        showOverlay(overlayScrollX(Div("Save Replay".hlb ~ Break ~ ("Preparing the replay file: loading the images of " + names.num + " cards...").spn(xstyles.smaller85), styles.menuTitle)), onClick)
+
+        var done = false
+
+        def go() {
+            if (done.not) {
+                done = true
+                try {
+                    callbacks.saveReplay {
+                        savingReplay = false
+                        hideOverlay()
+                    }
+                }
+                catch {
+                    case e : Throwable =>
+                        savingReplay = false
+                        warn("save replay " + e)
+                        showOverlay(overlayScrollX(Div("Save Replay failed: ".hlb ~ e.toString, styles.menuTitle)), onClick)
+                }
+            }
+        }
+
+        if (hrf.HRF.embedded || left.none)
+            go()
+        else {
+            left.foreach { u =>
+                loader.wait($(u)) {
+                    left = left.%(_ != u)
+                    if (left.none)
+                        go()
+                }
+            }
+            scalajs.js.timers.setTimeout(30000) { go() }
+        }
+    }
+
     // Deck choice in the action pane. Without a preview: the presets (identity thumbnail, clean deck name, identity);
     // a click previews the deck (UI only, nothing is submitted). With a preview: "Confirm <deck>" (submits the matching
     // action of the current prompt), "Back to the deck list", then the presets again to preview another one.
@@ -1098,9 +1253,13 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 p.preset.none.$(ZOption(group, OnClick(Div("Edit the decklist", styles.confirmBack)), _ => showImport(), false)) ++
                 $(ZOption(group, OnClick(Div("Back to the deck list", styles.confirmBack)), _ => setPreview(None), false))
             }
+            val presets = actions.of[ChoosePresetDeckAction]
+            val hidden = presets.%(a => presetShown(a).not && p.exists(_.preset.contains(a.index)).not)
+            val filtered : $[ZOption] = hidden.any.$(ZOption(Div(Break ~ "Decks")(xlo.fullwidth), Div((hidden.num + " more decks hidden by the filters above the board gallery").spn(xstyles.smaller85), xstyles.info, xstyles.xx, xlo.fullwidth), _ => {}, false))
             confirm ++ actions./~ {
                 // the "Choose a deck" group header of the prompt: the presets carry their own header here
                 case _ : InfoGroupAction => $
+                case a : ChoosePresetDeckAction if hidden.has(a) => $
                 case a : ChoosePresetDeckAction =>
                     val d = Decks.presets(a.index)
                     val o = Div(cardFace(d.identity, styles.cardTiny, $(styles.presetThumb)) ~ Div(cleanDeckName(d.name).hl ~ Break ~ d.identityTitle.spn(styles.presetIdentity)), styles.presetOption)
@@ -1108,7 +1267,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     val q = p.any.?(Div(Break ~ "Preview another deck")(xlo.fullwidth)).|(Div("Choose a deck (click to see its cards)")(xlo.fullwidth))
                     $(ZOption(q, OnOverOut(OnClick(Div(o, ss))), _ => setPreview(|(presetPreview(a))), false, _ => onOver(("deck", a)), _ => onOut(Nil)))
                 case a => super.convertActions(faction, $(a), then)
-            }
+            } ++ filtered
         }
 
     override def styleAction(faction : Option[Faction], actions : List[UserAction], a : UserAction, unavailable : Boolean, view : Option[Any]) = {

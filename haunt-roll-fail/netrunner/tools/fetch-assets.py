@@ -12,8 +12,9 @@ Steps:
      <= 5 requests/second, retries on transient errors). When the CDN answers
      403/404 the older hosts (static.nrdbassets.com v1, card-images v1) and the
      image URLs listed by the NetrunnerDB v3 API for the printing are tried;
-     codes without any image are logged to netrunner/assets-cache/missing.txt
-     (the UI shows a card back with the title for them).
+     codes without any image are logged to netrunner/assets-cache/missing.txt.
+     For those a card image is generated from the card data by
+     make-placeholder-cards.py (NSG identity layout, see that script).
   3. Convert each jpg to webp2/netrunner/images/<code>.webp
      (Pillow, quality 82, native size, metadata stripped; skipped when up to date).
   4. Convert the jinteki.net card backs and faction logos:
@@ -216,6 +217,31 @@ def convert_extras(src_img_dir, log):
     return done
 
 
+def generate_missing(codes, log):
+    """Renders card images for codes without a downloadable image (make-placeholder-cards.py)."""
+    if not codes:
+        return []
+    import importlib.util
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location("make_placeholder_cards", os.path.join(HERE, "make-placeholder-cards.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    cards = mod.load_cards()
+    done = []
+    for code in codes:
+        if code not in cards:
+            continue
+        try:
+            dst = os.path.join(OUT_DIR, code + ".webp")
+            tmp = dst + ".part"
+            mod.render(cards[code]).save(tmp, "WEBP", quality=90, method=6)
+            os.replace(tmp, dst)
+            done.append(code)
+        except Exception as e:
+            log("generate error %s: %s" % (code, e))
+    return done
+
+
 def main(argv):
     src_img_dir = SRC_IMG_DIR
     if "--src-img" in argv:
@@ -277,12 +303,18 @@ def main(argv):
 
     extras = convert_extras(src_img_dir, log)
 
+    # cards without any downloadable image: render one from the card data (after the faction logos exist)
+    have = {os.path.splitext(f)[0] for f in os.listdir(OUT_DIR) if f.endswith(".webp")}
+    generated = generate_missing([c for c in codes if c not in have], log)
+
     have = {os.path.splitext(f)[0] for f in os.listdir(OUT_DIR) if f.endswith(".webp")}
     no_image = [c for c in codes if c not in have]
     print()
     print("download: new %d, cached %d, 404 %d, failed %d" % (stats["ok"], stats["cached"], stats["missing"], stats["failed"]))
     print("convert : new %d, up-to-date %d, errors %d" % (converted["ok"], converted["cached"], converted["error"]))
     print("extras  : %s" % ", ".join("%s(%s)" % e for e in extras))
+    if generated:
+        print("generated (no image anywhere): %s" % " ".join(generated))
     print("webp card images: %d of %d cards" % (len(codes) - len(no_image), len(codes)))
     if missing:
         print("404 (no image on NRDB): %s" % " ".join(missing))
