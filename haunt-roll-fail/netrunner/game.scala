@@ -278,6 +278,7 @@ object Cost {
         case RemoveSelfCost => "remove from game"
         case TagCost(n) => "take " + n + " tag"
         case TrashInstalledCost(k) => "trash an installed " + (k == "").?("card").|(k.toLowerCase)
+        case x : ExtCost => x.text
     }.join(", ")
 }
 
@@ -339,7 +340,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
     with StartupRules with SU21Rules with PHTAIRules with RWRRules
     with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules
-    with CreditRules with RestrictionRules with FixRules with PreventionRules {
+    with CreditRules with RestrictionRules with FixRules with PreventionRules with FinalNsgRules {
 
     implicit def implicitGame : Game = this
 
@@ -627,6 +628,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         case RemoveSelfCost => self.any
         case TagCost(n) => f.isRunner
         case TrashInstalledCost(k) => runnerInstalledOf(k).any
+        case x : ExtCost => x.payable(f, self)(this)
     }
 
     // credits available including hosted credits usable for the purpose (run credits)
@@ -684,7 +686,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def triggerEffects(e : Event) : $[ForcedAction] = {
         val ext = phTriggers(e)
         val order = $(active, active.opponent)
-        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e) ++ rotIceTriggers(e) ++ rotResourceTriggers(e) ++ rotHardwareTriggers(e) ++ ext ++ rotEventTriggers(e) ++ rotOperationTriggers(e) ++ rotAssetTriggers(e) ++ rotAgendaTriggers(e) ++ preventionTriggers(e) ++ fixTriggers(e)
+        order./~(f => activeCards(f).%!(isDisabled)./~(c => fnsSourced(c, impl(c).triggers(c, e)))) ++ su21Triggers(e) ++ rotIceTriggers(e) ++ rotResourceTriggers(e) ++ rotHardwareTriggers(e) ++ ext ++ rotEventTriggers(e) ++ rotOperationTriggers(e) ++ rotAssetTriggers(e) ++ rotAgendaTriggers(e) ++ preventionTriggers(e) ++ fixTriggers(e) ++ finalNsgTriggers(e)
     }
 
     // trigger an event: collect triggered abilities and push them to the queue (active player first); true if any
@@ -755,7 +757,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performRestrictions orElse performRotHardware orElse performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
+        val pf = performRestrictions orElse performFinalNsg orElse performRotHardware orElse performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse
             performRotShared orElse performRotIce orElse performRotPrograms orElse performRotResources orElse performRotOperations orElse performRotAssets orElse performRotAgendas orElse performFixes
 
         restrictContinue(a match {

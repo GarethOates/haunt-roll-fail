@@ -39,6 +39,7 @@ abstract class Ext(code : String) extends SG(code) {
 }
 
 // card specific actions and purposes
+case class NetworkingOfferAction(card : Card) extends CardAction
 case class StevePurpose(card : Card) extends CardPurpose
 case class SteveCorpPurpose(card : Card, a : Card, b : Card) extends CardPurpose
 case class CareerFairPurpose(card : Card) extends CardPurpose
@@ -183,7 +184,7 @@ object SU21Cards {
 
     object CareerFair extends Ext("31015") {
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => c.data.isResource && g.canSpend(Runner, (g.installCost(c, None) - 3).atLeast(0), Spend.install(c)))
+            val l = g.gripCards.%(c => c.data.isResource && g.canSpend(Runner, (g.installCost(c, None) - 3).atLeast(0), Spend.install(c)))
             l.any.$(ChooseCardEffect(Runner, l, CareerFairPurpose(self), "Career Fair: choose a resource to install, paying 3 less", true))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -236,7 +237,14 @@ object SU21Cards {
 
     object Networking extends Ext("31020") {
         override def onPlay(self : Card)(implicit g : Game) =
-            $(RemoveTagsEffect(1)) ++ (g.credits(Runner) >= 1).$(OptionalEffect(Runner, "Networking: pay 1 credit to add it to the grip?", $(LoseCreditsEffect(Runner, 1), AddToHandEffect(self)), $))
+            $(RemoveTagsEffect(1), NetworkingOfferAction(self))
+        // offered when it resolves (after the tag is removed), paid through the credit engine
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case NetworkingOfferAction(self) =>
+                if (g.canSpend(Runner, 1, Spend.effect(|(self))))
+                    g.push(OptionalEffect(Runner, "Networking: pay 1 credit to add it to the grip?", $(SpendEffect(Runner, 1, Spend.effect(|(self)), 0, $(AddToHandEffect(self)))), $))
+                NextAction
+        }
     }
 
     object Abagnale extends Ext("31021") {
@@ -355,7 +363,7 @@ object SU21Cards {
 
     object Atman extends Ext("31030") {
         override def onInstall(self : Card)(implicit g : Game) =
-            $(ChooseOneEffect(Runner, "Atman: spend credits to place that many power counters", 0.to(g.credits(Runner)).$./(n => Alt(n + " credits", (n > 0).$(LoseCreditsEffect(Runner, n), AddCounterEffect(self, "power", n))))))
+            $(ChooseOneEffect(Runner, "Atman: spend credits to place that many power counters", 0.to(g.creditsFor(Runner, Spend.effect(|(self)))).$./(n => Alt(n + " credits", (n > 0).$(SpendEffect(Runner, n, Spend.effect(|(self)), 0, $(AddCounterEffect(self, "power", n))))))))
         override def strength(self : Card)(implicit g : Game) = g.counter(self, "power")
         override def breaks(self : Card)(implicit g : Game) =
             encountering(self).exists(i => g.iceStrength(i) == g.breakerStrength(self)).$(BreakAbility(c(1), 1, $(), |("break 1 subroutine (ice of equal strength)")))
@@ -565,7 +573,7 @@ object SU21Cards {
 
     object Snare extends Ext("31054") {
         override def onAccess(self : Card)(implicit g : Game) =
-            $(RevealEffect(Corp, self)) ++ (g.credits(Corp) >= 4).$(OptionalEffect(Corp, "Snare!: pay 4 credits to give the Runner 1 tag and do 3 net damage?", $(LoseCreditsEffect(Corp, 4), tag(1), net(3)), $))
+            $(RevealEffect(Corp, self)) ++ g.canSpend(Corp, 4, Spend.effect(|(self))).$(OptionalEffect(Corp, "Snare!: pay 4 credits to give the Runner 1 tag and do 3 net damage?", $(SpendEffect(Corp, 4, Spend.effect(|(self)), 0, $(tag(1), net(3)))), $))
     }
 
     object LotusField extends Ext("31055") {
@@ -582,8 +590,8 @@ object SU21Cards {
     }
 
     object CelebrityGift extends Ext("31057") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 2
-        override def onPlay(self : Card)(implicit g : Game) = $(LoseClicksEffect(Corp, 1)) ++ g.hand(Corp).any.$(ChooseCardsEffect(Corp, g.hand(Corp), 0, 5, CelebrityGiftPurpose(self), "Celebrity Gift: choose up to 5 cards in HQ to reveal"))
+        override def canPlay(self : Card)(implicit g : Game) = g.fnsDoubleCanPlay(Corp)
+        override def onPlay(self : Card)(implicit g : Game) = g.fnsDoubleCost(Corp) ++ g.hand(Corp).any.$(ChooseCardsEffect(Corp, g.hand(Corp), 0, 5, CelebrityGiftPurpose(self), "Celebrity Gift: choose up to 5 cards in HQ to reveal"))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.foreach(c => g.push(RevealEffect(Corp, c)))
             if (cards.any)
@@ -668,7 +676,7 @@ object SU21Cards {
 
     object Tollbooth extends Ext("31066") {
         override def onEncounter(self : Card)(implicit g : Game) =
-            (g.credits(Runner) >= 3).?($(MessageEffect(Runner, "pays 3 credits (Tollbooth)"), LoseCreditsEffect(Runner, 3))).|($(MessageEffect(Corp, "uses Tollbooth to end the run"), EndRunEffect))
+            $(PayIfAbleEffect(Runner, 3, Spend.corpAbility, $(MessageEffect(Corp, "uses Tollbooth to end the run"), EndRunEffect)))
         override def subroutines(self : Card)(implicit g : Game) = $(etrSub)
     }
 
@@ -730,9 +738,10 @@ object SU21Cards {
             $(Ability("search R&D for a card and add it to HQ", $(CounterCost("agenda", 1)), $(ChooseCardEffect(Corp, g.deck(Corp).sortBy(_.title), AddToHandPurpose(Corp, true), "Project Atlas: choose a card in R&D", true), ShuffleDeckEffect(Corp)), ok = g.deck(Corp).any && g.counter(self, "agenda") > 0, reason = "needs an agenda counter"))
     }
 
-    object CorporateTown extends Ext("31074") {
+    // "As an additional cost to rez this asset, forfeit 1 agenda": paid before the rez (FinalNsgRules)
+    object CorporateTown extends Ext("31074") with FnsExtraRezCost {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
-        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
+        def extraRezCost(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.isRezzed(self) && g.installedCards(Runner).exists(_.data.isResource) =>
                 $(OptionalEffect(Corp, "Corporate Town: trash an installed resource?", $(ChooseCardEffect(Corp, g.installedCards(Runner).%(_.data.isResource), TrashPurpose(Corp), "Choose a resource to trash", false)), $))
@@ -740,9 +749,9 @@ object SU21Cards {
         }
     }
 
-    object Archer extends Ext("31075") {
+    object Archer extends Ext("31075") with FnsExtraRezCost {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
-        override def onRez(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
+        def extraRezCost(self : Card)(implicit g : Game) = $(ChooseForfeitEffect)
         override def subroutines(self : Card)(implicit g : Game) = $(gainSub(2), trashProgramSub, trashProgramSub, etrSub)
     }
 

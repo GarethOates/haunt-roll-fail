@@ -13,32 +13,33 @@ All cards are implemented. Identities without abilities: Nova Initiumia, Ampère
 validated by `DeckRules` (see `STATUS-fix-restrictions.md`)). Partial / simplified:
 
 * **Matryoshka** (eternal): copies are hosted in a `StashZone`; the break ability costs 1 credit per subroutine and turns 1
-  hosted copy facedown per use (fix-misc pass); the engine offers X = 1 (any subroutine) or X = all remaining, not an
-  arbitrary subset of 2 or more. Copies are turned faceup at the start of the Runner's turn.
+  hosted copy facedown per use; any X: the subroutines are chosen with the multi-select of the final NSG pass
+  (`BreakChooseSubsAction`). Copies are turned faceup at the start of the Runner's turn.
 * **Asmund Pudlat**: hosted cards live in a `StashZone` (not installed, not displayed by the UI); the start-of-turn
   prompt lists them. They are trashed when Asmund leaves play.
-* **Tsakhia "Bankhar" Gantulga** (eternal): implemented; the chosen server is kept as a turn flag and the first
-  encounter with ice protecting it replaces the subroutines with "Do 1 net damage" via an impl wrapper.
+* **Tsakhia "Bankhar" Gantulga** (eternal): the chosen server is kept as a turn flag; during the first encounter with ice
+  protecting it, the printed subroutines stay and each resolves as "Do 1 net damage" (final NSG pass: replacement at resolution).
 * **Nanuq**: removed from the game instead of moving anywhere else (trash, returned to the grip, moved to the stack:
   FixRules), and when an agenda is scored/stolen.
 * **Reprise**: "stole an agenda this turn" uses the new `stolen` register.
 * **Spark of Inspiration**: the revealed cards are set aside (hosted on the event) and shuffled back (fix-misc pass).
 * **Hostile Architecture / Yakov Avdakov**: "installed card trashed by the Runner" / "trashed from this server" are
   detected with a snapshot of the installed Corp cards taken at the previous event (`lastServerOf`, `wasInstalled`);
-  "except during installation" uses the `installing` flag of the ext rules.
+  "except during installation" uses the `installing` flag; Hostile Architecture's own trash counts only when it was rezzed
+  (final NSG pass, `fnsWasRezzed`).
 * **Anvil**: "cannot break this ice's printed subroutines" applies to the printed subroutines only (subroutines added by
   other cards can still be broken; fix-misc pass).
-* **Unsmiling Tsarevna**: "cannot break more than 1 printed subroutine per encounter" greys out further break options
-  once a subroutine is broken (also bioroid breaks).
+* **Unsmiling Tsarevna**: at most 1 **printed** subroutine broken per encounter (subroutines added by other cards can be broken;
+  final NSG pass `canBreakSub`), also bioroid breaks.
 * **Hafrún**: the chosen Runner card gets a run-scoped `cannot-break` flag (its `breaks` become empty).
-* **Klevetnik**: the resource is blanked (`DisabledImpl`) until the Corp's next turn ends (half-turn scoped flag).
+* **Klevetnik**: the resource is blanked (`DisabledImpl`) until the Corp's next turn ends (jinteki's duration: exact).
 * **Hypoxia** / **Basilar Synthgland**: -1 / +1 allotted click (fix-misc pass: `ExtraClicksEffect`, `clicksPerTurn`).
 * **Issuaq Adaptics**: every win check uses the reduced threshold (FixRules `checkWin`); "did not install or advance this turn"
   uses the turn flags `installed` / `advanced`.
 * **Superdeep Borehole**: uses `badpub` counters (not rendered by the UI counters), Corp wins when it is empty.
 * **Nightmare Archive**: -1 agenda point through `agendaPointsBonus` while in the Runner's score area.
-* **Bloop**: the additional rez cost (derez another harmonic ice) is a mandatory choice resolved right after the rez
-  (`canRez` is false without another rezzed harmonic ice).
+* **Bloop**: the additional rez cost (derez another harmonic ice) is paid before the rez on every rez path (final NSG pass,
+  `FnsExtraRezCost`; `canRez` is false without another rezzed harmonic ice).
 * **Vera Ivanovna Shuyskaya**: the grip is revealed in the log, the Corp chooses a card to trash.
 * **Simulation Reset / Hypoxia**: removed from the game after resolution.
 * **WAKE Implant**: the number of counters to remove is chosen from a list (1..3).
@@ -49,21 +50,20 @@ validated by `DeckRules` (see `STATUS-fix-restrictions.md`)). Partial / simplifi
 
 Partial / simplified:
 
-* **Daniela Jorge Inácio**: the steal cost is paid after the steal (2 random grip cards to the bottom of the stack), also with
-  fewer than 2 cards in the grip; the upgrade can only be trashed on access with at least 2 cards in the grip; "stolen from this
-  server" uses the zone the agenda was stolen from (fix-misc pass).
+* **Daniela Jorge Inácio**: the steal cost (2 random grip cards to the bottom of the stack) is a real cost paid before the steal
+  (`RandomToBottomCost`; the steal is unavailable with fewer than 2 grip cards); the trash cost on access is paid before the trash;
+  trashed by the Runner during a run, the steal cost persists for that run (final NSG pass).
 * **Tucana**: "scored or stolen from the root of this server" uses the zone the agenda left (fix-misc pass); the ice is installed
   and rezzed paying a total of 3 less (as jinteki). ("Remote server only" is enforced by the restrictions pass.)
 * (Fixed in the fix-misc pass: "fully breaks" = every subroutine broken by that card (**Abaasy, Orca, Curupira** and the
   other programs using jinteki's `all-subs-broken-by-card?`); **Banner** only stops "end the run" from that barrier's
   subroutines (jack out and other ETR effects work); **Wage Workers** gives nothing after a terminal operation;
   **Oppo Research** ends the action phase through `EndActionPhaseEffect`.)
-* **Front Company**: rezzable only during the Corp's turn; the first run of a turn cannot target a remote (run
-  options greyed out); net damage when the first run on Archives begins while unprotected.
+* **Front Company**: rezzable only during the Corp's turn; the first run of a turn cannot target a remote (run options greyed
+  out; runs of card effects refused: final NSG pass); net damage when the first run on Archives begins while unprotected.
 * **A Teia**: the remote limit greys out "new remote server" options; the second install ignores all costs; the
   second card gets a turn flag `cannot-score` honoured by the score options.
-* **Mercury**: "did not break any subroutines during that run" via run flags (bioroid click-breaks count since the fix-misc
-  pass).
+* **Mercury**: "did not break any subroutines during that run" via run flags (bioroid click-breaks count): exact.
 * **Eru Ayase-Pessoa, Beatriz Friere Gonzalez**: the breach replacement rewrites the queued `BreachAction`.
 * **AirbladeX**: the encounter ability and net damage preventions use the windows of `rules-ext-prevention.scala` (see
   `STATUS-fix-prevention.md`); abilities gained from ZATO City Grid are triggers and cannot be prevented.
@@ -80,7 +80,8 @@ Partial / simplified:
   ask for cards).
 * **Slash and Burn Agriculture, Tree Line, Angelique Garza Correa** (expend): click abilities offered while the card
   is in HQ (`[click], 1[c]` plus trashing the card faceup as the first effect).
-* **Jaguarundi, Attini, Pulse, M.I.C.**: "unless the Runner pays/spends" are Runner choices.
+* **Jaguarundi, Attini, Pulse, M.I.C.**: "unless the Runner pays/spends" are Runner choices (rules); "spend [click]" is a click
+  cost (`SpendClicksEffect`, final NSG pass); Attini under threat: the Runner cannot pay, so the damage is done.
 * **Vovô Ozetti, Adrian Seis**: optional move to another server at the end of the Corp's turn.
 * **Lago Paranoá Shelter**: "installs a card in the root of a server" = first non-ice Corp install of the turn.
 

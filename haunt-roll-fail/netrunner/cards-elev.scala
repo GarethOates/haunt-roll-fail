@@ -67,6 +67,7 @@ case class DoomscrollAction(card : Card) extends CardAction
 case class NPotAction(card : Card, n : Int) extends CardAction
 case class BiggerPictureAction(card : Card, n : Int) extends CardAction
 case class IpPurpose(card : Card) extends CardPurpose
+case class IpAdvanceAction(card : Card, agenda : Card) extends CardAction
 case class TouchupsPurpose(card : Card) extends CardPurpose
 case class TouchupsTypeAction(card : Card, kind : String) extends CardAction
 case class BangunFaceupAction(card : Card, agenda : Card) extends CardAction
@@ -96,7 +97,7 @@ object ElevCards {
 
     object Topan extends Startup("35002") {
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = runnerInstallable(g.hand(Runner), 2).%!(c => g.impl(c).mustBeHosted(c))
+            val l = runnerInstallable(g.gripCards, 2).%!(c => g.impl(c).mustBeHosted(c))
             $(Ability("install a card paying 2 credits less (then suffer 1 meat damage)", click(), $(ChooseCardEffect(Runner, l, TopanPurpose(self), "Topan: choose a card to install paying 2 credits less", true)), click = true, once = once("topan"), ok = l.any, reason = "nothing to install"))
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -153,15 +154,14 @@ object ElevCards {
     object Bling extends Startup("35006") {
         override def memory(self : Card)(implicit g : Game) = 1
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Installed(Runner, c) if c != self && g.installCost(c, None) == 0 && g.deck(Runner).any =>
+            // "without spending credits": no credits were spent on this install (FinalNsgRules.fnsInstallSpent)
+            case Installed(Runner, c) if c != self && !g.fnsInstallSpent.contains(c) && g.deck(Runner).any =>
                 $(OptionalEffect(Runner, "Bling: host the top card of the stack?", $(BlingHostAction(self)), $))
             case TurnEnds(Runner) if g.stashed(self).any => $(BlingTrashAction(self))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.stashed(self).%(c => (c.data.isEvent && g.credits(Runner) >= g.playCost(c) && g.impl(c).canPlay(c)) || (!c.data.isEvent && runnerCanInstall(c, 0) && !g.impl(c).mustBeHosted(c)))
-            $(Ability("play or install a hosted card", click(), $(ChooseCardEffect(Runner, l, BlingPurpose(self), "Bling: choose a hosted card to play or install", true)), click = true, ok = l.any, reason = "no playable hosted card"))
-        }
+        // "You can play or install hosted cards as if they were in your grip": the basic play / install actions and the card effects
+        // that play or install from the grip list them (FinalNsgRules.blingCards, Game.gripCards)
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case BlingHostAction(self) =>
                 g.deck(Runner).starting.foreach { c =>
@@ -223,7 +223,7 @@ object ElevCards {
     object BazWong extends Startup("35012") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Rezzed(c) if c.data.isIce =>
-                val l = runnerInstallable(g.hand(Runner).%(x => x.data.isResource || x.data.isHardware), 0)
+                val l = runnerInstallable(g.gripCards.%(x => x.data.isResource || x.data.isHardware), 0)
                 l.any.$(ChooseCardEffect(Runner, l, InstallLoopPurpose(self, Runner, 1, 0, false, "hand", $("Resource", "Hardware")), "Baz Wong: install a resource or piece of hardware?", true))
             case _ => $
         }
@@ -555,7 +555,7 @@ object ElevCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Trashed(c, Runner, _) if inCorpScore(self) && g.owner(c).isCorp && g.inPlayZone(g.lastTrashedFrom) && g.active.isRunner && !g.usedThisTurn(self, "trendsetting") =>
                 $(MarkUsedEffect(self, "trendsetting"), ChooseOneEffect(Runner, "Aggressive Trendsetting: spend [click] to deny the Corp +1 allotted click next turn?", $(
-                    Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) > 0),
+                    Alt("Spend [click]", $(SpendClicksEffect(Runner, 1)), g.clicks(Runner) > 0),
                     Alt("Do not spend a click", $(ExtraClicksEffect(Corp, 1))))))
             case _ => $
         }
@@ -718,7 +718,7 @@ object ElevCards {
 
     object Byte extends Startup("35050") {
         override def onAccess(self : Card)(implicit g : Game) =
-            (!g.zone(self).is[DiscardZone]).??((g.zone(self) == DeckZone(Corp)).$(RevealEffect(Corp, self)) ++ (g.credits(Corp) >= 4).$(OptionalEffect(Corp, "Byte!: pay 4 credits to give the Runner 1 tag and do 3 net damage?", $(LoseCreditsEffect(Corp, 4), tag(1), net(3)), $)))
+            (!g.zone(self).is[DiscardZone]).??((g.zone(self) == DeckZone(Corp)).$(RevealEffect(Corp, self)) ++ g.canSpend(Corp, 4, Spend.effect(|(self))).$(OptionalEffect(Corp, "Byte!: pay 4 credits to give the Runner 1 tag and do 3 net damage?", $(SpendEffect(Corp, 4, Spend.effect(|(self)), 0, $(tag(1), net(3)))), $)))
     }
 
     object Phat extends Startup("35051") {
@@ -938,26 +938,33 @@ object ElevCards {
     }
 
     object IpEnforcement extends Startup("35066") {
-        override def canPlay(self : Card)(implicit g : Game) = g.scored(Runner).exists(c => c.data.isAgenda && g.agendaValue(c) <= g.tags)
+        // X = the printed agenda point value
+        override def canPlay(self : Card)(implicit g : Game) = g.scored(Runner).exists(c => c.data.isAgenda && c.data.agendaPoints.|(0) <= g.tags)
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseNumberEffect(Corp, self, 0, g.tags, "ip", "IP Enforcement: remove how many tags (X)?"))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case NumberPickedAction(self, x, "ip") =>
-                val l = g.scored(Runner).%(c => c.data.isAgenda && g.agendaValue(c) == x)
+                val l = g.scored(Runner).%(c => c.data.isAgenda && c.data.agendaPoints.|(0) == x)
+                // the X tags are an additional cost: removed before the agenda is chosen
                 if (l.any)
                     g.push(RemoveTagsEffect(x), ChooseCardEffect(Corp, l, IpPurpose(self), "IP Enforcement: choose an agenda in the Runner's score area to install", false))
-                else
-                    g.log("No agenda worth", x.hl, "points in the Runner's score area")
+                else {
+                    g.log("No agenda with", x.hl, "printed points in the Runner's score area")
+                    g.push(RemoveTagsEffect(x))
+                }
+                NextAction
+            case IpAdvanceAction(self, c) =>
+                if (g.isInstalled(c) && g.tagged)
+                    g.push(PlaceAdvancementEffect(c, 1))
                 NextAction
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 g.log(Corp, "installs", c, "from the Runner's score area")
-                g.push(CorpInstallEffect(c, None, false), CheckWinAction)
-                if (g.tagged)
-                    g.push(PlaceAdvancementEffect(c, 1))
+                g.push(ChooseServerEffect(Corp, c, false, g.remotes, true), IpAdvanceAction(p.card, c), CheckWinAction)
             }
             NextAction
         }
+
     }
 
     object Touchups extends Startup("35067") {
@@ -1038,8 +1045,9 @@ object ElevCards {
         })
     }
 
-    object Plutus extends Startup("35073") {
-        override def onRez(self : Card)(implicit g : Game) = $(PlutusRezAction(self))
+    // "As an additional cost to rez this asset, forfeit 1 agenda or reveal and trash 3 cards from HQ": paid before the rez (FinalNsgRules)
+    object Plutus extends Startup("35073") with FnsExtraRezCost {
+        def extraRezCost(self : Card)(implicit g : Game) = $(PlutusRezAction(self))
         // the additional rez cost must be payable (otherwise the rez is offered, fails and is offered again)
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda) || g.hand(Corp).num >= 3
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -1052,9 +1060,7 @@ object ElevCards {
             case PlutusRezAction(self) =>
                 val agendas = g.scored(Corp).%(_.data.isAgenda)
                 val h = g.hand(Corp)
-                if (agendas.none && h.num < 3)
-                    g.push(PlutusDerezAction(self))
-                else
+                if (agendas.any || h.num >= 3)
                     g.push(ChooseOneEffect(Corp, "Plutus: additional rez cost", $(
                         Alt("Forfeit 1 agenda", $(ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Plutus: choose an agenda to forfeit", false)), agendas.any),
                         Alt("Reveal and trash 3 cards from HQ", $(ChooseCardsEffect(Corp, h, 3, 3, TrashFromHQPurpose(self, true), "Plutus: choose 3 cards in HQ to reveal and trash")), h.num >= 3))))
@@ -1066,26 +1072,24 @@ object ElevCards {
         }
     }
 
-    object Biawak extends Startup("35074") {
-        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card == self && g.scored(Corp).exists(_.data.isAgenda)).?(-10).|(0)
-        // the rez is affordable with the forfeit discount (rezCostMod); after rezzing the Corp chooses to forfeit an agenda or to
-        // pay the 10 credits the forfeit covered (only when it can); nothing when rezzed ignoring all costs
-        override def onRez(self : Card)(implicit g : Game) = {
-            val agendas = g.scored(Corp).%(_.data.isAgenda)
-            if (g.fxRezIgnoredCost || agendas.none)
-                $
-            else {
-                val full = (self.data.cost.|(0) + g.allActive.%(_ != self)./(x => g.impl(x).rezCostMod(x, self)).sum).atLeast(0)
-                val extra = full - (full - 10).atLeast(0)
-                val forfeit = ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Biawak: choose an agenda to forfeit (pays 10 credits of the rez cost)", false)
-                if (extra <= 0)
-                    $
-                else if (g.canSpend(Corp, extra, Spend.rez(self)))
-                    $(ChooseOneEffect(Corp, "Biawak: pay for the rest of the rez cost", $(Alt("Forfeit an agenda", $(forfeit)), Alt("Pay " + extra + " credits", $(SpendEffect(Corp, extra, Spend.rez(self), 0, $))))))
-                else
-                    $(forfeit)
+    // "You can forfeit 1 agenda as you rez this ice to pay for 10 of its rez cost": chosen before the rez is paid (FinalNsgRules
+    // FnsExtraRezCost); the memo keeps the choice for the rez cost (nothing is asked when it is rezzed ignoring all costs)
+    object Biawak extends Startup("35074") with FnsExtraRezCost {
+        def full(self : Card)(implicit g : Game) = (self.data.cost.|(0) + g.allActive.%(_ != self)./(x => g.impl(x).rezCostMod(x, self)).sum).atLeast(0)
+        override def rezCostMod(self : Card, card : Card)(implicit g : Game) =
+            if (card != self) 0
+            else g.state(self).memo match {
+                case "biawak-full" => 0
+                case "biawak-forfeit" => -10
+                case _ => g.scored(Corp).exists(_.data.isAgenda).?(-10).|(0)
             }
+        def extraRezCost(self : Card)(implicit g : Game) = {
+            val agendas = g.scored(Corp).%(_.data.isAgenda)
+            agendas.any.$(ChooseOneEffect(Corp, "Biawak: forfeit an agenda to pay for 10 credits of the rez cost?", $(
+                Alt("Forfeit an agenda", $(SetMemoEffect(self, "biawak-forfeit"), ChooseCardEffect(Corp, agendas, ForfeitPurpose, "Biawak: choose an agenda to forfeit", false))),
+                Alt("Pay the full rez cost (" + full(self) + " credits)", $(SetMemoEffect(self, "biawak-full")), g.canSpend(Corp, full(self), Spend.rez(self))))))
         }
+        override def onRez(self : Card)(implicit g : Game) = $(SetMemoEffect(self, ""))
         override def subroutines(self : Card)(implicit g : Game) = {
             val programs = g.installedCards(Runner).%(_.data.isProgram)
             val resources = g.installedCards(Runner).%(_.data.isResource)

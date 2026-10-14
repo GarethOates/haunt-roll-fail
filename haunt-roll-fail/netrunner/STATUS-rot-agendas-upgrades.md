@@ -89,7 +89,8 @@ apply; the order is the `with` order in `game.scala`).
 * **Unorthodox Predictions** prevents breaking until the Corp's next turn begins (as printed; jinteki does not enforce it).
 * **Will-o'-the-Wisp** candidates are the installed icebreakers that broke a subroutine this run.
 * **Warroid Tracker / Overseer Matrix** fire once per trashed card. Overseer Matrix does not fire for its own trash.
-* **Daruma** trashes itself after the second choice; root-to-root swaps do not re-check the one agenda/asset per root rule.
+* **Daruma** trashes itself after the second choice; (root-to-root swaps re-check the one agenda/asset and one region per root rules
+  since the final NSG pass, `STATUS-fix-final-nsg.md`).
 * **Evidence Collection 1-3** have no in-game effect; **Corporate Oversight A/B** and Evidence Collection / Hired Help are not
   eternal-legal and are not in the presets (covered by scripted checks).
 * **NAPD Contract / Ikawah Project / Fetal AI / Utopia Fragment** steal costs use the engine `Cost` records.

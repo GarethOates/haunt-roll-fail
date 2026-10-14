@@ -400,7 +400,7 @@ object URCards {
     object CerebralOverwriter extends NC("26099") {
         override def advanceable(self : Card)(implicit g : Game) = true
         override def onAccess(self : Card)(implicit g : Game) =
-            (g.isInstalled(self) && g.advancement(self) > 0 && g.credits(Corp) >= 3).$(OptionalEffect(Corp, "Cerebral Overwriter: pay 3 credits to do " + g.advancement(self) + " core damage?", $(LoseCreditsEffect(Corp, 3), core(g.advancement(self))), $))
+            (g.isInstalled(self) && g.advancement(self) > 0 && g.canSpend(Corp, 3, Spend.effect(|(self)))).$(OptionalEffect(Corp, "Cerebral Overwriter: pay 3 credits to do " + g.advancement(self) + " core damage?", $(SpendEffect(Corp, 3, Spend.effect(|(self)), 0, $(core(g.advancement(self))))), $))
     }
 
     object VaporframeFabricator extends NC("26100") {
@@ -532,7 +532,8 @@ object URCards {
 
     object GameNET extends NC("26113") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case CreditsLost(Runner, n) if n > 0 && g.run.exists(!_.ended) => $(gain(Corp, 1))
+            // only losses caused by a Corp card's ability (the source is recorded by FinalNsgRules.effectSource)
+            case CreditsLostFrom(Runner, n, Some(src)) if n > 0 && g.owner(src).isCorp && g.run.exists(!_.ended) => $(gain(Corp, 1))
             case CreditsPaid(Runner, n, s) if n > 0 && s.is("corp-ability") && g.run.exists(!_.ended) => $(gain(Corp, 1))
             case _ => $
         }

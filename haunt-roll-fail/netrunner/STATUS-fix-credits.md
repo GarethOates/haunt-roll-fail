@@ -44,7 +44,7 @@ entry was about credits or costs onto it. New code is in `rules-ext-credits.scal
 * `runnerTraceBoost`: the Runner's last trace boost (from any source), used by margin traces (Data Hound, Waiver,
   `MarginTraceEffect`) instead of measuring the pool before and after.
 
-### Payment order (no prompt; deterministic)
+### Payment order (deterministic default; see the final NSG pass for the player's choice)
 
 1. the stealth part of the cost, from Stealth sources;
 2. bad publicity credits of the run (they expire with the run);
@@ -112,13 +112,11 @@ Status entries that were already exact: 33075 Concerto and 34019 Debbie (their t
 
 ## Still approximate (and why)
 
-* No prompt to choose the credit sources (see "Payment order").
-* 26113 GameNET: "a Corp card ability causes the Runner to lose credits" — losses (`LoseCreditsEffect`) carry no source, so any
-  credit loss of the Runner during a run still counts.
+* (Fixed in the final NSG pass, see `STATUS-fix-final-nsg.md`: the player chooses the credit sources when two or more restricted sources could
+  pay -- the order above is the preselected "automatic" option; GameNET reads the source of each credit loss (`CreditsLostFrom`);
+  Biawak's forfeit is chosen before the rez is paid.)
 * 25009 Patchwork: still a once-per-turn "prepay" ability (the reduction needs a choice of the grip card in the middle of a
   payment; payments are not asks).
-* 35074 Biawak: the "forfeit an agenda to pay 10" alternative is still forced when an agenda is scored (needs a choice before
-  the rez is paid).
 * Secret spending (Push Your Luck, Rigged Results) uses the pool only (spending hosted credits would reveal part of the amount
   in the log).
 * 06039 LLDS Energy Regulator's "pay 3" checks the credits usable for its ability but pays with `PayCreditsEffect` (Spend.other):

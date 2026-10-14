@@ -258,7 +258,7 @@ object MSCards {
                 NextAction
             case DeepDiveSecondAction(self) =>
                 if (g.clicks(Runner) >= 1 && g.stashed(self).but(g.state(self).target).any)
-                    g.push(OptionalEffect(Runner, "Deep Dive: spend [click] to access another set-aside card?", $(LoseClicksEffect(Runner, 1), DeepDiveAction(self, false)), $(DeepDiveEndAction(self))))
+                    g.push(OptionalEffect(Runner, "Deep Dive: spend [click] to access another set-aside card?", $(SpendClicksEffect(Runner, 1), DeepDiveAction(self, false)), $(DeepDiveEndAction(self))))
                 else
                     g.push(DeepDiveEndAction(self))
                 NextAction
@@ -312,7 +312,7 @@ object MSCards {
 
     object RiggingUp extends Ext("33024") {
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => (c.data.isHardware || (c.data.isProgram && g.memoryFree >= c.data.memory.|(0))) && g.canSpend(Runner, (g.installCost(c, None) - 3).atLeast(0), Spend.install(c)))
+            val l = g.gripCards.%(c => (c.data.isHardware || (c.data.isProgram && g.memoryFree >= c.data.memory.|(0))) && g.canSpend(Runner, (g.installCost(c, None) - 3).atLeast(0), Spend.install(c)))
             l.any.$(ChooseCardEffect(Runner, l, RiggingUpPurpose(self), "Rigging Up: choose a program or piece of hardware to install, paying 3 less", true))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -541,9 +541,9 @@ object MSCards {
     }
 
     object Mitosis extends Ext("33046") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 2 && g.hand(Corp).exists(c => !c.data.isOperation)
+        override def canPlay(self : Card)(implicit g : Game) = g.fnsDoubleCanPlay(Corp) && g.hand(Corp).exists(c => !c.data.isOperation)
         override def onPlay(self : Card)(implicit g : Game) =
-            $(LoseClicksEffect(Corp, 1), ChooseCardsEffect(Corp, g.hand(Corp).%(c => !c.data.isOperation), 0, 2, MitosisPurpose(self), "Mitosis: choose up to 2 cards to install in new remote servers"))
+            g.fnsDoubleCost(Corp) ++ $(ChooseCardsEffect(Corp, g.hand(Corp).%(c => !c.data.isOperation), 0, 2, MitosisPurpose(self), "Mitosis: choose up to 2 cards to install in new remote servers"))
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.foreach(c => g.push(CorpInstallEffect(c, None, false), PlaceAdvancementEffect(c, 2), MarkUsedEffect(c, "cannot-score"), MarkUsedEffect(c, "cannot-rez")))
             NextAction
@@ -597,7 +597,7 @@ object MSCards {
 
     object Vasilisa extends Ext("33054") {
         override def onEncounter(self : Card)(implicit g : Game) =
-            (g.credits(Corp) >= 1 && g.advanceableCards.any).$(OptionalEffect(Corp, "Vasilisa: pay 1 credit to place 1 advancement counter on a card?", $(LoseCreditsEffect(Corp, 1), ChooseCardEffect(Corp, g.advanceableCards, AdvancePurpose(1), "Vasilisa: choose a card", false)), $))
+            (g.canSpend(Corp, 1, Spend.effect(|(self))) && g.advanceableCards.any).$(OptionalEffect(Corp, "Vasilisa: pay 1 credit to place 1 advancement counter on a card?", $(SpendEffect(Corp, 1, Spend.effect(|(self)), 0, $(ChooseCardEffect(Corp, g.advanceableCards, AdvancePurpose(1), "Vasilisa: choose a card", false)))), $))
         override def subroutines(self : Card)(implicit g : Game) = $(tagSub(1))
     }
 
@@ -632,12 +632,14 @@ object MSCards {
         }
     }
 
-    object AzefProtocol extends Ext("33058") {
+    // "As an additional cost to score this agenda, trash 1 of your other installed cards": paid before scoring (FinalNsgRules)
+    object AzefProtocol extends Ext("33058") with FnsExtraScoreCost {
         override def preventsScoring(self : Card, agenda : Card)(implicit g : Game) = agenda == self && g.otherInstalled(Corp, self).none
-        override def onScore(self : Card)(implicit g : Game) = {
-            val l = g.installedCards(Corp)
-            l.any.$(ChooseCardEffect(Corp, l, TrashPurpose(Corp), "Azef Protocol: choose an installed card to trash", false)) :+ meat(2)
+        def extraScoreCost(self : Card)(implicit g : Game) = {
+            val l = g.otherInstalled(Corp, self)
+            l.any.$(ChooseCardEffect(Corp, l, CostTrashPurpose, "Azef Protocol: trash another installed card (additional cost to score)", false))
         }
+        override def onScore(self : Card)(implicit g : Game) = $(meat(2))
     }
 
     object SvyatogorExcavator extends Ext("33059") {
@@ -730,7 +732,6 @@ object MSCards {
                     Alt("Trash Mystic Maemi", $(TrashEffect(self, Runner, false))))))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) = $(Ability("take 1 credit", $, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"))
     }
 
     object Swift extends Ext("27002") {
@@ -787,9 +788,10 @@ object MSCards {
             case TurnBegins(Corp) if g.isRezzed(self) && g.serverOf(self).exists(s => g.ice(s).any) =>
                 $(ChooseCardEffect(Corp, g.serverOf(self).$./~(s => g.ice(s)), AdvancePurpose(1), "Cayambe Grid: choose a piece of ice protecting this server", false))
             case ApproachServer(s) if thisServer(self, s) && g.isRezzed(self) =>
+                // nothing to pay without advanced ice: no choice
                 val cost = 2 * g.ice(s).count(i => g.advancement(i) > 0)
-                $(ChooseOneEffect(Runner, "Cayambe Grid: pay " + cost + " credits or end the run", $(
-                    Alt("Pay " + cost + " credits", (cost > 0).$(LoseCreditsEffect(Runner, cost)), g.credits(Runner) >= cost),
+                (cost > 0).$(ChooseOneEffect(Runner, "Cayambe Grid: pay " + cost + " credits or end the run", $(
+                    Alt("Pay " + cost + " credits", $(SpendEffect(Runner, cost, Spend.corpAbility, 0, $)), g.canSpend(Runner, cost, Spend.corpAbility)),
                     Alt("End the run", $(EndRunEffect)))))
             case _ => $
         }

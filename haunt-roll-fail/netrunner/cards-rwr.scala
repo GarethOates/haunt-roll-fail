@@ -40,6 +40,9 @@ case class CataloguerBreachAction(card : Card) extends CardAction
 case class MuseAction(card : Card, zone : String) extends CardAction
 case class MusePurpose(card : Card, zone : String) extends CardPurpose
 case class MaryAction(card : Card) extends CardAction
+case class MaryCheckAction(card : Card) extends CardAction
+case class ActivePolicingOfferAction(card : Card) extends CardAction
+case class BringThemHomeShuffleAction(card : Card) extends CardAction
 case class AshenAction(card : Card) extends CardAction
 case class AshenRfgAction(card : Card) extends CardAction
 case class WarmReceptionAction(card : Card) extends CardAction
@@ -84,7 +87,7 @@ object RWRCards {
     object Sebastiao extends NC("34066") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TagsGained(n) if g.tags == n =>
-                val l = g.hand(Runner).%(c => c.data.isResource && g.has(c, "Connection") && g.canAffordInstall(c, 2))
+                val l = g.gripCards.%(c => c.data.isResource && g.has(c, "Connection") && g.canAffordInstall(c, 2))
                 l.any.$(ChooseCardEffect(Runner, l, InstallPayingPurpose(2, None, false), "Sebastiao: install a connection paying 2 credits less?", true))
             case _ => $
         }
@@ -160,12 +163,10 @@ object RWRCards {
         }
     }
 
+    // "If you trashed any of your installed cards this turn": installed Runner cards trashed by the Runner this turn (whether or not
+    // Boi-tata was installed then), counted by FinalNsgRules
     object BoiTata extends NC("34071") {
-        def discount(implicit g : Game) = (g.reg("boi-tata") > 0).?(1).|(0)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Trashed(c, _, _) if g.owner(c).isRunner && !c.data.isEvent => $(RegisterEffect("boi-tata", 1))
-            case _ => $
-        }
+        def discount(implicit g : Game) = (g.reg("fns-runner-trashed-own-installed") > 0).?(1).|(0)
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(2 - discount), 2, $("Sentry")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(3 - discount), 3))
     }
@@ -234,7 +235,7 @@ object RWRCards {
     object WindowOfOpportunity extends NC("34077") {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => (c.data.isProgram || c.data.isHardware) && g.canAffordInstall(c, 0))
+            val l = g.gripCards.%(c => (c.data.isProgram || c.data.isHardware) && g.canAffordInstall(c, 0))
             l.any.$(ChooseCardEffect(Runner, l, InstallPayingPurpose(0, None, false), "Window of Opportunity: install a program or piece of hardware?", true)) :+ RunAnyServerEffect(|(self), g.servers)
         }
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -284,17 +285,12 @@ object RWRCards {
     object Cupellation extends NC("34080") {
         def hostedCorp(self : Card)(implicit g : Game) = g.hosted(self).%(c => g.owner(c).isCorp)
         override def accessAbility(self : Card, target : Card)(implicit g : Game) =
-            (!target.data.isAgenda && hostedCorp(self).none && !g.zone(target).is[DiscardZone]).?(Ability("host the accessed card on Cupellation", c(1), $(HostOnEffect(target, self, true))))
+            // an access ability, also on cards accessed in Archives (the engine offers "host" access abilities there)
+            (!target.data.isAgenda && hostedCorp(self).none).?(Ability("host the accessed card on Cupellation", c(1), $(HostOnEffect(target, self, true))))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case BreachServer(HQ) if hostedCorp(self).any && g.credits(Runner) >= 1 =>
-                $(OptionalEffect(Runner, "Cupellation: pay 1 credit and trash it to access 2 additional cards?", $(LoseCreditsEffect(Runner, 1), AccessBonusEffect(HQ, 2), TrashEffect(self, Runner, false)), $))
-            case RunEnds(Archives, true, _) if hostedCorp(self).none && g.credits(Runner) >= 1 && g.discard(Corp).%(c => g.state(c).seen && !c.data.isAgenda).any =>
-                $(ChooseCardEffect(Runner, g.discard(Corp).%(c => g.state(c).seen && !c.data.isAgenda), CupellationPurpose(self), "Cupellation: pay 1 credit to host a card from Archives?", true))
+            case BreachServer(HQ) if hostedCorp(self).any && g.canSpend(Runner, 1, Spend.ability(self)) =>
+                $(OptionalEffect(Runner, "Cupellation: pay 1 credit and trash it to access 2 additional cards?", $(SpendEffect(Runner, 1, Spend.ability(self), 0, $(TrashEffect(self, Runner, false), AccessBonusEffect(HQ, 2)))), $))
             case _ => $
-        }
-        override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.single.foreach(c => g.push(LoseCreditsEffect(Runner, 1), HostOnEffect(c, p.card, true)))
-            NextAction
         }
     }
 
@@ -312,9 +308,9 @@ object RWRCards {
         override def mustBeHosted(self : Card)(implicit g : Game) = true
         override def hostRequirement(self : Card, host : Card)(implicit g : Game) = host.data.isIce
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(ice) if g.state(self).host.has(ice) && !g.has(ice, "Barrier") && g.credits(Runner) >= g.subs(ice).num =>
+            case EncounterIce(ice) if g.state(self).host.has(ice) && !g.has(ice, "Barrier") && g.canSpend(Runner, g.subs(ice).num, Spend.effect(|(self))) =>
                 val n = g.subs(ice).num
-                $(OptionalEffect(Runner, "Physarum Entangler: pay " + n + " credits to bypass this ice?", $(LoseCreditsEffect(Runner, n), BypassEffect), $))
+                $(OptionalEffect(Runner, "Physarum Entangler: pay " + n + " credits to bypass this ice?", $(SpendEffect(Runner, n, Spend.effect(|(self)), 0, $(BypassEffect))), $))
             case Purged(_) => $(TrashEffect(self, Runner, false))
             case _ => $
         }
@@ -416,14 +412,9 @@ object RWRCards {
             $(Ability("breach R&D", $(ClickCost(1), CounterCost("power", 1)), $(CataloguerBreachAction(self)), click = true, ok = g.successfulRunsThisTurn.has(RnD) && g.run.none, reason = "needs a successful run on R&D this turn"))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case CataloguerBreachAction(self) =>
-                if (g.run.none) {
-                    val r = new Run(RnD, |(self), false)
-                    r.position = 0
-                    r.phase = AccessPhase
-                    r.successful = true
-                    g.run = |(r)
-                    g.push(BreachAction(RnD))
-                }
+                // a breach outside a run: no run begins or ends (BreachServerEffect's access-only pseudo-run)
+                if (g.run.none)
+                    g.push(BreachServerEffect(RnD))
                 NextAction
         }
     }
@@ -481,7 +472,16 @@ object RWRCards {
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
+            // the Runner resolves Pretty Mary last among the breach abilities: the check waits until the cards are about to be
+            // accessed (just before AccessServerAction), so every access bonus of this breach is known
             case MaryAction(self) =>
+                val i = g.pending.indexWhere(_ == AccessServerAction(RnD))
+                if (i > 0)
+                    g.pending = g.pending.take(i) ++ $(MaryCheckAction(self)) ++ g.pending.drop(i)
+                else
+                    g.push(MaryCheckAction(self))
+                NextAction
+            case MaryCheckAction(self) =>
                 if (g.run.exists(r => 1 + r.accessBonusFor("R&D") + r.accessBonusFor("total") >= 2))
                     g.push(OptionalEffect(Runner, "Pretty Mary: access 1 additional card?", $(AccessBonusEffect(RnD, 1)), $))
                 NextAction
@@ -650,15 +650,22 @@ object RWRCards {
             val l = g.hand(Corp).%(corpInstallable)
             l.any.$(ChooseCardEffect(Corp, l, InstallChooseServerPurpose(false), "Active Policing: install a card from HQ?", true)) ++
             $(ExtraClicksEffect(Runner, -1)) ++
-            g.threat(3).$(OptionalEffect(Corp, "Active Policing: pay 2 credits to give the Runner another -1 allotted click?", $(LoseCreditsEffect(Corp, 2), ExtraClicksEffect(Runner, -1)), $)) :+
+            g.threat(3).$(ActivePolicingOfferAction(self)) :+
             EndActionPhaseEffect
+        }
+        // the payment is offered when it resolves (after the install), through the credit engine
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case ActivePolicingOfferAction(self) =>
+                if (g.canSpend(Corp, 2, Spend.effect(|(self))))
+                    g.push(OptionalEffect(Corp, "Active Policing: pay 2 credits to give the Runner another -1 allotted click?", $(SpendEffect(Corp, 2, Spend.effect(|(self)), 0, $(ExtraClicksEffect(Runner, -1)))), $))
+                NextAction
         }
     }
 
     object CorporateHospitality extends NC("34103") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 2
+        override def canPlay(self : Card)(implicit g : Game) = g.fnsDoubleCanPlay(Corp)
         override def onPlay(self : Card)(implicit g : Game) =
-            $(LoseClicksEffect(Corp, 1), gain(Corp, 6), draw(Corp, 2)) ++ g.discard(Corp).any.$(ChooseCardEffect(Corp, g.discard(Corp), AddToHandPurpose(Corp, false), "Corporate Hospitality: add a card from Archives to HQ", true))
+            g.fnsDoubleCost(Corp) ++ $(gain(Corp, 6), draw(Corp, 2)) ++ g.discard(Corp).any.$(ChooseCardEffect(Corp, g.discard(Corp), AddToHandPurpose(Corp, false), "Corporate Hospitality: add a card from Archives to HQ", true))
     }
 
     object BrasiliaGovernmentGrid extends NC("34104") {
@@ -682,7 +689,7 @@ object RWRCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(ice) if g.isRezzed(ice) && (g.has(ice, "Code Gate") || g.has(ice, "Sentry")) && !g.usedThisTurn(self, "sisyphus") =>
                 $(MarkUsedEffect(self, "sisyphus"), ChooseOneEffect(Corp, "Sisyphus Protocol: make the Runner encounter the ice again?", $(
-                    Alt("Pay 1 credit", $(LoseCreditsEffect(Corp, 1), ForceEncounterEffect(ice)), g.credits(Corp) >= 1),
+                    Alt("Pay 1 credit", $(SpendEffect(Corp, 1, Spend.effect(|(self)), 0, $(ForceEncounterEffect(ice)))), g.canSpend(Corp, 1, Spend.effect(|(self)))),
                     Alt("Trash 1 card from HQ", $(CorpTrashFromHandEffect(1), ForceEncounterEffect(ice)), g.hand(Corp).any),
                     Alt("Done", $))))
             case _ => $
@@ -757,8 +764,15 @@ object RWRCards {
         override def canPlay(self : Card)(implicit g : Game) = g.regLast("runner-trash") > 0 || g.regLast("stolen-points") > 0
         override def onPlay(self : Card)(implicit g : Game) =
             g.hand(Runner).any.$(RandomPickEffect(Corp, g.hand(Runner), 2, BringThemHomePurpose(self))) ++
-            g.threat(3).$(OptionalEffect(Corp, "Bring Them Home: pay 2 credits to shuffle a random card from the grip into the stack?", $(LoseCreditsEffect(Corp, 2), RandomPickEffect(Corp, g.hand(Runner), 1, BringThemHomeShufflePurpose(self))), $)) :+
+            g.threat(3).$(BringThemHomeShuffleAction(self)) :+
             EndActionPhaseEffect
+        // the optional payment and the random card are decided when that part resolves (after the first 2 cards moved)
+        override def perform(a : CardAction)(implicit g : Game) = a match {
+            case BringThemHomeShuffleAction(self) =>
+                if (g.canSpend(Corp, 2, Spend.effect(|(self))) && g.hand(Runner).any)
+                    g.push(OptionalEffect(Corp, "Bring Them Home: pay 2 credits to shuffle a random card from the grip into the stack?", $(SpendEffect(Corp, 2, Spend.effect(|(self)), 0, $(RandomPickEffect(Corp, g.hand(Runner), 1, BringThemHomeShufflePurpose(self))))), $))
+                NextAction
+        }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
             case BringThemHomePurpose(_) =>
                 g.pushAll(RevealCardsEffect(Corp, cards) +: cards./(c => MoveEffect(c, DeckZone(Runner), true)))
@@ -839,8 +853,8 @@ object RWRCards {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case SuddenCommandmentThreatAction(self, first) =>
-                if (first && g.threat(3) && g.credits(Corp) >= 3)
-                    g.push(OptionalEffect(Corp, "Sudden Commandment: pay 3 credits to gain a click?", $(LoseCreditsEffect(Corp, 3), GainClicksEffect(Corp, 1)), $))
+                if (first && g.threat(3) && g.canSpend(Corp, 3, Spend.effect(|(self))))
+                    g.push(OptionalEffect(Corp, "Sudden Commandment: pay 3 credits to gain a click?", $(SpendEffect(Corp, 3, Spend.effect(|(self)), 0, $(GainClicksEffect(Corp, 1)))), $))
                 NextAction
         }
     }
@@ -869,6 +883,8 @@ object RWRCards {
             case PlayResolved(Corp, _) if g.deck(Corp).any => $(NuvemLookAction(self))
             case ExpendResolved(_) if g.deck(Corp).any => $(NuvemLookAction(self))
             case DeckTrashed(Corp, _) if g.active.isCorp && g.reg("trashed-from-deck-Corp") > 0 && !g.usedThisTurn(self, "nuvem") => $(MarkUsedEffect(self, "nuvem"), gain(Corp, 2))
+            // any other card the Corp trashes from R&D during its turn
+            case Trashed(c, Corp, _) if g.active.isCorp && g.fnsTrashedFrom(c).has(DeckZone(Corp)) && !g.usedThisTurn(self, "nuvem") => $(MarkUsedEffect(self, "nuvem"), gain(Corp, 2))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {

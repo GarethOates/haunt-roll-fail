@@ -26,11 +26,13 @@ Partially implemented / simplified:
 * **Sneakdoor Beta** — fixed: the server is changed to HQ when the run would be declared successful (`RunWouldSucceed`, see
   `STATUS-fix-prevention.md`).
 * **Ayla** — the 4 set-aside cards are hosted on the identity (drawn under it for their owner); the `[click]` ability works.
-* **Atman** — the break option is simply absent (not greyed out) when the ice strength differs.
-* **Oaktown Renovation** — installed faceup by marking it rezzed+seen (so its advance trigger is active).
-* **Corporate Town / Archer** — the forfeit happens right after the rez (`ForfeitEffect`) instead of as a cost before it; the rez
-  option is unavailable without a scored agenda (`canRez`).
-* **Marilyn Campaign** — "shuffle into R&D instead" is offered after the card reached Archives (it is still trashed).
+* **Atman** — the break option is absent when the ice strength differs (the ability cannot be used, as jinteki's `:req`); the
+  install payment is spent through the credit engine (final NSG pass, `STATUS-fix-final-nsg.md`).
+* **Oaktown Renovation** — installed faceup by marking it rezzed+seen (= jinteki's `:install-state :face-up`).
+* **Corporate Town / Archer** — fixed (final NSG pass): the forfeit is an additional cost paid before the rez on every rez path
+  (`FnsExtraRezCost`), none when rezzed ignoring all costs; the rez option is unavailable without a scored agenda (`canRez`).
+* **Marilyn Campaign** — "shuffle into R&D instead" is offered when it is trashed; it is still considered trashed (printed
+  reminder), as jinteki: exact.
 * **Reina Roja** — "first ice rezzed each turn" uses a register incremented by a `Rezzed` trigger (correct for sequential rezzes).
 
 ### ms (65/65 implemented, including the eternal-only Sable, Endurance, Drago Ivanov, Extract)
@@ -50,21 +52,22 @@ Partially implemented / simplified:
   damage trigger is gone) and also triggers on mill / random / card-effect trashes from the grip (not on the end-of-turn
   discard, which is not a trash); **Ob Superheavy Logistics** ignores trashes during an installation and is once per turn only
   when used.)
-* **Azef Protocol** — the "trash another installed card" additional cost is paid right after scoring (and scoring is blocked
-  without another installed card via `preventsScoring`).
+* **Azef Protocol** — fixed (final NSG pass): the "trash another installed card" additional cost is paid before the agenda is
+  scored (`FnsExtraScoreCost`); scoring is blocked without another installed card (`preventsScoring`).
 * **Light the Fire!** — cards in the root lose all abilities through the `DisabledImpl` wrapper (static modifiers included).
-* **Mitosis** — "cannot score or rez this turn" uses per-card `usedTurn` markers (`cannot-score`, `cannot-rez`), which are
-  cleared at the start of the next turn.
+* **Mitosis** — "cannot score or rez this turn" uses per-card `usedTurn` markers (`cannot-score`, `cannot-rez`), cleared at the
+  start of the next turn (exact); its additional [click] is spent as a double operation (Synchrocyclotron applies, final NSG pass).
 * **Anemone**, **Hakarl 1.0**, **Trieste**: as jinteki (the HQ card trashed as a cost goes facedown; bioroid ice paid abilities
   blocked for the turn; Runner card breaks blocked, identity abilities allowed).
-* **Mystic Maemi** — the end-of-turn choice is forced only when hosted credits >= 3; "take 1 credit" paid ability included.
+* **Mystic Maemi** — the end-of-turn choice is forced only when hosted credits >= 3 (printed); the non-printed "take 1 credit"
+  ability was removed (final NSG pass): its credits pay for events through the credit engine.
 
 ### urbp (7/7 implemented)
 
 Mystic Maemi, Swift, Cybertrooper Talut, Megaprix Qualifier, La Costa Grid, Digital Rights Management, Cayambe Grid.
-* **Cayambe Grid** — the Runner is asked to pay 2 x advanced ice or end the run on approach; paying 0 is offered when no ice is
-  advanced (jinteki does the same).
-* **Megaprix Qualifier** — the extra point is granted whenever it has an agenda counter (counters are only placed on score).
+* **Cayambe Grid** — no prompt when no ice is advanced; paying is a Corp-imposed payment through the credit engine (final NSG
+  pass).
+* **Megaprix Qualifier** — the extra point while it has an agenda counter (printed text; exact).
 
 ## New generic mechanics (`rules-ext-su21.scala`)
 
