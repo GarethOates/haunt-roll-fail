@@ -115,20 +115,14 @@ Status entries that were already exact: 33075 Concerto and 34019 Debbie (their t
 * No prompt to choose the credit sources (see "Payment order").
 * 26113 GameNET: "a Corp card ability causes the Runner to lose credits" — losses (`LoseCreditsEffect`) carry no source, so any
   credit loss of the Runner during a run still counts.
-* 25009 Patchwork: still a once-per-turn "prepay" ability (the reduction needs a choice of the grip card in the middle of a
-  payment; payments are not asks).
+* 25009 Patchwork: an interrupt of the basic actions (prevention pass) and of plays / installs by card effects (final rotated
+  pass); the once-per-turn "prepay" ability remains only to make a card affordable in the basic menus.
 * 35074 Biawak: the "forfeit an agenda to pay 10" alternative is still forced when an agenda is scored (needs a choice before
   the rez is paid).
-* Secret spending (Push Your Luck, Rigged Results) uses the pool only (spending hosted credits would reveal part of the amount
-  in the log).
-* 06039 LLDS Energy Regulator's "pay 3" checks the credits usable for its ability but pays with `PayCreditsEffect` (Spend.other):
-  left alone because the prevention pass owns that card.
-* A few card-specific pre-checks still look at the pool only (Bling's play/install list, Executive Boot Camp, Councilman); their
-  payments use the pool as well, so they are consistent, just stricter than the rules.
-* Net Watchlist taxes break and pump abilities only (not other paid abilities of icebreakers).
-* Sahasrara's credits can be counted for a program whose installation trashes Sahasrara (the trash happens first, so they are
-  not actually spent; the option may be offered and then paid from the pool).
-* Armored Servers' grip-card break cost is unchanged (not a credit cost).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: secret spending (Push Your Luck, Rigged Results) uses every source that can pay for the event, paid when the
+  amount is revealed; Bling, Executive Boot Camp and Councilman check / pay through the credit engine; Net Watchlist taxes every paid
+  ability of an icebreaker; Sahasrara's credits do not pay for a program that would need Sahasrara to be trashed; Armored Servers'
+  grip cards are paid before the break. 06039 LLDS Energy Regulator's 3 credits are an ability `CreditCost` since the integration.)
 
 ## Shared-file edits (for merging)
 

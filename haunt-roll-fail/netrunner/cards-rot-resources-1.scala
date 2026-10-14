@@ -52,6 +52,7 @@ case class JarogniewAction(card : Card) extends CardAction
 case class LevyAction(card : Card) extends CardAction
 case class LevyPurpose(card : Card, revealed : $[Card]) extends CardPurpose
 case class LevyBottomAction(card : Card, cards : $[Card]) extends CardAction
+case class LevyOrderPurpose(card : Card, cards : $[Card]) extends CardPurpose
 case class LewiAction(card : Card) extends CardAction
 case class ChelaAction(card : Card) extends CardAction
 case class ChelaForfeitPurpose(card : Card) extends CardPurpose
@@ -395,16 +396,16 @@ object RotResourceCards1 {
 
     object Councilman extends RR("10047") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Rezzed(c) if (c.data.isAsset || c.data.isUpgrade) && g.credits(Runner) >= g.rezCost(c) =>
+            case Rezzed(c) if (c.data.isAsset || c.data.isUpgrade) && g.canSpend(Runner, g.rezCost(c), Spend.ability(self)) =>
                 $(OptionalEffect(Runner, "Councilman: pay " + g.rezCost(c) + " credits and trash Councilman to derez " + g.promptTitle(c) + "?", $(CouncilmanAction(self, c)), $))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case CouncilmanAction(self, c) =>
                 val cost = g.rezCost(c)
-                if (g.credits(Runner) >= cost && g.isInstalled(self)) {
+                if (g.canSpend(Runner, cost, Spend.ability(self)) && g.isInstalled(self)) {
                     g.log(Runner, "uses", self, "to derez", c)
-                    g.push(LoseCreditsEffect(Runner, cost), TrashEffect(self, Runner, false), DerezEffect(c), MarkUsedEffect(c, "cannot-rez"))
+                    g.push(SpendEffect(Runner, cost, Spend.ability(self), 0, $), TrashEffect(self, Runner, false), DerezEffect(c), MarkUsedEffect(c, "cannot-rez"))
                 }
                 NextAction
         }
@@ -766,9 +767,8 @@ object RotResourceCards1 {
         }
     }
 
-    object HernandoCortez extends RR("11004") {
-        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (card.data.isIce && g.credits(Corp) >= 10).?(g.subs(card).num).|(0)
-    }
+    // "as an additional cost to rez each piece of ice": paid on every rez that does not ignore all costs (FinalRotRules.frRezSurcharge)
+    object HernandoCortez extends RR("11004")
 
     object HumanFirst extends RR("07048") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
@@ -854,7 +854,8 @@ object RotResourceCards1 {
     object Jackpot extends RR("21090") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(AddCounterEffect(self, "credit", 1))
-            case AgendaStolen(_) if g.isInstalled(self) && g.counter(self, "credit") > 0 => $(OptionalEffect(Runner, "Jackpot!: trash it to take hosted credits?", $(JackpotAction(self)), $))
+            // "Whenever an agenda is added to your score area" (stolen or added by a card ability: FinalRotRules.FrAddedToScoreArea)
+            case FrAddedToScoreArea(c, Runner) if c.data.isAgenda && g.isInstalled(self) && g.counter(self, "credit") > 0 => $(OptionalEffect(Runner, "Jackpot!: trash it to take hosted credits?", $(JackpotAction(self)), $))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
@@ -948,19 +949,32 @@ object RotResourceCards1 {
                 else
                     g.push(RevealCardsEffect(Runner, l), LevyBottomAction(self, l))
                 NextAction
+            // "Add the rest of the cards to the bottom of your stack in any order": the Runner adds them one at a time
             case LevyBottomAction(self, l) =>
                 val rest = l.%(c => g.zone(c) == DeckZone(Runner))
-                rest.foreach(c => g.moveTo(c, DeckZone(Runner)))
-                if (rest.any)
-                    g.log(Runner, "adds", rest.num.cards, "to the bottom of the stack")
+                if (rest.num > 1)
+                    g.push(ChooseCardEffect(Runner, rest, LevyOrderPurpose(self, rest), "Levy Advanced Research Lab: choose the next card to add to the bottom of the stack", false))
+                else
+                    rest.foreach { c =>
+                        g.moveTo(c, DeckZone(Runner))
+                        g.log(Runner, "adds", c, "to the bottom of the stack")
+                    }
                 NextAction
         }
-        override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.single.foreach { c =>
-                g.log(Runner, "adds", c, "to the grip")
-                g.moveTo(c, HandZone(Runner))
-            }
-            NextAction
+        override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
+            case LevyOrderPurpose(self, rest) =>
+                cards.single.foreach { c =>
+                    g.moveTo(c, DeckZone(Runner))
+                    g.log(Runner, "adds", c, "to the bottom of the stack")
+                    g.push(LevyBottomAction(self, rest.but(c)))
+                }
+                NextAction
+            case _ =>
+                cards.single.foreach { c =>
+                    g.log(Runner, "adds", c, "to the grip")
+                    g.moveTo(c, HandZone(Runner))
+                }
+                NextAction
         }
     }
 

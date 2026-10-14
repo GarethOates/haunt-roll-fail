@@ -36,7 +36,7 @@ abstract class PT(c : String) extends SG(c) {
         g.canSpend(Runner, (g.installCost(c, None) - discount).atLeast(0), Spend.install(c)) && (!c.data.isProgram || g.memoryFree >= c.data.memory.|(0)) && (!g.impl(c).mustBeHosted(c) || g.allIce.exists(h => g.impl(c).hostRequirement(c, h)))
 
     def clickOrEtr(label : String)(implicit g : Game) =
-        ChooseOneEffect(Runner, label, $(Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) >= 1), Alt("End the run", $(EndRunEffect))))
+        ChooseOneEffect(Runner, label, $(Alt("Spend [click]", $(FrSpendClicksEffect(Runner, 1)), g.clicks(Runner) >= 1), Alt("End the run", $(EndRunEffect))))
 }
 
 // card specific actions and purposes
@@ -457,7 +457,7 @@ object PHCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case AgendaStolen(_) =>
                 $(ChooseOneEffect(Runner, "Thule Subsea: choose one", $(
-                    Alt("Spend [click] and 2 credits", $(LoseClicksEffect(Runner, 1), LoseCreditsEffect(Runner, 2)), g.clicks(Runner) >= 1 && g.credits(Runner) >= 2),
+                    Alt("Spend [click] and 2 credits", $(FrSpendClicksEffect(Runner, 1), LoseCreditsEffect(Runner, 2)), g.clicks(Runner) >= 1 && g.credits(Runner) >= 2),
                     Alt("Suffer 1 core damage", $(core(1))))))
             case _ => $
         }
@@ -797,7 +797,8 @@ object PHCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if g.isRezzed(self) && g.serverOf(ice).exists(s => thisServer(self, s)) && !g.isDisabled(ice) && g.impl(ice).subroutines(ice).any =>
                 val subs = g.impl(ice).subroutines(ice)
-                $(OptionalEffect(Corp, "ZATO City Grid: trash the encountered ice to resolve 1 of its subroutines?", $(ChooseOneEffect(Corp, "ZATO City Grid: choose a subroutine", subs./(s => Alt(s.label, $(TrashEffect(ice, Corp, false), s.effect))))), $))
+                // a "when encountered" ability gained by the ice: it can be prevented (Hunting Grounds, AirbladeX; FinalRotRules)
+                $(FrGrantedEncounterEffect(ice, $(OptionalEffect(Corp, "ZATO City Grid: trash the encountered ice to resolve 1 of its subroutines?", $(ChooseOneEffect(Corp, "ZATO City Grid: choose a subroutine", subs./(s => Alt(s.label, $(TrashEffect(ice, Corp, false), s.effect))))), $))))
             case _ => $
         }
     }

@@ -97,13 +97,14 @@ If another worktree also overrides one of these, both compose as long as each ca
   every agenda counter spent (`AgendaCounterSpent`); Jeeves Model Bioroids sums the clicks spent per action (`ClicksSpent`, a
   double operation spends 2); Sundew reacts to the first click spent (any action, ability or bioroid break) and to a run on its
   server beginning during that action; Ibrahim Salem's forfeit is not asked when rezzed ignoring all costs.)
-* Genetics Pavilion caps draws at 2 per Runner turn ignoring draw bonuses. (Blacklist now locks the heap for every move and The
-  News Now Hour blocks current events on every play path (see `STATUS-fix-restrictions.md`).)
-* Warden Fatuma, Lt. Todachine 2 (−1 access on HQ/R&D only while tagged, never below 1), Ibrahim Salem (forfeit as an on-rez
-  effect), Lakshmi Smartfabrics (protection lasts while Lakshmi is active this turn),
-  IT Department (strength bonus fixed at use time), Full Immersion RecStudio (trash cost bonus only while rezzed), Bioroid Work
-  Crew (usable in the Corp's turn, like jinteki), Mumbad Construction Co. (moves to rezzed Corp cards only), Toshiyuki Sakai (no
-  install event for the swapped card), Trojan follows jinteki (the Corp loses 2 credits).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Genetics Pavilion's cap includes draw bonuses; Ibrahim Salem's forfeit is an additional cost paid before the
+  rez; Lakshmi Smartfabrics' protection lasts for the turn; IT Department's bonus follows its counters; Bioroid Work Crew only in the
+  next paid ability window after an operation; Mumbad Construction Co. moves tokens to any faceup card; Executive Boot Camp checks
+  the rez through the credit engine.) (Blacklist locks the heap for every move and The News Now Hour blocks current events on every
+  play path, see `STATUS-fix-restrictions.md`.)
+* As printed or as jinteki (not approximations): Warden Fatuma (front), Lt. Todachine 2 (−1 access on HQ/R&D only while tagged, never
+  below 1, as jinteki), Full Immersion RecStudio (trash cost bonus only while rezzed: a constant ability), Toshiyuki Sakai (a swap,
+  no install event, as jinteki), Trojan (the Corp loses 2 credits, as jinteki).
 * Shock!/Space Camp/News Team/Breached Dome/Honeyfarm/Shi.Kyū resolve in Archives through `RotAssetTriggers` (`Accessed` event);
   "must be revealed while accessed in R&D" needs nothing (accessed cards are always shown).
 * Edge of World / ambush prompts use ASCII titles (Shi.Kyu, Elizas Toybox) in action strings.

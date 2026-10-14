@@ -218,7 +218,8 @@ object RotEventCards2 {
             case _ => $
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.foreach(c => g.trashCard(c, Runner, false))
+            // "Trashing a program this way cannot be prevented"
+            g.withTrashCause("unpreventable")(cards.foreach(c => g.trashCard(c, Runner, false)))
             NextAction
         }
     }
@@ -721,7 +722,7 @@ object RotEventCards2 {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Accessed(c) if thisCardRun(self) && g.run.exists(_.successful) && !c.data.isAgenda && !g.state(self).usedRun.has("burn") && g.state(self).memo == "" =>
                 $(MarkUsedRunEffect(self, "burn"), SetMemoEffect(self, c.code), MessageEffect(Runner, "removes the accessed card from the game (Watch the World Burn)"), RfgAccessedEffect(c))
-            case Accessed(c) if g.state(self).memo != "" && c.title == Cards(g.state(self).memo).title && !g.zone(c).is[DiscardZone] =>
+            case Accessed(c) if g.state(self).memo != "" && c.title == Cards(g.state(self).memo).title =>
                 $(MessageEffect(Runner, "removes the accessed card from the game (Watch the World Burn)"), RfgAccessedEffect(c))
             case _ => $
         }
@@ -778,7 +779,7 @@ object RotEventCards2 {
         override def creditsUsableForRun(self : Card)(implicit g : Game) = thisCardRun(self)
         override def onPlay(self : Card)(implicit g : Game) = $(runAny(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case RunEnds(_, _, _) if thisCardRun(self) => $(MessageEffect(Runner, "suffers 1 core damage (Stimhack)"), DamageApplyEffect("core", 1))
+            case RunEnds(_, _, _) if thisCardRun(self) => $(MessageEffect(Runner, "suffers 1 core damage (Stimhack)"), FrUnpreventableDamageEffect("core", 1))
             case _ => $
         }
     }

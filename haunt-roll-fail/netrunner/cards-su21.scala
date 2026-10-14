@@ -122,7 +122,7 @@ object SU21Cards {
     object Imp extends Ext("31007") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("virus" -> 2)
         override def accessAbility(self : Card, target : Card)(implicit g : Game) =
-            (!g.zone(target).is[DiscardZone] && g.run.exists(!_.cannotStealOrTrash)).?(Ability("trash the accessed card", $(VirusCost(1)), $(TrashEffect(target, Runner, true)), once = once("imp"), ok = !g.usedThisTurn(self, "imp") && g.counter(self, "virus") > 0, reason = "once per turn, needs a virus counter"))
+            (!g.zone(target).is[DiscardZone] && g.run.exists(!_.cannotStealOrTrash)).?(Ability("trash the accessed card", $(VirusCost(1)), $(TrashEffect(target, Runner, true)), once = once("imp"), ok = !g.usedThisTurn(self, "imp") && g.virusCounters(self) > 0, reason = "once per turn, needs a virus counter"))
     }
 
     object Mimic extends Ext("31008") {

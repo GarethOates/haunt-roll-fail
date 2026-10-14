@@ -392,15 +392,22 @@ object RotAssetCardsA {
     }
 
     object ITDepartment extends RA("06103") {
+        def itUses(self : Card)(implicit g : Game) : $[String] = g.state(self).memo.split(',').toList.%(_.startsWith(g.turn + "/"))
+        override def iceStrengthMod(self : Card, ice : Card)(implicit g : Game) = itUses(self).count(_ == g.turn + "/" + ice.code + "/" + ice.n) * g.counter(self, "power")
         override def abilities(self : Card)(implicit g : Game) = {
             val n = g.counter(self, "power")
             $(
                 Ability("place 1 power counter", click(), $(AddCounterEffect(self, "power", 1)), click = true),
-                Ability("give a rezzed piece of ice +" + n + " strength for the remainder of the turn", $(CounterCost("power", 1)), $(ChooseCardEffect(Corp, g.rezzedIce, RAITDeptPurpose(self, n), "IT Department: choose a rezzed piece of ice", false)), ok = g.rezzedIce.any, reason = "no rezzed ice"))
+                Ability("give a rezzed piece of ice +1 strength for each power counter on IT Department for the remainder of the turn", $(CounterCost("power", 1)), $(ChooseCardEffect(Corp, g.rezzedIce, RAITDeptPurpose(self, n), "IT Department: choose a rezzed piece of ice", false)), ok = g.rezzedIce.any, reason = "no rezzed ice"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
-            case RAITDeptPurpose(_, n) =>
-                cards.single.foreach(c => g.push(PumpIceEffect(c, n, TurnDuration)))
+            // "+1 strength until the end of the turn for each power counter (including the one spent) on IT Department": +1 for
+            // the spent counter, and +1 per counter IT Department has at any time this turn (iceStrengthMod)
+            case RAITDeptPurpose(self, _) =>
+                cards.single.foreach { c =>
+                    g.push(PumpIceEffect(c, 1, TurnDuration))
+                    g.state(self).memo = itUses(self) ++ $(g.turn + "/" + c.code + "/" + c.n) mkString ","
+                }
                 NextAction
         }
     }
@@ -751,12 +758,11 @@ object RotAssetCardsA {
             cards.single.foreach { c =>
                 val x = c.data.agendaPoints.|(0)
                 g.addCounter(self, "power", -x)
-                g.state(self).memo = g.turn.toString + "/" + g.active.name + ":" + (protectedCodes(self) :+ c.code).mkString(",")
-                g.push(RevealEffect(Corp, c), MessageEffect(Corp, "prevents the Runner from stealing copies of the revealed agenda this turn"))
+                // "for the remainder of this turn" (even if Lakshmi Smartfabrics leaves play): a turn flag (FinalRotRules.accessProtected)
+                g.push(RevealEffect(Corp, c), MessageEffect(Corp, "prevents the Runner from stealing copies of the revealed agenda this turn"), AddFlagEffect(g.turnFlag("fr-lakshmi", |(c))))
             }
             NextAction
         }
-        override def protectsFromAccess(self : Card, target : Card)(implicit g : Game) = target.data.isAgenda && protectedCodes(self).exists(code => Cards(code).title == target.title)
     }
 
     object PalanaAgroplex extends RA("10031") {
@@ -772,7 +778,8 @@ object RotAssetCardsA {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.installedCards(Corp).%(c => c != self && g.isRezzed(c))
+            // "a faceup card": rezzed Corp cards and faceup installed Runner cards
+            val l = g.installedCards(Corp).%(c => c != self && g.isRezzed(c)) ++ g.installedCards(Runner).%(c => !g.state(c).facedown)
             $(Ability("move 1 advancement counter to a faceup card", c(2), $(ChooseCardEffect(Corp, l, RAMumbadConstructionPurpose(self), "Mumbad Construction Co.: choose a faceup card", false)), ok = g.advancement(self) > 0 && l.any, reason = "no advancement counter"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {

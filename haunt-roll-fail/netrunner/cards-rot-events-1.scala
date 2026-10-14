@@ -348,7 +348,7 @@ object RotEventCards1 {
                 g.push(ChooseOneEffect(Corp, "Push Your Luck: did the Runner spend an even or an odd amount?", $(Alt("Even", $(PushLuckResolveAction(self, n, true))), Alt("Odd", $(PushLuckResolveAction(self, n, false))))))
                 NextAction
             case PushLuckResolveAction(self, n, even) =>
-                g.credits += Runner -> (g.credits(Runner) - n)
+                g.spendCredits(Runner, n, Spend.effect(|(self)))
                 g.log(Runner, "spent", n.credits)
                 if ((n % 2 == 0) == even)
                     g.log(Corp, "guessed correctly")
@@ -511,7 +511,7 @@ object RotEventCards1 {
     }
 
     object AmpedUp extends RE("07031") {
-        override def onPlay(self : Card)(implicit g : Game) = $(GainClicksEffect(Runner, 3), DamageApplyEffect("core", 1))
+        override def onPlay(self : Card)(implicit g : Game) = $(GainClicksEffect(Runner, 3), FrUnpreventableDamageEffect("core", 1))
     }
 
     object IveHadWorse extends RE("07032") {
@@ -823,7 +823,10 @@ object RotEventCards1 {
 
     object Rebirth extends RE("10083") {
         def candidates(implicit g : Game) : $[String] = g.identity.get(Runner).$./~ { id =>
-            Cards.all.%(c => c.isIdentity && c.side == "Runner" && c.faction == id.data.faction && !c.code.startsWith("00") && c.title != id.title && c.legal.any)./(_.code)
+            // the formats of the game = the formats in which every card of the Runner's deck (identity included) is legal
+            val deck = (id.code +: g.decks.get(Runner).|($)).distinct./~(Cards.get)
+            val formats = deck./(_.legal.toSet).reduceOption(_ intersect _).|(Set[String]())
+            Cards.all.%(c => c.isIdentity && c.side == "Runner" && c.faction == id.data.faction && !c.code.startsWith("00") && c.title != id.title && c.legal.any && (formats.none || c.legal.exists(formats.contains)))./(_.code)
         }
         override def canPlay(self : Card)(implicit g : Game) = candidates.any
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseCodeEffect(Runner, candidates, "Rebirth: choose an identity of the same faction", RebirthPurpose(self)), RemoveFromGameEffect(self))
@@ -870,7 +873,7 @@ object RotEventCards1 {
                 g.push(ChooseOneEffect(Corp, "Rigged Results: how many credits did the Runner spend?", 0.to(2).$./(k => Alt(k.toString, $(RiggedResolveAction(self, n, k))))))
                 NextAction
             case RiggedResolveAction(self, n, k) =>
-                g.credits += Runner -> (g.credits(Runner) - n)
+                g.spendCredits(Runner, n, Spend.effect(|(self)))
                 g.log(Runner, "spent", n.credits, "and", Corp, "guessed", k.hl)
                 if (n != k && g.allIce.any)
                     g.push(ChooseCardEffect(Runner, g.allIce, RiggedIcePurpose(self), "Rigged Results: choose a piece of ice to bypass and run its server", false))

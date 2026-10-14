@@ -53,28 +53,23 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
 
 * (Fixed in the credits pass, `STATUS-fix-credits.md`: stealth costs of Dagger, Refractor, Switchblade, Dai V, Houdini, Blackstone,
   BlacKat and Fawkes are `StealthCreditCost`s; Cloak, Multithreader and Sahasrara credits pay only for using icebreakers / using
-  programs / installing programs; Pheromones' credits pay for anything during HQ runs as printed.) Sahasrara's credits can still
-  count towards a program whose installation trashes Sahasrara (the trash happens first, so they are not spent).
-* Hivemind: its counters are counted and spent by the virus programs of this list (`virusCounters`, `SpendVirusEffect`:
-  Nerve Agent, Medium, Darwin, Datasucker, Gravedigger, Hemorrhage, Cache, God of War, Crypsis, Trypano, Parasite,
-  Consume); virus cards of other sets (Leech, ...) do not see them.
-* Yusuf / Musaazi "any virus counter": the break spends a counter of any installed card (the Runner chooses when several
-  cards have counters); the pump is a normal `Pump` while the breaker hosts a counter, otherwise an ability that spends a
-  counter of another card.
+  programs / installing programs; Pheromones' credits pay for anything during HQ runs as printed.) (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Sahasrara's credits do
+  not pay for a program whose memory would need Sahasrara to be trashed, and it cannot be trashed for that install.)
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Hivemind's counters count and pay for every virus program,
+  `VirusCost` included (paid abilities ask how many come from Hivemind); Yusuf / Musaazi's pump is "any virus counter" too.)
+  Remaining: a `VirusCost` of a break / pump ability spends the program's own counters first, then Hivemind's, without a choice.
 * Harbinger: when trashed from play it is installed facedown from the heap (facedown programs use no MU; Blacklist does not
-  stop it, since the card never really reaches the heap).
+  stop it: jinteki releases the heap lock for it).
 * (Fixed in the fix-misc pass: Tracker prevents the first subroutine that would resolve during its run; Mass-Driver's 3
   subroutines do not resolve but are not broken; Endless Hunger breaks "End the run" subroutines only.)
 * Copycat is an optional "after you pass a rezzed piece of ice" trigger, as printed (jinteki: a paid ability).
-* Faust: the grip card for the break is chosen right after the break.
-* Surveillance Network Key (1 and 2): reveal the cards the Corp draws during its action phase.
-* Wari / Paintbrush offer Barrier, Code Gate and Sentry; Panchatantra offers every other ice subtype of the card pool.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Faust's grip card is trashed as the break's cost, before the break; Surveillance Network Key 1 / 2 reveal the
+  first card drawn when the Corp spends [click] to draw: basic draw, click abilities, operations played with the basic action.)
+* Wari / Paintbrush offer Barrier, Code Gate and Sentry; Panchatantra offers every other ice subtype of the card pool (as printed).
 * Aumakua gains its counter whenever a breach ends without stealing or trashing (fix-misc pass: `BreachEnded`).
-* Progenitor's purge protection remembers the hosted program while it has virus counters; counters spent through a cost are
-  not seen, so a program that spent all its counters before a purge still keeps 1.
-* Customized Secretary hosts the revealed programs as uninstalled hosted cards (like the other `uninstalled` hosts, they are
-  not rendered by the UI — known gap of `StashZone`-like hosting).
-* Bug reveals randomly chosen drawn cards (like jinteki).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Progenitor keeps 1 virus counter on the hosted program when counters are purged, if it had any.)
+* Customized Secretary hosts the revealed programs as uninstalled hosted cards (the UI shows them since the QA pass).
+* Bug reveals randomly chosen drawn cards (like jinteki; the Runner cannot tell the drawn cards apart).
 
 ## New generic mechanics (`rules-ext-rot-programs.scala`)
 

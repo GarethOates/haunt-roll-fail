@@ -126,13 +126,10 @@ validate.
 
 * Root-to-root moves and swaps (Daruma, `SwapRootEffect`) do not re-check the one asset/agenda / one region per root rule; moves
   between servers (`MoveServerChosenAction`) check the printed server restriction only.
-* Security Leak's additional advance cost and The Price of Freedom apply to the basic advance action: no card effect "advances"
-  a card (they place counters), so this is complete for the implemented cards.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Security Leak's additional advance cost and The Price of Freedom also apply to `AdvanceTimesEffect` (Success).)
 * A paid-ability window whose only option is greyed out by a restriction still opens with its "pass" option (cosmetic).
-* The Black File: if it is trashed (instead of removed by its own ability) while the Corp already has enough points, the Corp
-  wins at the next win check (next score / steal), not immediately.
-* Hacktivist Meeting's random trash is charged after a rez paid through a pre-paid discount path (`DiscountRezEffect`,
-  `RezDiscountEffect`) only when the rez does not ignore all costs; those paths rez "ignoring costs" after paying, so they skip it.
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: The Black File: the win is checked as soon as it leaves play; Hacktivist Meeting's random trash is charged on
+  discounted rezzes too.)
 * Jua / Signal Jamming do not stop facedown installs (jinteki: "can always install a card facedown").
 * Genetics Pavilion (draw cap) is unchanged: it already applies to every draw (`DrawNowEffect`).
 

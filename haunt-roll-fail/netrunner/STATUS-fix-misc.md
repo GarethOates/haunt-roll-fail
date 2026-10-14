@@ -117,15 +117,11 @@ Sakai, Warden Fatuma (front), SSO Industries, Seidr Laboratories, Copycat (print
   (costs pass).
 * Urban Art Vernissage, Cybersand Harvester: hosted install credits still need the "take" ability — install payments have no
   credit-source hook (costs pass).
-* Acme Consulting (+1 tag "considered") uses a real tag; Gagarin's access cost is automatic; Skorpios is not an interrupt
-  (timing pass); encounter-on-access ice (Archangel, ...) are placed temporarily in the server; Hivemind counters are spent
-  only by the rotated virus programs (counter costs: costs pass); Personality Profiles' "search the stack" detection,
-  Accelerated Beta Test / Bacterial Programming shuffles, Nuvem SA's "trash from R&D", Boi-tatá, Warroid Tracker (fires per
-  trashed card), Levy AR Lab (no reorder prompt), Muertos Gang Member (only when trashed), Climactic Showdown, Whistleblower,
-  Cataloguer: unchanged.
-* HQ accesses are still drawn when the breach starts (equivalent unless HQ changes during the breach).
-* `ClickLost` is now fired for every `LoseClicksEffect`, including a few "spend [click]" choices that cards model as a click
-  loss (Adjusted Chronotype may trigger on those).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Acme Consulting's tag is virtual, Gagarin's access cost is a choice, Skorpios is an interrupt, the
+  encounter-on-access ice are encountered where they are, Hivemind's counters serve every virus program, Personality Profiles,
+  Bacterial Programming, Warroid Tracker, Levy AR Lab and Muertos Gang Member are exact; HQ cards are drawn one at a time; the
+  "spend [click]" choices use `FrSpendClicksEffect` (no `ClickLost`).) Nuvem SA, Boi-tatá, Whistleblower and Cataloguer (current
+  sets) are left to the current-set pass; Climactic Showdown is exact since the prevention pass.
 * Méliès U's secret choice is a journal action, hidden by the UI only (as psi bids).
 
 ## Shared-file edits

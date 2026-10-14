@@ -154,18 +154,16 @@ abstract class Fraud(code : String, iceType : String, breakCost : Int, breakN : 
     }
 }
 
-// Khumalo suite (Musaazi, Yusuf): "any virus counter" (from any installed card) as break / pump cost; the pump is a
-// Pump while this program hosts a counter, otherwise an ability spending a counter of another card
+// Khumalo suite (Musaazi, Yusuf): "any virus counter" (from any installed card, the Runner chooses) as break / pump cost
 abstract class VirusBreaker(code : String, iceType : String) extends Rot(code) {
     override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
         case SuccessfulRun(_) => $(AddCounterEffect(self, "virus", 1))
         case _ => $
     }
     override def breaks(self : Card)(implicit g : Game) = (g.anyVirusCounters >= 1).$(BreakAbility(NoCost, 1, $(iceType), |("break 1 " + iceType.toLowerCase + " subroutine (any virus counter)"), $(SpendVirusEffect(self, 1, true))))
-    override def pumps(self : Card)(implicit g : Game) = (g.counter(self, "virus") >= 1).$(Pump($(VirusCost(1)), 1))
     override def abilities(self : Card)(implicit g : Game) = {
-        val ok = encounteredIce.any && g.isInstalled(self) && g.counter(self, "virus") == 0 && g.anyVirusCounters >= 1
-        $(Ability("+1 strength (a virus counter from another card)", NoCost, $(SpendVirusEffect(self, 1, true), PumpBreakerEffect(self, 1, EncounterDuration)), ok = ok, reason = "needs an encounter and a virus counter on another card"))
+        val ok = encounteredIce.any && g.isInstalled(self) && g.anyVirusCounters >= 1
+        $(Ability("+1 strength (any virus counter)", NoCost, $(SpendVirusEffect(self, 1, true), PumpBreakerEffect(self, 1, EncounterDuration)), ok = ok, reason = "needs an encounter and a virus counter"))
     }
 }
 

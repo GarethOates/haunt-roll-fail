@@ -206,8 +206,8 @@ object RotAssetCardsB {
     }
 
     object IbrahimSalem extends RA("10109") {
-        override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda)
-        override def onRez(self : Card)(implicit g : Game) = (!g.fxRezIgnoredCost).$(ChooseForfeitEffect)
+        override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda) || g.frRezCostPaid.has(self)
+        // the forfeit is an additional cost paid before the rez (FinalRotRules.rezCard / discounted rezzes)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.hand(Runner).any =>
                 $(ChooseOneEffect(Corp, "Ibrahim Salem: name a card type", $("Event", "Hardware", "Program", "Resource")./(k => Alt(k, $(RAIbrahimAction(self, k))))))
@@ -394,7 +394,8 @@ object RotAssetCardsB {
     object BioroidWorkCrew extends RA("12051") {
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.hand(Corp).%(corpInstallableNow)
-            $(Ability("install 1 card from HQ", $(TrashSelfCost), $(ChooseCardEffect(Corp, l, RABioroidWorkCrewPurpose(self), "Bioroid Work Crew: choose a card to install", false)), ok = l.any && g.active.isCorp, reason = "only during your turn"))
+            // "Use this ability only during the next paid ability window after playing and resolving an operation" (FinalRotRules.frArm)
+            $(Ability("install 1 card from HQ", $(TrashSelfCost), $(ChooseCardEffect(Corp, l, RABioroidWorkCrewPurpose(self), "Bioroid Work Crew: choose a card to install", false)), ok = l.any && g.frArmed("operation"), reason = "only in the next paid ability window after resolving an operation"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.push(RotChooseInstallServerEffect(c, false)))
@@ -914,7 +915,7 @@ object RotAssetCardsB {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RABootCampAction(self) =>
-                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && !c.data.isAgenda && g.impl(c).canRez(c) && g.credits(Corp) >= (g.rezCost(c) - 1).atLeast(0))
+                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && !c.data.isAgenda && g.impl(c).canRez(c) && g.canSpend(Corp, (g.rezCost(c) - 1).atLeast(0), Spend.rez(c)))
                 if (l.any)
                     g.push(ChooseCardEffect(Corp, l, RABootCampPurpose(self), "Executive Boot Camp: rez a card paying 1 credit less?", true))
                 NextAction

@@ -118,10 +118,10 @@ object ElevCards {
     }
 
     object Scrounge extends Startup("35004") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Runner) >= 2
+        override def canPlay(self : Card)(implicit g : Game) = doubleCanPlay(Runner)
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = runnerInstallable(g.discard(Runner).%(_.data.isProgram), 0)
-            $(LoseClicksEffect(Runner, 1)) ++ l.any.$(ChooseCardEffect(Runner, l, InstallLoopPurpose(self, Runner, 1, 0, false, "discard", $("Program")), "Scrounge: install a program from the heap", true)) :+ ScroungeBottomAction(self)
+            doubleCost(Runner) ++ l.any.$(ChooseCardEffect(Runner, l, InstallLoopPurpose(self, Runner, 1, 0, false, "discard", $("Program")), "Scrounge: install a program from the heap", true)) :+ ScroungeBottomAction(self)
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case ScroungeBottomAction(self) =>
@@ -159,7 +159,7 @@ object ElevCards {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.stashed(self).%(c => (c.data.isEvent && g.credits(Runner) >= g.playCost(c) && g.impl(c).canPlay(c)) || (!c.data.isEvent && runnerCanInstall(c, 0) && !g.impl(c).mustBeHosted(c)))
+            val l = g.stashed(self).%(c => (c.data.isEvent && g.canSpend(Runner, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c)) || (!c.data.isEvent && runnerCanInstall(c, 0) && !g.impl(c).mustBeHosted(c)))
             $(Ability("play or install a hosted card", click(), $(ChooseCardEffect(Runner, l, BlingPurpose(self), "Bling: choose a hosted card to play or install", true)), click = true, ok = l.any, reason = "no playable hosted card"))
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -264,8 +264,8 @@ object ElevCards {
     }
 
     object LieLow extends Startup("35015") {
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Runner) >= 2
-        override def onPlay(self : Card)(implicit g : Game) = $(LoseClicksEffect(Runner, 1), ChooseOneEffect(Runner, "Lie Low: choose one", $(
+        override def canPlay(self : Card)(implicit g : Game) = doubleCanPlay(Runner)
+        override def onPlay(self : Card)(implicit g : Game) = doubleCost(Runner) ++ $(ChooseOneEffect(Runner, "Lie Low: choose one", $(
             Alt("Draw 4 cards", $(draw(Runner, 4))),
             Alt("Remove up to 2 tags", $(ChooseOneEffect(Runner, "Lie Low: remove how many tags?", $(
                 Alt("Remove 2 tags", $(RemoveTagsEffect(2)), g.tags >= 2),
@@ -275,8 +275,8 @@ object ElevCards {
 
     object MaintenanceAccess extends Startup("35016") {
         override def makesRun(self : Card)(implicit g : Game) = true
-        override def canPlay(self : Card)(implicit g : Game) = g.clicks(Runner) >= 2
-        override def onPlay(self : Card)(implicit g : Game) = $(LoseClicksEffect(Runner, 1), RunEffect(Archives, |(self)))
+        override def canPlay(self : Card)(implicit g : Game) = doubleCanPlay(Runner)
+        override def onPlay(self : Card)(implicit g : Game) = doubleCost(Runner) ++ $(RunEffect(Archives, |(self)))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case ApproachServer(Archives) if thisCardRun(self) => $(MessageEffect(Runner, "changes the attacked server to HQ (Maintenance Access)"), RedirectRunEffect(HQ, 0, false))
             case _ => $
@@ -555,7 +555,7 @@ object ElevCards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Trashed(c, Runner, _) if inCorpScore(self) && g.owner(c).isCorp && g.inPlayZone(g.lastTrashedFrom) && g.active.isRunner && !g.usedThisTurn(self, "trendsetting") =>
                 $(MarkUsedEffect(self, "trendsetting"), ChooseOneEffect(Runner, "Aggressive Trendsetting: spend [click] to deny the Corp +1 allotted click next turn?", $(
-                    Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) > 0),
+                    Alt("Spend [click]", $(FrSpendClicksEffect(Runner, 1)), g.clicks(Runner) > 0),
                     Alt("Do not spend a click", $(ExtraClicksEffect(Corp, 1))))))
             case _ => $
         }

@@ -173,7 +173,7 @@ object TAICards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if thisCardRun(self) && g.encountersThisRun == 1 => $(MessageEffect(Runner, "uses S-Dobrado"), BypassIceEffect(ice))
             case EncounterIce(ice) if thisCardRun(self) && g.encountersThisRun == 2 && g.threat(4) && g.clicks(Runner) >= 1 =>
-                $(OptionalEffect(Runner, "S-Dobrado: spend [click] to bypass the ice?", $(LoseClicksEffect(Runner, 1), BypassIceEffect(ice)), $))
+                $(OptionalEffect(Runner, "S-Dobrado: spend [click] to bypass the ice?", $(FrSpendClicksEffect(Runner, 1), BypassIceEffect(ice)), $))
             case _ => $
         }
     }
@@ -442,7 +442,7 @@ object TAICards {
 
     object Jaguarundi extends PT("34035") {
         override def onEncounter(self : Card)(implicit g : Game) =
-            g.threat(4).$(ChooseOneEffect(Runner, "Jaguarundi: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Spend [click]", $(LoseClicksEffect(Runner, 1)), g.clicks(Runner) >= 1))))
+            g.threat(4).$(ChooseOneEffect(Runner, "Jaguarundi: choose one", $(Alt("Take 1 tag", $(tag(1))), Alt("Spend [click]", $(FrSpendClicksEffect(Runner, 1)), g.clicks(Runner) >= 1))))
         override def subroutines(self : Card)(implicit g : Game) = $(tagSub(1), Sub("If the Runner is tagged, do 1 core damage", JaguarundiAction(self)))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case JaguarundiAction(self) =>

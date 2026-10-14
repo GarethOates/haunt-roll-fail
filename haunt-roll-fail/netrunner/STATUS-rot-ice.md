@@ -31,7 +31,7 @@ Inazuma, It's a Trap!, Kakugo, Kitsune, Komainu, Lockdown, Mamba, Marker, Metamo
 Susanoo-no-Mikoto, Thimblerig, Tsurugi, Upayoga, Wall of Thorns, Whirlpool, Yagura.
 
 NBN (39): Archangel, Authenticator, Bandwidth, Data Hound, Data Loop, Data Raven, Data Ward, Endless EULA, Flare,
-Free Lunch, Gutenberg, Herald, Hydra, Information Overload, Interrupt 0 (approximated), IP Block, Jua (partial),
+Free Lunch, Gutenberg, Herald, Hydra, Information Overload, Interrupt 0, IP Block, Jua (partial),
 Little Engine, Matrix Analyzer, Muckraker, News Hound, Pachinko, Peeping Tom, Resistor, RSVP, Sandman,
 Slot Machine, Snoop, Special Offer, SYNC BRE, Thoth, TL;DR, TMI, Troll, Turnpike, Universal Connectivity Fee,
 Uroboros, Virgo, Waiver.
@@ -43,24 +43,23 @@ Quandary, Quicksand, Rainbow, Self-Adapting Code Wall, Tribunal, Vanilla, Wall o
 Weyland Consortium (45): Asteroid Belt, Bailiff, Battlement, Blockchain, Bloodletter, Border Control, Builder,
 Bulwark, Burke Bugs, Caduceus, Changeling, Checkpoint, Curtain Wall, Errand Boy, Fire Wall, Formicary, Hadrian's
 Wall, Hailstorm, Hive, Ireress, Lycan, Masvingo, Mausolus, Meru Mati, Nebula, Negotiator, Oduduwa, Orion, Red
-Tape, Salvage, Sapper, Searchlight, Shadow, Spiderweb, Surveyor, Swarm, Taurus, Tithonium (partial), Tour Guide,
+Tape, Salvage, Sapper, Searchlight, Shadow, Spiderweb, Surveyor, Swarm, Taurus, Tithonium, Tour Guide,
 Tyrant, Veritas, Watchtower, Wendigo (partial), Woodcutter, Wormhole.
 
 ## Simplifications
 
 - (Vikram 1.0, Wendigo and Jua are now exact: run-scoped "cannot use programs" / "cannot use the chosen program" flags and a
   turn-scoped Runner install lock (see `STATUS-fix-restrictions.md`).)
-- **Tithonium**: the alternative rez cost (forfeit an agenda) is not offered. Only the normal rez cost is used.
+- (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Tithonium**'s alternative rez cost (forfeit an agenda) is offered next to its rez options.)
 - (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: **Mind Game**'s jack-out cost applies to every jack out for the rest
   of the run; **Excalibur, Uroboros, Lockdown, Gyri Labyrinth** restrictions last for their duration even if the ice leaves
   play; **grail ice** add the printed subroutines of the revealed grail cards (read from their implementations) for the rest of
   the run, in front or at the end (Corp's choice); **Data Hound, Waiver** use trace strength - the Runner's real link strength.
   **RSVP** blocks every credit payment of the Runner for the rest of the run through the credits pass (`no-spend-credits`), and
   the Runner's paying options are greyed out.)
-- **Archangel, Chrysalis, Herald, Sapper** (encounter on access): the ice is temporarily placed rezzed as the
-  outermost ice of the attacked server for the forced encounter, then put back where it came from.
-- **Formicary**: when the Runner approaches a server, the Corp is offered "rez Formicary and move it"
-  (rotIceTriggers). It moves to the innermost position of the attacked server and the Runner encounters it.
+- (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Archangel, Chrysalis, Herald, Sapper** are encountered where they are, not installed;
+  **Formicary** moves to the innermost position and the Runner moves to it and encounters it, without an approach.) Remaining:
+  these four ice, if accessed while installed (only through cards that access installed ice), are not encountered.
 
 ## New generic mechanics (`rules-ext-rot-ice.scala`, `trait RotIceRules`)
 

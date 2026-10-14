@@ -258,7 +258,7 @@ object MSCards {
                 NextAction
             case DeepDiveSecondAction(self) =>
                 if (g.clicks(Runner) >= 1 && g.stashed(self).but(g.state(self).target).any)
-                    g.push(OptionalEffect(Runner, "Deep Dive: spend [click] to access another set-aside card?", $(LoseClicksEffect(Runner, 1), DeepDiveAction(self, false)), $(DeepDiveEndAction(self))))
+                    g.push(OptionalEffect(Runner, "Deep Dive: spend [click] to access another set-aside card?", $(FrSpendClicksEffect(Runner, 1), DeepDiveAction(self, false)), $(DeepDiveEndAction(self))))
                 else
                     g.push(DeepDiveEndAction(self))
                 NextAction

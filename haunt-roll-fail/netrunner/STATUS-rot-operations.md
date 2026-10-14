@@ -77,25 +77,21 @@ Accounts, 25119 SEA Source, 25136 Beanstalk Royalties, 25137 Oversight AI, 25147
 
 ## Simplifications / approximations
 
-* **Surveillance Sweep**: the trace order is not changed (the engine's trace flow cannot be intercepted from an appended rules
-  file); it only stays in play as a current.
-* **Net Watchlist**: the 2 credits are an additional cost of icebreaker break and pump abilities (`CardImpl.icebreakerSurcharge`);
-  other paid abilities of icebreakers are not taxed. (Not legal in any format; not in the presets.)
-* **Enhanced Login Protocol**: the extra click is charged when the first click-run is initiated; the Run menu does not grey out the
-  run for a Runner with exactly one click left (the run then fails "cannot pay the additional costs").
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: **Surveillance Sweep**: during a run the Runner chooses its trace boost first; **Net Watchlist**: every paid
+  ability of an icebreaker costs 2 more; **Enhanced Login Protocol**: the runs are greyed out for a Runner with one click left.)
 * **Bad Times / MCA Informant** are moved to the Runner's play area (`PlayZone(Runner)`) so that the Runner-side hooks apply
-  (memory -2; MCA's "[click], 2 credits: trash the host" ability for the Runner). MCA's additional tag is a real tag added when
-  hosted and removed when MCA leaves play (the Runner can also remove it normally).
+  (memory -2; MCA's "[click], 2 credits: trash the host" ability for the Runner; a representation). MCA's additional tag is a virtual
+  tag since the final rotated pass (counted, not taken, cannot be removed; gone when MCA leaves play).
 * (Fixed in the fix-misc pass, see `STATUS-fix-misc.md`: **Wetwork Refit**'s subroutine is the first one; **Oversight AI /
   Bioroid Efficiency Research** see bioroid click-breaks (they emit `SubsBroken`); **Media Blitz** has the agenda's text: its
   triggers, paid abilities and static modifiers are evaluated with Media Blitz as the card, and the agenda base classes treat
   a Media Blitz in play as scored (`RAg.corpScored`, `Startup.inCorpScore`); **Reclamation Order / Localized Product Line** ask
   how many copies; **Hunter Seeker / Observe and Destroy / Hellion Beta Test** can trash any installed card (Best Defense and
   Self-Growth Program are Runner-only as printed); **Load Testing**: the Runner loses [click] when the next turn begins.)
-* **Death and Taxes** gains automatically (jinteki's default "always" auto-resolution). **Riot Suppression**'s core damage is a
-  cost (not preventable, as jinteki). **Accelerated Diagnostics** ignores Double/Triple `canPlay` click checks and drops
-  leading click costs of other sets' operations.
-* "Name a card" (Targeted Marketing, Salem's Hospitality) lists every Runner card title (~1000 options). (Alliance influence
+* **Death and Taxes** gains automatically (jinteki's default "always" auto-resolution: a "may" with no downside). **Riot
+  Suppression**'s core damage is a cost (not preventable, as jinteki). **Accelerated Diagnostics** ignores Double/Triple `canPlay`
+  click checks and drops leading click costs of other sets' operations (the additional costs it ignores, as printed).
+* "Name a card" (Targeted Marketing, Salem's Hospitality) lists every Runner card title (~1000 options; UI only). (Alliance influence
   reductions are applied by the deck validator (see `STATUS-fix-restrictions.md`).)
 * `CreditsGained.source` is the card whose ability / "when scored" ability / operation is resolving (fix-misc pass).
 

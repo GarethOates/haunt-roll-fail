@@ -108,17 +108,12 @@ object RotIdentityCards2 {
         }
     }
 
+    // the grip is played revealed while the Runner is tagged: the UI shows it to the Corp (FinalRotRules.frGripRevealed,
+    // ui.scala canSee); the log notes when the grip becomes revealed
     object Harishchandra extends RH("10107") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TagsGained(_) if g.tags > 0 => $(RHHarishchandraAction(self, g.hand(Runner)))
-            case CardsDrawn(Runner, l) if g.tagged && l.any => $(RHHarishchandraAction(self, l))
+            case TagsGained(n) if g.tags == n => $(MessageEffect(Runner, "plays with the grip revealed while tagged (Harishchandra Ent.)"))
             case _ => $
-        }
-        override def performRH(a : CardAction)(implicit g : Game) = a match {
-            case RHHarishchandraAction(self, l) =>
-                if (g.tagged)
-                    g.log(Runner, "reveals", l.any.?(l./(g.cardElem).comma).|("no cards".txt), "(Harishchandra Ent.)")
-                NextAction
         }
     }
 
@@ -215,14 +210,9 @@ object RotIdentityCards2 {
         }
     }
 
+    // the interrupt (Runner cards that would be trashed are set aside, the Corp may remove 1 from the game) is
+    // FinalRotRules.finalRotPreTriggers / FrSkorpiosCheckEffect: it resolves before any other ability of the trash
     object Skorpios extends RH("13041") {
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Trashed(c, _, _) if g.owner(c).isRunner && g.zone(c) == DiscardZone(Runner) && firstTime(self, "skorpios") =>
-                $(ChooseCardEffect(Corp, $(c), RHSkorpiosPurpose(self), "Skorpios Defense Systems: remove the trashed card from the game?", true))
-            case DamageDone(_, _) if g.lastDamaged.%(c => g.zone(c) == DiscardZone(Runner)).any && firstTime(self, "skorpios") =>
-                $(ChooseCardEffect(Corp, g.lastDamaged.%(c => g.zone(c) == DiscardZone(Runner)), RHSkorpiosPurpose(self), "Skorpios Defense Systems: remove one of the trashed cards from the game?", true))
-            case _ => $
-        }
         override def chosenRH(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             if (firstTime(p.card, "skorpios"))
                 cards.single.%(c => g.zone(c) == DiscardZone(Runner)).foreach { c =>
@@ -372,12 +362,13 @@ object RotIdentityCards2 {
         override def performRH(a : CardAction)(implicit g : Game) = a match {
             case RHAcmeAction(self, true) =>
                 g.state(self).counters += "acme" -> 1
-                g.tags += 1
                 g.log(Runner, "is considered to have 1 additional tag during this encounter (Acme Consulting)")
+                // a virtual tag: counted, not taken, cannot be removed (FinalRotRules.frVirtualTags)
+                g.push(FrVirtualTagEffect(1))
                 NextAction
             case RHAcmeAction(self, false) =>
                 g.state(self).counters += "acme" -> 0
-                g.tags = (g.tags - 1).atLeast(0)
+                g.push(FrVirtualTagEffect(-1))
                 NextAction
         }
     }
@@ -393,8 +384,8 @@ object RotIdentityCards2 {
         override def onSetup(self : Card)(implicit g : Game) = $(DrawEffect(Corp, 5))
         override def startingHandBonus(self : Card)(implicit g : Game) = 5
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Corp) if g.turn == 1 && !flipped(self) && firstTime(self, "bureau") =>
-                $(MarkUsedEffect(self, "bureau"), says(self, "install up to 5 cards"), InstallLoopAction(self, Corp, 5, 0, true, "hand", $), RHBureauRezAction(self, 20), FlipAction(self, "Detective's Bureau: Upholding the Law"))
+            case FrBeforeFirstTurn(Corp) if !flipped(self) =>
+                $(says(self, "install up to 5 cards"), InstallLoopAction(self, Corp, 5, 0, true, "hand", $), RHBureauRezAction(self, 20), FlipAction(self, "Detective's Bureau: Upholding the Law"))
             case RunInitiated(_) if flipped(self) && firstTime(self, "detective") => $(MarkUsedEffect(self, "detective"), RHBureauDrainAction(self))
             case _ => $
         }
@@ -449,8 +440,12 @@ object RotIdentityCards2 {
     }
 
     object SeidrLaboratories extends RH("25067") {
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("add 1 card from Archives to the top of R&D", NoCost, $(ChooseCardEffect(Corp, g.discard(Corp), RHToTopPurpose(self), "Seidr Laboratories: choose a card in Archives", false)), once = once("seidr"), ok = g.run.exists(!_.ended) && g.discard(Corp).any, reason = "only during a run"))
+        // "The first time each turn the Runner loses or spends [click] during a run" (ClicksSpentOrLost is fired during runs only)
+        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
+            case ClicksSpentOrLost(Runner, n) if n > 0 && firstTime(self, "seidr") =>
+                $(MarkUsedEffect(self, "seidr")) ++ g.discard(Corp).any.$(ChooseCardEffect(Corp, g.discard(Corp), RHToTopPurpose(self), "Seidr Laboratories: add 1 card from Archives to the top of R&D?", true))
+            case _ => $
+        }
     }
 
     object JintekiReplicatingPerfection extends RH("25085") {
