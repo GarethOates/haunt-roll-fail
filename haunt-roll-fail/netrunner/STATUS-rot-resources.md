@@ -1,0 +1,151 @@
+# Netrunner plugin — rotated / FFG-era Resources
+
+Implementations for every card of type `Resource` that had none (`Cards.all.%(_.kind == "Resource")` minus the
+codes already in `CardImpls.all`): 164 cards, ported from jinteki.net `src/clj/game/cards/resources.clj` and
+checked against `test/clj/game/cards/resources_test.clj`. After this port every Resource in the card database has an
+implementation object (229/229).
+
+Files:
+
+* `cards-rot-resources-1.scala` — `RotResourceCards1` (titles A–L), card-specific actions/purposes at the top.
+* `cards-rot-resources-2.scala` — `RotResourceCards2` (titles M–Z) and `object RotResourceCards { val all }`.
+* `rules-ext-rot-resources.scala` — `trait RotResourceRules` (generic mechanics, `performRotResources`,
+  `rotResourceTriggers`), the `RR(code)` base class used by all 164 cards and the shared `RotPurpose`s.
+* `decks-rot-resources.scala` — `RotResourceDecks.presets`: 11 Runner preset decks that together contain every one of
+  the 164 cards (two copies each, fewer if the deck limit is lower).
+
+## Coverage (164/164 implemented)
+
+By faction: Neutral 51, Criminal 40, Anarch 31, Shaper 31, Adam 6, Apex 3, Sunny Lebeau 2.
+
+Fully automated (printed abilities resolved by the engine), apart from the notes in the next section:
+Aaron Marron, Access to Globalsec, Activist Support, Adjusted Chronotype, Akshara Sareen, Algo Trading, All-nighter,
+Always Be Running (like jinteki the "first click must run / play a run event" restriction is not enforced), Angel
+Arena, Armitage Codebusting, Artist Colony, Assimilator, Bank Job, Beach Party, Beth Kilrain-Chang, Bhagat,
+Bio-Modeled Network, Biometric Spoofing, Blockade Runner, Bloo Moose, Borrowed Satellite, Bug Out Bag, Caldera,
+Charlatan, Chatterjee University, Citadel Sanctuary, Clan Vengeance, Compromised Employee, Corporate Defector,
+Councilman, Counter Surveillance, Crowdfunding (incl. the heap install at the end of a 3-successful-run turn), Crypt,
+Dadiana Chacon, Data Dealer, Data Folding, Data Leak Reversal, DDoS, Dean Lister, Decoy, District 99, DJ Fenris, Donut
+Taganes, Dr. Lovegood, Drug Dealer, Duggar's, Eden / Hades / Utopia Shard (incl. the install-from-grip replacement of
+the breach), Emptied Mind, Enhanced Vision, Fan Site, Fester, Film Critic, Find the Truth, First Responders, Gang Sign,
+Gbahali, Gene Conditioning Shoppe (Genetics trigger twice: Adjusted Chronotype, Enhanced Vision, Symmetrical Visage,
+Synthetic Blood), Ghost Runner, Globalsec Security Clearance, Grifter, Guru Davinder, Hard at Work, Human First,
+Hunting Grounds, Investigative Journalism, Investigator Inez Delgado 1–4, Jak Sinclair (like jinteki, program use
+is not forbidden during the run), Jarogniew Mercs, John Masanori, Joshua B., Kasi String, Kati Jones, Keros Mcintyre,
+Kongamato, Laguna Velasco District, Levy Advanced Research Lab, Lewi Guilherme, Liberated Chela, Logic Bomb, London
+Library, Maxwell James, Miss Bones, Motivation, Mr. Li, Muertos Gang Member, Net Mercur, Neutralize All Threats, New
+Angeles City Hall, No One Home, Off-Campus Apartment, Officer Frank, Oracle May, Order of Sol, PAD Tap (incl. the
+Corp's trash ability), Paige Piper, Patron, Personal Workshop, Political Operative, Power Tap, Psych Mike, Public
+Sympathy, Rachel Beckman, Raymond Flint, Reclaim, Rogue Trading, Rolodex, Rosetta 2.0, Sacrificial Clone, Safety
+First, Salsette Slums, Salvaged Vanadis Armory, Same Old Thing, Shadow Team, Slipstream, Spoilers, Stim Dealer, Street
+Magic, Street Peddler, Symmetrical Visage, Synthetic Blood, Tallie Perrault, Tech Trader, Technical Writer, Temple of
+the Liberated Mind, Temujin Contract, The Archivist, The Helpful AI, The Masque A, The Masque B, The Shadow Net, The
+Source, The Supplier, The Turning Wheel, Theophilius Bagbiter, Thunder Art Gallery, Tri-maf Contact, Tyson
+Observatory, Underworld Contact, Virus Breeding Ground, Wasteland, Woman in the Red Dress, Wyldside, Zona Sul
+Shipping.
+
+## Simplifications / partial cards
+
+Not modelled because the engine has no hook for it (and adding one would need edits to shared files):
+
+* **Trash prevention** — Dummy Box, Sacrificial Construct: no effect; Fall Guy: only its "[trash]: gain 2" ability.
+* **Wireless Net Pavilion** — the extra 2 credits on the Corp's basic "trash a resource" action are not charged
+  (`TrashResourceAction` is handled by the core before the extension rules see it).
+* **The Black File** — the power counters / removal work; "the Corp cannot win except by flatline" is not enforced
+  (`checkWin` cannot be intercepted).
+* **Paparazzi** — "you are tagged" is not modelled (`tagged` is `tags > 0`); the meat damage prevention works.
+* **Chrome Parlor** — the engine does not record the source of damage: no effect.
+* **Starlight Crusade Funding** — loses [click] each turn; additional costs of double events are not waived.
+
+Approximations:
+
+* **Aeneas Informant** — the "reveal and gain 1" offer for each accessed card with a trash cost that was not trashed
+  is made when the run ends instead of right after that access.
+* **Inside Man / Ice Analyzer** — runner installs pay without a purpose, so the restricted credits are moved to the
+  pool with a "take" ability that is only usable while holding hardware / a program during your turn.
+* **Crash Space** — the hosted credits pay the 2 credits of the remove-tag action as a block ([click] + 2 hosted
+  credits); the 3-meat-damage prevention is exact.
+* **Hernando Cortez** — the additional cost is modelled as a rez-cost increase (same credits, same timing).
+* **Network Exchange** — the install-cost hook does not see the target server, so ice costs 1 more whenever any ice
+  is already installed (instead of "not in the innermost position").
+* **Jackpot!** — offered whenever an agenda is stolen; takes all hosted credits (not "any number").
+* **Keros Mcintyre** — "you derez" is approximated by "ice derezzed during your turn".
+* **Muertos Gang Member** — the "when uninstalled" rez is offered when it is trashed.
+* **Street Magic** — subroutines resolved through it are marked broken so that the encounter does not fire them a
+  second time (no `SubsBroken` event).
+* **Levy Advanced Research Lab** — the other revealed cards go to the bottom in their current order (no reorder prompt).
+* **Psych Mike** — counts cards accessed from R&D this turn (normally equal to "during that run").
+* **Salvaged Vanadis Armory** — offered right after each damage event (rather than in the next paid ability window).
+* **Bazaar** — does not check that the hardware was installed from the grip.
+* **Hunting Grounds** — facedown programs installed by it count against MU (engine-wide `memoryUsed` counts every
+  installed program).
+* **DJ Fenris** — the hosted identity is a pseudo card (`Card(code, 0)`) hosted faceup; its triggers and static
+  abilities are active through the normal hosted-card rules; it is removed from the game when Fenris leaves play.
+
+## New generic mechanics (`rules-ext-rot-resources.scala`)
+
+Events: `ClickLost(f, n)` (clicks lost through a card ability — Adjusted Chronotype), `Exposed(cards)`.
+
+Effects (handled by `performRotResources`): `ExposeEffect(cards)`, `InstallFacedownEffect(card)`,
+`FlipFaceupEffect(card)` (an event is trashed instead), `ClickLossEffect(f, n)` (lose clicks and trigger
+`ClickLost`), `BreakSubIndexEffect(ice, idx, breaker)` (break one specific subroutine — Gbahali, Kongamato),
+`RunnerForfeitEffect(card)`, `HostUninstalledEffect(card, host, facedown)` (host without installing — Street Peddler,
+The Supplier, Personal Workshop), `BreachNoRootEffect(server)` (breach without the root — Gang Sign, Raymond Flint,
+Hades Shard), `LoseAllCreditsEffect(f)`, `AccessRandomFromHQEffect(n, noStealOrTrash)` (+ `AccessRandomHQPickedAction`).
+
+Game-level triggers (`rotResourceTriggers`, composed in `Game.triggerEffects`): shard install from the grip instead
+of breaching, Counter Surveillance / The Masque A / The Masque B follow-ups of runs started by a card that trashed
+itself, Crowdfunding's install from the heap, Shadow Team's install when drawn, and the turn registers
+`meat-damage` (Officer Frank) and `rd-accessed` (Psych Mike).
+
+Helpers: `runnerInstallableNow(card, discount)`, `runnerInstalledFaceup`, `promptText` / `promptTitle` (ASCII,
+quote-free text for prompts embedded in serialized actions — the shared `asciiTitle` keeps `"`, which breaks the
+serializer for titles such as Janaina "JK" Dumont Kindelan).
+
+`RR(code)` base class: `trashOnEmpty`, `thisServer`, `thisCardRun`, `encountering`, `activeRun`, `mark` / `unused`
+(once-per-turn keys), `geneticsMark` (first time each turn, second time with Gene Conditioning Shoppe),
+`firstSuccessfulRunOn`, `installableFromHand`, `creditsCheckpoint` ("whenever you have 0 credits"), `forfeitChoice`;
+`chosen` dispatches the shared `RotPurpose`s (`RotInstallIgnoringPurpose`, `RotInstallPayingPurpose`,
+`RotHostPurpose`, `RotPlayPurpose`, `RotRfgGainPurpose`, `RotPumpPurpose`, `RotTrashPayingPurpose`,
+`RotRevealPurpose`, `RotMoveVirusPurpose`, `RotUnhostInstallPurpose`, `RotForfeitPurpose`, `RotExposePurpose`,
+`RotFlipFaceupPurpose`) to `RotResourceExt.chosen` and everything else to the card's `chosenCard`.
+
+## Shared-file edits (each a single additive term)
+
+| File | Line | Edit | Why |
+|---|---|---|---|
+| `abilities.scala` | 128 | `++ RotResourceCards.all` in `CardImpls.all` | register the 164 cards |
+| `game.scala` | 339 | `with RotResourceRules` on `class Game` | mix in the new mechanics |
+| `game.scala` | 682 | `++ rotResourceTriggers(e)` in `triggerEffects` | game-level triggers (grip / heap cards, bookkeeping) |
+| `game.scala` | 753 | `orElse performRotResources` in `performInternal` | resolve the new effects |
+| `decks.scala` | 252 | `++ RotResourceDecks.presets` | harness / UI preset decks |
+
+## Preset decks (`decks-rot-resources.scala`)
+
+Anarch Reina, Anarch Quetzal, Criminal Steve, Criminal Ken, Criminal Sable, Shaper Kit, Shaper Padma, Apex, Adam,
+Sunny Lebeau — all valid (size / influence) and legal in eternal. "Catalyst TD (rot-res)" holds the Terminal
+Directive campaign cards (Investigator Inez Delgado 1–4, Shadow Team, The Masque A/B) and Salvaged Vanadis Armory,
+which are not legal in any format; it is valid in size and influence and exists only so those cards get tested.
+
+## Verification
+
+* `sbt -batch compile` (Scala.js) green.
+* JVM harness (`MergeHost`, every offered and chosen action round-tripped through the serializer, empty asks
+  rejected), Runner always one of the 11 rot-res presets, Corp any preset:
+  * seeds 31337 and 4242 (final code): 2 × 300 games, **0 errors**. Earlier runs on the way: seeds 999 and 2024,
+    2 × 300 games, 0 errors; seed 31337 before the prompt fix, 1 serialization mismatch (fixed, see below). The
+    Elevation Weyland (Zwicky) Corp preset was excluded in these runs — see below.
+  * all 164 cards appear in the logs; over the final 600 games 140 cards show their effect at least 3 times. The
+    rest are static effects (Donut Taganes, The Source, Access to Globalsec, Network Exchange, ...) or rare situations
+    (Thunder Art Gallery, Slipstream, New Angeles City Hall, Net Mercur).
+* Every card title in the database round-trips through the serializer inside a prompt built with `promptTitle`.
+
+Bugs found by the stress test and fixed: a serialization mismatch on a Councilman prompt naming
+Janaina "JK" Dumont Kindelan (quotes in a prompt; fixed by `promptTitle`); Street Magic's choices used raw subroutine
+labels (now sanitized); the game-level triggers matched only the first applicable case, so a successful run on a
+central server never resolved Counter Surveillance / The Masque A (now composed); Kasi String only considers the
+first successful remote run each turn; the Sunny Lebeau preset was 2 cards short.
+
+Pre-existing issue, not in these files: with the "Elevation Weyland (Zwicky)" Corp preset the bot can loop forever
+rezzing Plutus (rez cost 0, additional cost unpayable → derezzed → rezzed again; `cards-elev.scala` Plutus has no
+`canRez`), which the harness reports as "game too long" (1 game in 300 in a run that included that deck).
