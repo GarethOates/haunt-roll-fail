@@ -17,17 +17,16 @@ import netrunner.elem._
 // ---------------------------------------------------------------------------------------------------------------------
 // Generic mechanics added for the rotated (FFG era) assets (see STATUS-rot-assets.md):
 // cards added to a score area "as an agenda", executives, ambushes accessed in Archives, exposing cards, recurring
-// credits of Corp cards (rez / install / advance / traces), psi game and trace outcome events, Corp cards hosted on
+// credits of Corp cards (rez / install / advance / traces: RA.paysFor, paid by rules-ext-credits.scala), psi game and trace outcome events, Corp cards hosted on
 // assets, and a few global restrictions (Blacklist, Genetics Pavilion, The News Now Hour, The Board, Warden Fatuma).
 //
 // RotAssetRules is mixed into Game like the other extension traits. Besides performRotAssets and rotAssetTriggers it
 // uses stackable overrides (each one calls super and is guarded by the card being in play), so that no shared rules
 // file had to be edited:
 //   performEffects  psi reveal event (RotPsiRevealed), Broadcast Square, Genetics Pavilion draw limit, Blacklist (AddToHandEffect / MoveEffect / RemoveFromGameEffect out of the heap)
-//   performCards    recurring install credits (The Root), Blacklist (installing from the heap)
-//   performTurn     recurring advance credit (The Root), Genetics Pavilion / The News Now Hour greying of Runner actions
+//   performCards    Blacklist (installing from the heap)
+//   performTurn     Genetics Pavilion / The News Now Hour greying of Runner actions
 //   performRun      remembers the unbroken subroutines of an encounter that ends (Chief Slee)
-//   rezCard         spends recurring rez credits (Dedicated Server, Mumba Temple, The Root) unless the rez ignores costs
 //   resolvePurpose  Blacklist (generic purposes cannot take cards out of the heap)
 //   extImpl         cards scored "as an agenda" keep only their agenda value; The Board (-1 point per Runner agenda)
 //   subs            Warden Fatuma (bioroid ice gain a first subroutine)
@@ -60,38 +59,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
     def rotBlacklisted(c : Card) : Boolean = zone(c) == DiscardZone(Runner) && rotLive("08036").any
 
     def rotPavilionLimit : Boolean = active.isRunner && reg("drawn-Runner") >= 2 && rotLive("08113").any
-
-    // ---- recurring credits ------------------------------------------------------------------------------------------
-    def rotRecurring(kind : String, card : Card) : $[Card] = activeCards(Corp).%(c => isInstalled(c) && counter(c, "credit") > 0 && raOf(c).exists(_.recurring(c, kind, card)))
-
-    def rotRawRezCost(c : Card, ex : $[Card]) : Int = (c.data.cost.|(0) + allActive.%!(ex.has)./(x => impl(x).rezCostMod(x, c)).sum + (!isActive(c)).??(impl(c).rezCostMod(c, c))).atLeast(0)
-
-    def rotRawInstallCost(c : Card, server : |[Server], ex : $[Card]) : Int = {
-        val base = owner(c).isCorp.?(c.data.isIce.?(server./(ice(_).num).|(0)).|(0)).|(c.data.cost.|(0))
-        (base + allActive.%!(ex.has)./(x => impl(x).installCostMod(x, c)).sum + (!isActive(c)).??(impl(c).installCostMod(c, c))).atLeast(0)
-    }
-
-    // the hosted recurring credits that pay (part of) a cost: the recurring cards lowered the cost by their credits
-    def rotRecurringSpend(kind : String, c : Card, raw : $[Card] => Int) : $[(Card, Int)] = {
-        val l = rotRecurring(kind, c)
-        if (l.none)
-            $
-        else {
-            var left = raw(l)
-            l./~ { s =>
-                val m = left.atMost(counter(s, "credit"))
-                left -= m
-                (m > 0).$((s, m))
-            }
-        }
-    }
-
-    def rotSpend(l : $[(Card, Int)]) {
-        l.foreach { case (s, m) =>
-            addCounter(s, "credit", -m)
-            log(Corp, "spends", m.credits, "from", s)
-        }
-    }
 
     // ---- greyed out Runner actions ----------------------------------------------------------------------------------
     def rotRestrict(a : UserAction) : UserAction = a match {
@@ -148,12 +115,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
     override def performCards : PartialFunction[Action, Continue] = {
         val base = super.performCards
         ({
-            case a @ CorpInstallEffect(c, Some(s), false) if !location.get(c).exists(inPlayZone) && rotRecurring("install", c).any =>
-                val spend = rotRecurringSpend("install", c, ex => rotRawInstallCost(c, |(s), ex))
-                val x = base(a)
-                rotSpend(spend)
-                x
-
             case RunnerInstallEffect(c, _, _) if rotBlacklisted(c) =>
                 log(c, "cannot leave the heap (Blacklist)")
                 NextAction
@@ -163,13 +124,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
     override def performTurn : PartialFunction[Action, Continue] = {
         val base = super.performTurn
         ({
-            case a @ AdvanceAction(f, c) if rotRecurring("advance", c).any =>
-                val s = rotRecurring("advance", c).head
-                addCounter(s, "credit", -1)
-                credits += Corp -> (credits(Corp) + 1)
-                log(Corp, "spends", 1.credits, "from", s)
-                base(a)
-
             case a @ ActionPhaseAction(Runner) if rotPavilionLimit =>
                 rotFixAsk(base(a))
 
@@ -186,12 +140,6 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
                 rotEncounterUnbroken = unbrokenSubs(c).num
                 base(a)
         } : PartialFunction[Action, Continue]) orElse base
-    }
-
-    override def rezCard(c : Card, ignoreCost : Boolean) {
-        val spend = (!ignoreCost && !isRezzed(c)).??(rotRecurringSpend("rez", c, ex => rotRawRezCost(c, ex)))
-        super.rezCard(c, ignoreCost)
-        rotSpend(spend)
     }
 
     override def resolvePurpose(f : Faction, l : $[Card], p : Purpose) : Continue = p match {
@@ -295,8 +243,8 @@ trait RotAssetRules extends EffectRules with TurnRules with CardRules with RunRu
                 NextAction
             else {
                 val l = (c.data.isIce || c.data.isUpgrade).?(servers).|(remotes)
-                val options = l./(s => ServerChosenAction(Corp, c, |(s), ig).!(!ig && credits(Corp) < installCost(c, |(s)), "not enough credits")) :+
-                    ServerChosenAction(Corp, c, None, ig).!(!canCreateRemote, "remote server limit").!(!ig && credits(Corp) < installCost(c, None), "not enough credits")
+                val options = l./(s => ServerChosenAction(Corp, c, |(s), ig).!(!ig && !canSpend(Corp, installCost(c, |(s)), Spend.install(c, |(s))), "not enough credits")) :+
+                    ServerChosenAction(Corp, c, None, ig).!(!canCreateRemote, "remote server limit").!(!ig && !canSpend(Corp, installCost(c, None), Spend.install(c)), "not enough credits")
                 if (options.exists(a => !a.is[Unavailable]))
                     Ask(Corp).group("Install " ~ cardElem(c)).add(options)
                 else {
@@ -344,8 +292,12 @@ abstract class RA(c : String) extends NC(c) {
     def recurring(self : Card, kind : String, card : Card)(implicit g : Game) : Boolean = false      // hosted credits usable for kind: rez / install / advance / trace
 
     override def agendaPointsBonus(self : Card)(implicit g : Game) = g.zone(self).is[ScoredZone].?(asAgendaPoints).|(0)
-    override def rezCostMod(self : Card, card : Card)(implicit g : Game) = (g.isInstalled(self) && recurring(self, "rez", card)).?(-g.counter(self, "credit")).|(0)
-    override def installCostMod(self : Card, card : Card)(implicit g : Game) = (g.isInstalled(self) && g.owner(card).isCorp && recurring(self, "install", card)).?(-g.counter(self, "credit")).|(0)
+    // recurring credits pay for rez / install / advance / trace (rules-ext-credits.scala)
+    override def paysFor(self : Card, spend : Spend)(implicit g : Game) = g.isInstalled(self) && (spend.kind match {
+        case "rez" | "install" | "advance" => spend.card.exists(c => recurring(self, spend.kind, c))
+        case "trace" => recurring(self, "trace", self)
+        case _ => false
+    })
 
     def unprotectedServer(self : Card)(implicit g : Game) = g.serverOf(self).exists(s => g.ice(s).none)
 

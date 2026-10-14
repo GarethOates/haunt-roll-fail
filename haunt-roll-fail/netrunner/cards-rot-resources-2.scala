@@ -62,10 +62,9 @@ object RotResourceCards2 {
 
     object MissBones extends RR("22014") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 12)
-        override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = purpose.startsWith("trash-")
+        // "Use these credits to trash installed cards." (trash costs of installed Corp cards)
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.trashing.exists(c => g.owner(c).isCorp && g.isInstalled(c))
         override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "credit")
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("take 1 hosted credit (to trash installed cards)", $(CounterCost("credit", 1)), $(gain(Runner, 1)), ok = activeRun, reason = "only during a run"))
     }
 
     object Motivation extends RR("04008") {
@@ -103,8 +102,8 @@ object RotResourceCards2 {
     }
 
     object NetMercur extends RR("11046") {
-        override def creditsUsableForRun(self : Card)(implicit g : Game) = true
-        override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = true
+        // "You can spend hosted credits for anything."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = true
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case CreditsSpentFrom(c, _) if g.has(c, "Stealth") && activeRun && !g.state(self).usedRun.has("mercur") =>
                 $(MarkUsedRunEffect(self, "mercur"), ChooseOneEffect(Runner, "Net Mercur: choose one", $(
@@ -112,12 +111,11 @@ object RotResourceCards2 {
                     Alt("Draw 1 card", $(draw(Runner, 1))))))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("take 1 hosted credit", $(CounterCost("credit", 1)), $(gain(Runner, 1))))
     }
 
     object NetworkExchange extends RR("12007") {
-        override def installCostMod(self : Card, card : Card)(implicit g : Game) = (card.data.isIce && g.allIce.any).?(1).|(0)
+        // "The install cost of each piece of ice that is not installed in the innermost position is increased by 1."
+        override def installCostModIn(self : Card, card : Card, server : |[Server])(implicit g : Game) = (card.data.isIce && server.exists(s => g.ice(s).any)).?(1).|(0)
     }
 
     object NeutralizeAllThreats extends RR("09043") {
@@ -133,9 +131,8 @@ object RotResourceCards2 {
                 NextAction
             case NeutralizeTrashAction(self, c) =>
                 val tc = g.trashCost(c).|(0)
-                val purpose = "trash-" + c.data.kind.toLowerCase
-                if (g.run.exists(r => !r.ended && !r.cannotStealOrTrash) && !g.zone(c).is[DiscardZone] && g.impl(c).canBeTrashedOnAccess(c) && !g.accessProtected(c) && g.availableCredits(Runner, None, purpose) >= tc) {
-                    g.payCredits(Runner, tc, None, purpose)
+                if (g.run.exists(r => !r.ended && !r.cannotStealOrTrash) && !g.zone(c).is[DiscardZone] && g.impl(c).canBeTrashedOnAccess(c) && !g.accessProtected(c) && g.canSpend(Runner, tc, Spend.trash(c))) {
+                    g.spendCredits(Runner, tc, Spend.trash(c))
                     g.log(Runner, "must pay", tc.credits, "to trash", c, "(Neutralize All Threats)")
                     g.trashCard(c, Runner, true)
                 }
@@ -427,7 +424,7 @@ object RotResourceCards2 {
 
     object SameOldThing extends RR("03054") {
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.discard(Runner).%(c => c.data.isEvent && g.credits(Runner) >= g.playCost(c) && g.impl(c).canPlay(c))
+            val l = g.discard(Runner).%(c => c.data.isEvent && g.canSpend(Runner, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c))
             $(Ability("play an event from the heap paying its play cost", $(ClickCost(2), TrashSelfCost), $(ChooseCardEffect(Runner, l, RotPlayPurpose(self, true), "Same Old Thing: choose an event to play", false)), click = true, ok = l.any, reason = "no playable event in the heap"))
         }
     }
@@ -762,7 +759,7 @@ object RotResourceCards2 {
     }
 
     object WirelessNetPavilion extends RR("08108") {
-        // the additional cost of the Corp's trash resource action is not modelled by the engine
+        // the additional cost of the Corp's basic action to trash a resource: Game.trashResourceCost (rules-ext-credits.scala)
     }
 
     object WomanInTheRedDress extends RR("04048") {

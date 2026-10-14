@@ -52,7 +52,8 @@ object RotProgramCards3 {
 
     object Cloak extends Rot("03041") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 1)
-        override def creditsUsableForRun(self : Card)(implicit g : Game) = true
+        // "Use this credit to pay for using icebreakers." (Cloak is a Stealth card: these are stealth credits)
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.using.exists(g.isIcebreaker)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 1))
             case _ => $
@@ -61,7 +62,7 @@ object RotProgramCards3 {
 
     object Dagger extends Rot("03042") {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Sentry")))
-        override def pumps(self : Card)(implicit g : Game) = stealth(1).$(Pump(c(1), 5, EncounterDuration, |("+5 strength (stealth credit)")))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(1, 1)), 5, EncounterDuration, |("+5 strength (stealth credits only)")))
     }
 
     object Chakana extends Rot("03043") {
@@ -90,7 +91,8 @@ object RotProgramCards3 {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 2))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) = $(Ability("take 1 hosted credit (to install a program)", NoCost, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0 && g.hand(Runner).exists(_.data.isProgram), reason = "needs a hosted credit and a program in the grip"))
+        // "Use these credits to install programs (you cannot use Sahasrara to install a program that trashes Sahasrara)."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(_.data.isProgram)
     }
 
     object Inti extends Rot("03048") {
@@ -107,7 +109,7 @@ object RotProgramCards3 {
             case FalseEchoAction(self, ice) =>
                 if (g.location.contains(ice) && !g.isRezzed(ice))
                     g.push(ChooseOneEffect(Corp, "False Echo: rez the passed ice or add it to HQ", $(
-                        Alt("Rez the ice", $(RezEffect(ice, false)), g.credits(Corp) >= g.rezCost(ice) && g.impl(ice).canRez(ice)),
+                        Alt("Rez the ice", $(RezEffect(ice, false)), g.canSpend(Corp, g.rezCost(ice), Spend.rez(ice)) && g.impl(ice).canRez(ice)),
                         Alt("Add the ice to HQ", $(ReturnToHandEffect(ice))))))
                 NextAction
         }
@@ -170,7 +172,7 @@ object RotProgramCards3 {
 
     object Refractor extends Rot("06057") {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Code Gate")))
-        override def pumps(self : Card)(implicit g : Game) = stealth(1).$(Pump(c(1), 3, EncounterDuration, |("+3 strength (stealth credit)")))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(1, 1)), 3, EncounterDuration, |("+3 strength (stealth credits only)")))
     }
 
     object CollectiveConsciousness extends Rot("06116") {
@@ -260,18 +262,18 @@ object RotProgramCards3 {
     }
 
     object DaiV extends Rot("11006") {
-        override def breaks(self : Card)(implicit g : Game) = stealth(2).$(BreakAbility(c(2), 0, $(), |("break all subroutines (2 stealth credits)")))
+        override def breaks(self : Card)(implicit g : Game) = $(BreakAbility($(StealthCreditCost(2, 2)), 0, $(), |("break all subroutines (stealth credits only)")))
         override def pumps(self : Card)(implicit g : Game) = $(Pump(c(1), 1))
     }
 
     object Houdini extends Rot("11045") {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Code Gate")))
-        override def pumps(self : Card)(implicit g : Game) = stealth(1).$(Pump(c(2), 4, RunDuration, |("+4 strength for the remainder of the run (stealth credit)")))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(2, 1)), 4, RunDuration, |("+4 strength for the remainder of the run (at least 1 stealth credit)")))
     }
 
     object Blackstone extends Rot("11068") {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Barrier")))
-        override def pumps(self : Card)(implicit g : Game) = stealth(1).$(Pump(c(3), 4, RunDuration, |("+4 strength for the remainder of the run (stealth credit)")))
+        override def pumps(self : Card)(implicit g : Game) = $(Pump($(StealthCreditCost(3, 1)), 4, RunDuration, |("+4 strength for the remainder of the run (at least 1 stealth credit)")))
     }
 
     object Equivocation extends Rot("11084") {
@@ -303,10 +305,10 @@ object RotProgramCards3 {
     object Fawkes extends Rot("11108") {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Sentry")))
         override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("+X strength for the remainder of the run (X credits, stealth credit)", NoCost, $(ChooseNumberEffect(Runner, self, 1, g.availableCredits(Runner, |(self)), "fawkes", "Fawkes: how many credits to spend?")), ok = stealth(1) && g.availableCredits(Runner, |(self)) >= 1 && g.run.exists(r => !r.ended), reason = "needs a run and a stealth credit"))
+            $(Ability("+X strength for the remainder of the run (X credits, at least 1 stealth credit)", NoCost, $(ChooseNumberEffect(Runner, self, 1, g.creditsFor(Runner, Spend.pump(self, encounteredIce)), "fawkes", "Fawkes: how many credits to spend?")), ok = g.canSpend(Runner, 1, Spend.pump(self, encounteredIce), 1) && g.run.exists(r => !r.ended), reason = "needs a run and a stealth credit"))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case NumberPickedAction(self, n, _) =>
-                g.push(PayCreditsEffect(Runner, n), PumpBreakerEffect(self, n, RunDuration))
+                g.push(SpendEffect(Runner, n, Spend.pump(self, encounteredIce), 1, $(PumpBreakerEffect(self, n, RunDuration))))
                 NextAction
         }
     }

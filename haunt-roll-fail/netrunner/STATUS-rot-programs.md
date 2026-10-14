@@ -51,11 +51,10 @@ when ice of the type is encountered, pump-and-break through a "break" counter), 
 
 ## Simplifications / approximations
 
-* Stealth credits: abilities that need stealth credits are offered only while enough credits sit on installed Stealth
-  cards (Cloak, ...); the payment itself is not restricted (hosted run credits are spent first), as elsewhere in the plugin.
-* Recurring credits: Cloak, Multithreader and Pheromones (HQ runs only) are run credits usable for any payment during a
-  run; Multithreader and Sahasrara also have a "take 1 hosted credit" ability (Multithreader outside runs, Sahasrara when a
-  program is in the grip) instead of purpose-restricted spending.
+* (Fixed in the credits pass, `STATUS-fix-credits.md`: stealth costs of Dagger, Refractor, Switchblade, Dai V, Houdini, Blackstone,
+  BlacKat and Fawkes are `StealthCreditCost`s; Cloak, Multithreader and Sahasrara credits pay only for using icebreakers / using
+  programs / installing programs; Pheromones' credits pay for anything during HQ runs as printed.) Sahasrara's credits can still
+  count towards a program whose installation trashes Sahasrara (the trash happens first, so they are not spent).
 * Hivemind: its counters are counted and spent by the virus programs of this list (`virusCounters`, `SpendVirusEffect`:
   Nerve Agent, Medium, Darwin, Datasucker, Gravedigger, Hemorrhage, Cache, God of War, Crypsis, Trypano, Parasite,
   Consume); virus cards of other sets (Leech, ...) do not see them.

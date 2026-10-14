@@ -139,6 +139,10 @@ class DelegatingImpl(val raw : CardImpl) extends CardImpl {
     override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) = raw.breakAllowed(self, breaker, ice)
     override def beforeDraw(self : Card, f : Faction, n : Int)(implicit g : Game) = raw.beforeDraw(self, f, n)
     override def creditsUsableFor(self : Card, purpose : String)(implicit g : Game) = raw.creditsUsableFor(self, purpose)
+    override def paysFor(self : Card, spend : Spend)(implicit g : Game) = raw.paysFor(self, spend)
+    override def icebreakerSurcharge(self : Card, breaker : Card, breaking : Boolean)(implicit g : Game) = raw.icebreakerSurcharge(self, breaker, breaking)
+    override def installCostModIn(self : Card, card : Card, server : |[Server])(implicit g : Game) = raw.installCostModIn(self, card, server)
+    override def hostedInstallCostMod(self : Card, card : Card)(implicit g : Game) = raw.hostedInstallCostMod(self, card)
     override def preventsScoring(self : Card, agenda : Card)(implicit g : Game) = raw.preventsScoring(self, agenda)
     override def preventsBreak(self : Card, ice : Card, breaker : Card)(implicit g : Game) = raw.preventsBreak(self, ice, breaker)
     override def cannotLowerStrength(self : Card)(implicit g : Game) = raw.cannotLowerStrength(self)
@@ -360,7 +364,7 @@ trait PHTAIRules { game : Game =>
 
     def installRunnerDiscounted(c : Card, host : |[Card], discount : Int) {
         val cost = (installCost(c, None) - discount).atLeast(0)
-        payCredits(Runner, cost, None)
+        spendCredits(Runner, cost, Spend.install(c, None, host))
         if (cost > 0)
             log(Runner, "pays", cost.credits)
         push(RunnerInstallEffect(c, host, true))
@@ -411,10 +415,10 @@ trait PHTAIRules { game : Game =>
 
         case PlayCardFreeEffect(c) =>
             val f = owner(c)
-            if (zone(c) != HandZone(f) || !impl(c).canPlay(c) || credits(f) < playCost(c))
+            if (zone(c) != HandZone(f) || !impl(c).canPlay(c) || !canSpend(f, playCost(c), Spend.play(c)))
                 NextAction
             else {
-                payCredits(f, playCost(c), None)
+                spendCredits(f, playCost(c), Spend.play(c))
                 moveTo(c, PlayZone(f))
                 state(c).seen = true
                 impl(c).initialCounters(c).foreach { case (k, n) => addCounter(c, k, n) }
@@ -511,7 +515,7 @@ trait PHTAIRules { game : Game =>
             }
 
         case InstallFromListDiscountEffect(f, l, d, prompt, optional) =>
-            val ll = l.%(c => location.contains(c) && !c.data.isEvent && !c.data.isOperation && !c.data.isIdentity).%(c => f.isCorp || (credits(f) >= (installCost(c, None) - d).atLeast(0) && (!c.data.isProgram || memoryFree >= c.data.memory.|(0)) && (!impl(c).mustBeHosted(c) || allIce.exists(h => impl(c).hostRequirement(c, h)))))
+            val ll = l.%(c => location.contains(c) && !c.data.isEvent && !c.data.isOperation && !c.data.isIdentity).%(c => f.isCorp || (canSpend(f, (installCost(c, None) - d).atLeast(0), Spend.install(c)) && (!c.data.isProgram || memoryFree >= c.data.memory.|(0)) && (!impl(c).mustBeHosted(c) || allIce.exists(h => impl(c).hostRequirement(c, h)))))
             if (ll.any)
                 push(ChooseCardEffect(f, ll, InstallDiscountPurpose(d), prompt, optional))
             NextAction
@@ -527,8 +531,10 @@ trait PHTAIRules { game : Game =>
                 Ask(Corp).group("Install " ~ cardElem(c)).add(ll./(s => ServerDiscountChosenAction(Corp, c, |(s), d, rez))).when(newOk)(ServerDiscountChosenAction(Corp, c, None, d, rez))
 
         case ServerDiscountChosenAction(f, c, s, d, rez) =>
-            val cost = (installCost(c, s) + rez.??(rezCost(c)) - d).atLeast(0)
-            credits += Corp -> (credits(Corp) - cost).atLeast(0)
+            val parts = installParts(c, s, None, d, rez)
+            val cost = parts.map(_._1).sum
+            spendAll(Corp, parts)
+            credits += Corp -> credits(Corp).atLeast(0)
             if (cost > 0)
                 log(Corp, "pays", cost.credits)
             if (rez)

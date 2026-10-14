@@ -115,7 +115,7 @@ trait EffectRules { game : Game =>
             NextAction
 
         case LoseCreditsEffect(f, n) =>
-            val m = n.atMost(credits(f))
+            val m = poolLocked(f).?(0).|(n.atMost(credits(f)))
             credits += f -> (credits(f) - m)
             log(f, "loses", m.credits)
             if (m > 0)
@@ -554,19 +554,20 @@ trait EffectRules { game : Game =>
                 TraceCorpBoostAction(base, success, fail)
 
         case TraceCorpBoostAction(base, success, fail) =>
-            Ask(Corp).group("Trace strength " ~ base.hl ~ ", boost by paying credits").add(0.to(credits(Corp)).$./(n => TraceCorpAction(Corp, n)))
+            Ask(Corp).group("Trace strength " ~ base.hl ~ ", boost by paying credits").add(0.to(creditsFor(Corp, Spend.trace)).$./(n => TraceCorpAction(Corp, n)))
 
         case TraceCorpAction(f, n) =>
             traceStrength = traceBase + n
-            credits += Corp -> (credits(Corp) - n)
+            spendCredits(Corp, n, Spend.trace)
             log(Corp, "pays", n.credits, "for trace strength", traceStrength.hl)
             TraceRunnerBoostAction(traceStrength, traceSuccess, traceFail)
 
         case TraceRunnerBoostAction(strength, success, fail) =>
-            Ask(Runner).group("Trace strength " ~ strength.hl ~ ", your link is " ~ link.hl ~ ", boost by paying credits").add(0.to(credits(Runner)).$./(n => TraceRunnerAction(Runner, n)))
+            Ask(Runner).group("Trace strength " ~ strength.hl ~ ", your link is " ~ link.hl ~ ", boost by paying credits").add(0.to(creditsFor(Runner, Spend.trace)).$./(n => TraceRunnerAction(Runner, n)))
 
         case TraceRunnerAction(f, n) =>
-            credits += Runner -> (credits(Runner) - n)
+            spendCredits(Runner, n, Spend.trace)
+            runnerTraceBoost = n
             val l = link + n
             log(Runner, "pays", n.credits, "for link strength", l.hl)
             if (traceStrength > l) {
@@ -582,7 +583,7 @@ trait EffectRules { game : Game =>
         case PsiEffect(equal, differ) =>
             psiEqual = equal
             psiDiffer = differ
-            Ask(Corp).group("Psi game: secretly bid 0, 1 or 2 credits").add(0.to(2.atMost(credits(Corp))).$./(n => PsiBidAction(Corp, n)))
+            Ask(Corp).group("Psi game: secretly bid 0, 1 or 2 credits").add(0.to(2.atMost(creditsFor(Corp, Spend.psi))).$./(n => PsiBidAction(Corp, n)))
 
         case PsiBidAction(Corp, n) =>
             psiCorpBid = n
@@ -590,14 +591,14 @@ trait EffectRules { game : Game =>
             PsiRunnerBidAction(n, psiEqual, psiDiffer)
 
         case PsiRunnerBidAction(c, equal, differ) =>
-            Ask(Runner).group("Psi game: secretly bid 0, 1 or 2 credits").add(0.to(2.atMost(credits(Runner))).$./(n => PsiBidAction(Runner, n)))
+            Ask(Runner).group("Psi game: secretly bid 0, 1 or 2 credits").add(0.to(2.atMost(creditsFor(Runner, Spend.psi))).$./(n => PsiBidAction(Runner, n)))
 
         case PsiBidAction(Runner, n) =>
             PsiResolveAction(psiCorpBid, n, psiEqual, psiDiffer)
 
         case PsiResolveAction(c, r, equal, differ) =>
-            credits += Corp -> (credits(Corp) - c)
-            credits += Runner -> (credits(Runner) - r)
+            spendCredits(Corp, c, Spend.psi)
+            spendCredits(Runner, r, Spend.psi)
             log(Corp, "bid", c.credits, "and", Runner, "bid", r.credits)
             if (c == r) pushAll(equal) else pushAll(differ)
             NextAction
@@ -673,7 +674,7 @@ trait EffectRules { game : Game =>
     def rezCard(c : Card, ignoreCost : Boolean) {
         if (!isRezzed(c)) {
             val cost = ignoreCost.?(0).|(rezCost(c))
-            credits += Corp -> (credits(Corp) - cost)
+            spendCredits(Corp, cost, Spend.rez(c))
             state(c).rezzed = true
             state(c).rezzedTurn = turn
             state(c).seen = true
@@ -767,9 +768,10 @@ trait EffectRules { game : Game =>
             resolveRWRPurpose(f, l, p).orElse(resolveRotPurpose(f, l, p)).orElse(resolveRotSharedPurpose(f, l, p)).|(throw new Error("unknown purpose " + p))
     }
 
-    def payCosts(f : Faction, costs : $[Cost], self : |[Card]) {
+    def payCosts(f : Faction, costs : $[Cost], self : |[Card], spend : |[Spend] = None) {
         costs.foreach {
-            case CreditCost(n) => payCredits(f, n, self)
+            case CreditCost(n) => spendCredits(f, n, spend.|(Spend.legacy(self, "")))
+            case StealthCreditCost(n, s) => spendCredits(f, n, spend.|(Spend.legacy(self, "")), s)
             case ClickCost(n) => clicks += f -> (clicks(f) - n)
             case LoseClickCost(n) => clicks += f -> (clicks(f) - n)
             case TrashSelfCost => self.foreach(c => trashCard(c, f, false))
@@ -782,20 +784,8 @@ trait EffectRules { game : Game =>
         }
     }
 
-    // pay credits, using hosted run credits first if in a run
+    // pay credits, using the credit sources usable for the purpose first (rules-ext-credits.scala)
     def payCredits(f : Faction, n : Int, self : |[Card], purpose : String = "") {
-        var left = n
-        creditSourcesFor(f, purpose).foreach { c =>
-            val m = left.atMost(counter(c, "credit"))
-            if (m > 0) {
-                addCounter(c, "credit", -m)
-                left -= m
-                log(f, "spends", m.credits, "from", c)
-                regInc("spent-from-card")
-                trigger(CounterAdded(c, "credit"))
-                trigger(CreditsSpentFrom(c, m))
-            }
-        }
-        credits += f -> (credits(f) - left)
+        spendCredits(f, n, Spend.legacy(self, purpose))
     }
 }

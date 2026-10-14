@@ -243,8 +243,7 @@ object TAICards {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = $(
-            Ability("run any server (hosted credits can be spent during the run)", click(), $(RunAnyServerEffect(|(self), g.servers)), click = true),
-            Ability("take 1 hosted credit", $, $(TakeCreditsEffect(Runner, self, 1)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"))
+            Ability("run any server (hosted credits can be spent during the run)", click(), $(RunAnyServerEffect(|(self), g.servers)), click = true))
     }
 
     object Arissana extends PT("34020") {
@@ -363,13 +362,14 @@ object TAICards {
             }
             NextAction
         }
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("take all hosted credits (to install cards)", $, $(TakeCreditsEffect(Runner, self, 99)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"))
+        // "You can spend hosted credits to install cards."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.any
     }
 
     object BahiaBands extends PT("34030") {
         override def makesRun(self : Card)(implicit g : Game) = true
-        override def creditsUsableForRun(self : Card)(implicit g : Game) = thisCardRun(self)
+        // "You can spend hosted credits to pay trash costs for the remainder of this run."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = thisCardRun(self) && spend.trashing.exists(c => g.owner(c).isCorp)
         override def onPlay(self : Card)(implicit g : Game) = $(RunAnyServerEffect(|(self), g.servers))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case SuccessfulRun(_) if thisCardRun(self) => $(BahiaChoiceAction(self, 2, $))
@@ -522,7 +522,7 @@ object TAICards {
                 if (g.threat(3))
                     g.push(net(1))
                 else
-                    g.push(ChooseOneEffect(Runner, "Attini: choose one", $(Alt("Pay 2 credits", $(LoseCreditsEffect(Runner, 2)), g.credits(Runner) >= 2), Alt("Take 1 net damage", $(net(1))))))
+                    g.push(ChooseOneEffect(Runner, "Attini: choose one", $(Alt("Pay 2 credits", $(SpendEffect(Runner, 2, Spend.corpAbility, 0, $)), g.canSpend(Runner, 2, Spend.corpAbility)), Alt("Take 1 net damage", $(net(1))))))
                 NextAction
         }
     }
@@ -686,9 +686,10 @@ object TAICards {
             case Rezzed(c) if c.data.isIce && g.isRezzed(self) => $(AddCounterEffect(self, "credit", 2))
             case _ => $
         }
+        // "You can spend hosted credits to pay install costs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.any
         override def abilities(self : Card)(implicit g : Game) = $(
-            Ability("take all hosted credits", $(TrashSelfCost), $(TakeCreditsEffect(Corp, self, 99)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"),
-            Ability("take 1 hosted credit (to install cards)", $, $(TakeCreditsEffect(Corp, self, 1)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"))
+            Ability("take all hosted credits", $(TrashSelfCost), $(TakeCreditsEffect(Corp, self, 99)), ok = g.counter(self, "credit") > 0, reason = "no hosted credits"))
     }
 
     object TreeLine extends PT("34059") {
@@ -742,7 +743,7 @@ object TAICards {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case PivotPlayAction(self) =>
-                val l = g.hand(Corp).%(c => (c.data.isOperation && g.credits(Corp) >= g.playCost(c) && g.impl(c).canPlay(c)) || g.installable(c))
+                val l = g.hand(Corp).%(c => (c.data.isOperation && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c)) || g.installable(c))
                 if (l.any)
                     g.push(ChooseCardEffect(Corp, l, PivotPlayPurpose(self), "Pivot: play or install a card from HQ?", true))
                 NextAction

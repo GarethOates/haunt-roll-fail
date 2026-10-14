@@ -36,7 +36,7 @@ trait CardRules { game : Game =>
                 val s : Server = so.|(newRemote())
                 val cost = ignoreCost.?(0).|(installCost(c, |(s)))
                 if (cost > 0) {
-                    credits += Corp -> (credits(Corp) - cost)
+                    spendCredits(Corp, cost, Spend.install(c, |(s)))
                 }
                 if (c.data.isIce) {
                     moveTo(c, IceZone(s))
@@ -63,8 +63,8 @@ trait CardRules { game : Game =>
             if (location.get(c).exists(inPlayZone))
                 NextAction
             else {
-                val cost = ignoreCost.?(0).|(installCost(c, None))
-                payCredits(Runner, cost, None)
+                val cost = ignoreCost.?(0).|(hostedInstallCost(c, h))
+                spendCredits(Runner, cost, Spend.install(c, None, h))
                 // uniqueness
                 if (c.data.unique)
                     installedCards(Runner).%(x => x.title == c.title && x != c).foreach { x =>

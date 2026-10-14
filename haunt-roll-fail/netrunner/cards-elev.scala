@@ -40,7 +40,7 @@ case class DetenteHostedDoneAction(card : Card, cards : $[Card]) extends CardAct
 case class DetenteReturnAction(card : Card, f : Faction) extends CardAction
 case class DetenteReturnPurpose(card : Card) extends CardPurpose
 case class MaglectricPurpose(card : Card) extends CardPurpose
-case class OpenMarketPayAction(card : Card, installed : Card) extends CardAction
+
 case class GamedragonPurpose(card : Card) extends CardPurpose
 case class MadaniPurpose(card : Card) extends CardPurpose
 case class ChromatophoresAction(card : Card, add : Boolean) extends CardAction
@@ -76,7 +76,7 @@ case class PlutusDerezAction(card : Card) extends CardAction
 case class KpiAction(card : Card, done : $[String]) extends CardAction
 case class KpiShuffleAction(card : Card) extends CardAction
 case class LamplighterAction(card : Card) extends CardAction
-case class MahkotaPayAction(card : Card, rezzed : Card) extends CardAction
+
 case class SemakAction(card : Card) extends CardAction
 case class MagdalenePurpose(card : Card) extends CardPurpose
 
@@ -367,21 +367,12 @@ object ElevCards {
     object OpenMarket extends Startup("35022") {
         def eligible(c : Card)(implicit g : Game) = c.data.isResource && (g.has(c, "Connection") || g.has(c, "Job"))
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 6)
-        override def installCostMod(self : Card, card : Card)(implicit g : Game) = (card != self && eligible(card)).?(-g.counter(self, "credit")).|(0)
+        // "You can spend hosted credits to install connection and job resources."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(c => c != self && eligible(c))
         override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "credit") ++ (e match {
             case TurnBegins(Runner) if g.counter(self, "credit") > 0 => $(TakeCreditsEffect(Runner, self, 1))
-            case Installed(Runner, c) if c != self && eligible(c) && c.data.cost.|(0) > 0 && g.counter(self, "credit") > 0 => $(OpenMarketPayAction(self, c))
             case _ => $
         })
-        override def performCard(a : CardAction)(implicit g : Game) = a match {
-            case OpenMarketPayAction(self, c) =>
-                val m = g.counter(self, "credit").atMost(c.data.cost.|(0))
-                if (m > 0) {
-                    g.log(Runner, "spends", m.credits, "from", self)
-                    g.push(AddCounterEffect(self, "credit", -m))
-                }
-                NextAction
-        }
     }
 
     object Dewi extends Startup("35023") {
@@ -458,13 +449,8 @@ object ElevCards {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 2))
             case _ => $
         }
-        override def accessAbility(self : Card, target : Card)(implicit g : Game) = {
-            val hosted = g.counter(self, "credit")
-            g.trashCost(target).%(_ => !target.data.isAgenda && !g.zone(target).is[DiscardZone] && hosted > 0)./ { tc =>
-                val m = hosted.atMost(tc)
-                Ability("pay " + tc + " credits to trash (" + m + " from Azimat)", $(CounterCost("credit", m)) ++ (tc > m).$(CreditCost(tc - m)), $(TrashEffect(target, Runner, true)), ok = g.run.exists(!_.cannotStealOrTrash) && g.impl(target).canBeTrashedOnAccess(target) && !g.accessProtected(target), reason = "cannot trash")
-            }
-        }
+        // "You can spend hosted credits to pay trash costs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.trashing.any
     }
 
     object Chromatophores extends Startup("35030") {
@@ -590,7 +576,7 @@ object ElevCards {
             $(Ability("gain 4 credits, draw 3 cards, install up to 2 cards, play 1 operation", $(ClickCost(3), TrashSelfCost), $(gain(Corp, 4), draw(Corp, 3), InstallLoopAction(self, Corp, 2, 0, false, "hand", $()), HumanoidPlayAction(self)), click = true, ok = g.isRezzed(self), reason = "not rezzed"))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case HumanoidPlayAction(self) =>
-                val l = g.hand(Corp).%(c => c.data.isOperation && g.credits(Corp) >= g.playCost(c) && g.impl(c).canPlay(c))
+                val l = g.hand(Corp).%(c => c.data.isOperation && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c))
                 if (l.any)
                     g.push(ChooseCardEffect(Corp, l, PlayPurpose(self, true, false), "Humanoid Resources: play an operation from HQ?", true))
                 NextAction
@@ -779,7 +765,7 @@ object ElevCards {
     object Mycoweb extends Startup("35053") {
         override def subroutines(self : Card)(implicit g : Game) = $(
             Sub("You may install 1 piece of ice from Archives, ignoring all costs", ChooseCardEffect(Corp, g.discard(Corp).%(_.data.isIce), InstallChooseServerPurpose(true), "Mycoweb: install a piece of ice from Archives?", true)),
-            Sub("You may rez 1 installed piece of ice, paying 2 credits less", ChooseCardEffect(Corp, g.allIce.%(c => !g.isRezzed(c) && g.credits(Corp) >= (g.rezCost(c) - 2).atLeast(0)), RezDiscountPurpose(self, 2), "Mycoweb: rez a piece of ice paying 2 credits less?", true)),
+            Sub("You may rez 1 installed piece of ice, paying 2 credits less", ChooseCardEffect(Corp, g.allIce.%(c => !g.isRezzed(c) && g.canSpend(Corp, (g.rezCost(c) - 2).atLeast(0), Spend.rez(c))), RezDiscountPurpose(self, 2), "Mycoweb: rez a piece of ice paying 2 credits less?", true)),
             Sub("Resolve 1 subroutine on a rezzed sentry", ChooseCardEffect(Corp, g.rezzedIce.%(c => g.has(c, "Sentry")), SubChoicePurpose(self), "Mycoweb: choose a rezzed sentry", true)),
             Sub("Resolve 1 subroutine on another rezzed code gate", ChooseCardEffect(Corp, g.rezzedIce.%(c => c != self && g.has(c, "Code Gate")), SubChoicePurpose(self), "Mycoweb: choose another rezzed code gate", true)))
     }
@@ -1059,7 +1045,7 @@ object ElevCards {
         override def canRez(self : Card)(implicit g : Game) = g.scored(Corp).exists(_.data.isAgenda) || g.hand(Corp).num >= 3
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) if g.isRezzed(self) =>
-                val l = g.discard(Corp).%(c => c.data.isOperation && g.has(c, "Transaction") && g.credits(Corp) >= g.playCost(c) && g.impl(c).canPlay(c))
+                val l = g.discard(Corp).%(c => c.data.isOperation && g.has(c, "Transaction") && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c))
                 l.any.$(OptionalEffect(Corp, "Plutus: play a transaction from Archives (removed from the game afterwards)?", $(ChooseCardEffect(Corp, l, PlayPurpose(self, true, true), "Plutus: choose a transaction in Archives", true)), $))
             case _ => $
         }
@@ -1137,7 +1123,7 @@ object ElevCards {
     object MeasuredResponse extends Startup("35078") {
         override def canPlay(self : Card)(implicit g : Game) = g.threat(4) && g.successfulRunsLastTurn.any
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseOneEffect(Runner, "Measured Response: pay 8 credits or suffer 4 meat damage", $(
-            Alt("Pay 8 credits", $(LoseCreditsEffect(Runner, 8)), g.credits(Runner) >= 8),
+            Alt("Pay 8 credits", $(SpendEffect(Runner, 8, Spend.corpAbility, 0, $)), g.canSpend(Runner, 8, Spend.corpAbility)),
             Alt("Suffer 4 meat damage", $(meat(4))))))
     }
 
@@ -1153,7 +1139,7 @@ object ElevCards {
             case _ => $
         }
         override def subroutines(self : Card)(implicit g : Game) = $(
-            Sub("Give the Runner 1 tag unless they pay 3 credits", ChooseOneEffect(Runner, "Lamplighter", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3)))),
+            Sub("Give the Runner 1 tag unless they pay 3 credits", ChooseOneEffect(Runner, "Lamplighter", $(Alt("Take 1 tag", $(tag(1))), Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility))))),
             Sub("End the run if the Runner is tagged", LamplighterAction(self)))
         override def performCard(a : CardAction)(implicit g : Game) = a match {
             case LamplighterAction(self) =>
@@ -1167,27 +1153,18 @@ object ElevCards {
         override def canPlay(self : Card)(implicit g : Game) = g.clicks(Corp) >= 3 && g.reg("played") == 0 && g.reg("installed") == 0 && g.reg("advanced") == 0 && g.reg("click-draw") == 0
         override def onPlay(self : Card)(implicit g : Game) = $(gain(Corp, 5)) ++ g.playedFrom.get(self).exists(z => !z.is[HandZone]).$(GainClicksEffect(Corp, 1))
         override def inactiveAbilities(self : Card)(implicit g : Game) =
-            (g.zone(self) == DiscardZone(Corp)).$(Ability("play Petty Cash from Archives (then remove it from the game)", click(), $(PlayCardEffect(Corp, self, true, true)), click = true, ok = canPlay(self) && g.credits(Corp) >= g.playCost(self), reason = "an action was already taken this turn"))
+            (g.zone(self) == DiscardZone(Corp)).$(Ability("play Petty Cash from Archives (then remove it from the game)", click(), $(PlayCardEffect(Corp, self, true, true)), click = true, ok = canPlay(self) && g.canSpend(Corp, g.playCost(self), Spend.play(self)), reason = "an action was already taken this turn"))
     }
 
     object MahkotaLangitGrid extends Startup("35082") {
         def covers(self : Card, c : Card)(implicit g : Game) = c != self && g.serverOf(self).exists(s => (c.data.isAsset && g.root(s).has(c)) || (c.data.isIce && g.ice(s).has(c)))
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 2)
-        override def rezCostMod(self : Card, card : Card)(implicit g : Game) = covers(self, card).?(-g.counter(self, "credit")).|(0)
+        // "You can spend hosted credits to rez assets in the root of this server and ice protecting this server."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.rezzing.exists(c => covers(self, c))
         override def trashCostMod(self : Card, card : Card)(implicit g : Game) = (card != self && card.data.isAsset && g.serverOf(self).exists(s => g.root(s).has(card))).?(2).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Corp) => $(RefillCreditsEffect(self, 2))
-            case Rezzed(c) if covers(self, c) && g.counter(self, "credit") > 0 && c.data.cost.|(0) > 0 => $(MahkotaPayAction(self, c))
             case _ => $
-        }
-        override def performCard(a : CardAction)(implicit g : Game) = a match {
-            case MahkotaPayAction(self, c) =>
-                val m = g.counter(self, "credit").atMost(c.data.cost.|(0))
-                if (m > 0) {
-                    g.log(Corp, "spends", m.credits, "from", self)
-                    g.push(AddCounterEffect(self, "credit", -m))
-                }
-                NextAction
         }
     }
 

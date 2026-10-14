@@ -79,7 +79,9 @@ installable/playable/accessible generically and shows its printed text in the UI
 | `iceStrengthMod(self, ice)` / `breakerStrengthMod(self, breaker)` | strength modifiers applied to other cards |
 | `rezCostMod(self, card)`, `installCostMod(self, card)`, `playCostMod`, `trashCostMod`, `advancementRequirementMod` | cost modifiers (Tread Lightly: `+3` for ice during its run; DZMZ Optimizer: `-1`) |
 | `agendaPointsBonus(self)` | extra points while in a score area |
-| `creditsUsableForRun(self)` | hosted credit counters can pay for things during a run (Overclock) |
+| `creditsUsableForRun(self)` | hosted credit counters can pay for anything during a run (Overclock) |
+| `paysFor(self, spend)` | hosted credit counters can pay for this payment (`Spend`, see §8.2): Cloak `spend.using.exists(g.isIcebreaker)` |
+| `icebreakerSurcharge(self, breaker, breaking)`, `installCostModIn(self, card, server)`, `hostedInstallCostMod(self, card)` | additional credits for icebreaker abilities (Midway Station Grid), install cost by destination server (Network Exchange) / by host (Hackerspace) |
 | `advanceable(self)` | can be advanced although not an agenda (Urtica Cipher, Clearinghouse, Pharos) |
 | `initialCounters(self)` | counters placed when the card becomes active (runner install / corp rez / event play): `Map("credit" -> 9)` |
 | `mustBeHosted(self)`, `hostRequirement(self, host)` | trojans: must be installed on a host satisfying the requirement |
@@ -99,7 +101,8 @@ installable/playable/accessible generically and shows its printed text in the UI
 | `chosen(p : CardPurpose, cards)` | completion of a card choice made with a `CardPurpose` (see §4) |
 
 `Ability(label, costs, effects, click = false, once = None, ok = true, reason = "")`:
-`costs` is a list of `Cost` (`CreditCost(n)`, `ClickCost(n)`, `TrashSelfCost`, `VirusCost(n)` (hosted virus
+`costs` is a list of `Cost` (`CreditCost(n)`, `StealthCreditCost(n, stealth)` (at least `stealth` of the n credits from
+Stealth cards), `ClickCost(n)`, `TrashSelfCost`, `VirusCost(n)` (hosted virus
 counters), `CounterCost(kind, n)`, `TrashFromHandCost(n)` (the engine asks which cards), `LoseClickCost(n)`,
 `RemoveSelfCost`, `TagCost(n)`); `click = true` marks a `[click]:` action usable only in the controller's action
 phase; `once = Some("key")` makes it once per turn; `ok = false` with a `reason` shows it greyed out. The engine
@@ -259,7 +262,8 @@ override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
 | `(trash-on-empty :credit)` | `SG.trashOnEmpty(self, e, "credit")` inside `triggers` |
 | `this-card-run`, `this-server`, `first-event?`, `runner-reg :successful-run` | `thisCardRun(self)`, `thisServer(self, s)`, `g.reg(key) == 1`, `g.successfulRunsThisTurn.any` |
 | `:interactions {:access-ability ...}` | `accessAbility(self, target)` |
-| `:interactions {:pay-credits ...}` | `creditsUsableForRun` (run credits only) |
+| `:interactions {:pay-credits {:req ...}}` | `paysFor(self, spend)` (`(= :ability (:source-type eid))` + `target` → `spend.using`, `:runner-install` → `spend.installing`, `:rez` → `spend.rezzing`, `:play` → `spend.playing`, `:runner-trash-corp-cards` → `spend.trashing`, `:trace` / `:remove-tag` → `spend.is(...)`); `(req run)` → `creditsUsableForRun` |
+| `(->c :credit n {:stealth k})` / `{:stealth :all-stealth}` | `StealthCreditCost(n, k)` / `StealthCreditCost(n, n)`; a "pay N" inside an effect: `SpendEffect(f, n, spend, stealth, then)` |
 | `trojan` | `mustBeHosted` + `hostRequirement` |
 
 ## 7. Checklist for a new card
@@ -349,7 +353,7 @@ not collide with another file of the package.
     class Game ... with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
         with StartupRules with SU21Rules with PHTAIRules with RWRRules
         with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules
-        with RotAssetRules with RotAgendaRules
+        with RotAssetRules with RotAgendaRules with CreditRules
 
 Only `RotAssetRules` and `RotAgendaRules` override engine methods. They extend the core traits they refine (assets:
 `EffectRules, TurnRules, CardRules, RunRules, PHTAIRules, RWRRules`; agendas: `TurnRules, CardRules, AccessRules,
@@ -405,12 +409,34 @@ The bookkeeping registers of the events, operations and assets ports are counted
   `SwapRootEffect(a, b)` (shared).
 * trace result: `TraceResolved(successful, spent)` (agendas). It is fired once per trace, after the success/fail effects.
 * psi result: `RotPsiRevealed(corp, runner)` (assets). It is fired once per psi game.
-* recurring credits: `RefillCreditsEffect(card, n)` (su21) refills installed cards and active identities. Trace credits from
-  `RH.creditsUsableFor(_, "trace")` and `RA.recurring(_, "trace", _)` are handled by one interception (`rhTraceSources` in
-  hardware). Rez/install credits are `RA` cost modifiers, and icebreaker credits are `RH.breakerCredits`.
+* recurring credits: `RefillCreditsEffect(card, n)` (su21) refills installed cards and active identities. What they pay for
+  is declared with `paysFor` (`RH.breakerCredits` and `RA.recurring` are turned into `paysFor` by the base classes) and
+  spent by the payment engine of §8.2.
 * currents: `rotOperationTriggers` trashes (`TrashLingeringEffect`, idempotent) every other current when a current is
   played, Corp currents on a steal and Runner currents on a score. This covers any card whose implementation has
   `staysInPlay` and the Current subtype. `RE.lingering` handles only the other durations.
 * secret spending (`SecretSpendEffect`, events), damage choice and tag avoidance (`RH.damageChoice` / `RH.avoidTags`,
   hardware), and trace-margin measuring (`MarginTraceEffect` in operations, `RememberCreditsEffect` / `TraceKickerEffect` in
-  ice) each exist only once.
+  ice; the Runner's boost is `Game.runnerTraceBoost`) each exist only once.
+
+### 8.2 Credits and costs (`rules-ext-credits.scala`, trait `CreditRules`)
+
+Every credit payment has a purpose, `Spend(kind, card, target, server)`: `Spend.play(c)`, `install(c, server, host)`, `rez(c)`,
+`advance(c)`, `trash(c)` (a trash cost), `trashResource(c)`, `removeTag`, `trace`, `psi`, `ability(c)`, `break(b, ice)`,
+`pump(b, ice)`, `run(server)` (additional run costs), `corpAbility` ("end the run unless the Runner pays N"), `effect(source)`,
+`other`. Pay with `g.spendCredits(f, n, spend, stealth = 0)`; check with `g.canSpend(f, n, spend, stealth)` / `g.creditsFor(f, spend)`;
+inside effect lists use `SpendEffect(f, n, spend, stealth, then)`. `canPay` / `payCosts` take an optional `spend` (default:
+the ability of `self`); the old `payCredits(f, n, self, purpose)` / `availableCredits` still work (`Spend.legacy`).
+
+Credit sources: the pool (unless `poolLocked`: Aircheck), bad publicity credits of the run (`Run.credits`, set by
+`BadPublicityCreditsEffect` when the run begins), and the hosted credits of every active card whose `paysFor(self, spend)`
+(or `creditsUsableForRun` during a run, or `creditsUsableFor(self, spend.purpose)`) accepts the payment. The run flag
+`no-spend-credits` (RSVP) blocks all of them. Payment order (no prompt, deterministic): the stealth part from Stealth sources,
+bad publicity credits, credits on cards in the play area, recurring credits, other hosted credits (non-stealth before stealth),
+the pool; while a card that needs stealth credits is active (`isStealthConsumer`) the unrequired stealth credits are spent after
+the pool. Spending hosted credits fires `CreditsSpentFrom(card, n)`, bad publicity credits `BadPublicityCreditsSpent(n)`,
+`SpendEffect` fires `CreditsPaid(f, n, spend)`.
+
+Costs: `removeTagCost`, `trashResourceCost` (SYNC, Wireless Net Pavilion), `breakCostsWith` / `pumpCostsWith` (icebreaker
+surcharges: `CardImpl.icebreakerSurcharge` + run flags `break-surcharge`), `hostedInstallCost(c, host)`, `installParts` /
+`canSpendAll` / `spendAll` for "install and rez paying n less" (install part and rez part paid with their own Spends).

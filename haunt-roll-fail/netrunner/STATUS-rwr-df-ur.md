@@ -31,12 +31,11 @@ Nuvem SA (partial: "trash a card from R&D" is only recognised for Nuvem's own tr
 cost, i.e. `TrashTopEffect`), Eminent Domain, The Basalt Spire, Hearts and Minds, Descent, Hammer, Logjam,
 Business As Usual, Isaac Liberdade, The Powers That Be.
 
-### df — Downfall (65/65 implemented, 6 partial)
+### df — Downfall (65/65 implemented, 5 partial)
 
 Runner: Isolation, Demolisher, Chisel, Stargate, Utae, Climactic Showdown (partial: when the Corp declines
 to trash ice, the resource stays in play until the end of the turn to grant the access bonus, then is removed
-from the game), Fencer Fueno, The Nihilist, Trickster Taka (partial: hosted credits are usable for anything
-during a run, not only programs), Az McCaffrey, Always Have a Backup Plan, Blueberry Diesel, Flip Switch,
+from the game), Fencer Fueno, The Nihilist, Trickster Taka, Az McCaffrey, Always Have a Backup Plan, Blueberry Diesel, Flip Switch,
 Lucky Charm, Masterwork (v37), Bukhgalter, "Baklan" Bochkin, The Class Act, Lat, In the Groove (partial:
 "first click" is checked as "4 clicks remaining"), Khusyuk, Spec Work, Supercorridor, Gauss, Pelangi (Barrier /
 Code Gate / Sentry offered), Rezeki, The Artist, Direct Access (partial: identities are not disabled during the
@@ -51,22 +50,20 @@ Quest, Tiered Subscription, Congratulations!, Loot Box, Focus Group, Game Over, 
 Trust, SDS Drone Deployment, Roughneck Repair Squad, Afshar, Sandstone, Trebuchet, Secure and Protect, Reduced
 Service, Vulnerability Audit, CSR Campaign, Rime.
 
-### ur — Uprising (58/58 implemented, 6 partial)
+### ur — Uprising (58/58 implemented, 3 partial)
 
 Runner: Hoshiko Shiro (flip implemented with a "flipped" counter on the identity; gains Digital / +1 link),
-Moshing, Devil Charm, Gachapon, Keiko, Odore, Paladin Poemu (partial: hosted credits are taken with a "take 1
-credit" ability instead of being spent directly on installs), Bravado, Boomerang, Mu Safecracker (stealth credit
-restriction not enforced, like jinteki), Prognostic Q-Loop, Afterimage (stealth restriction not enforced),
-Makler, Penumbral Toolkit, The Back, Harmony AR Therapy, Aniccam, Simulchip, Cordyceps, Euler, Mantle (partial:
-the recurring credit is a hosted credit usable during runs), Penrose (stealth restriction not enforced),
+Moshing, Devil Charm, Gachapon, Keiko, Odore, Paladin Poemu, Bravado, Boomerang, Mu Safecracker, Prognostic Q-Loop,
+Afterimage, Makler, Penumbral Toolkit, The Back, Harmony AR Therapy, Aniccam, Simulchip, Cordyceps, Euler, Mantle, Penrose,
 Self-modifying Code, Paule's Cafe, Buffer Drive, Daily Casts, DreamNet.
 
 Corp: Project Vacheron, Bass CH1R180G4, Cerebral Overwriter, Vaporframe Fabricator (partial: the "not in the
 root of this server" restriction of the on-trash install is not enforced), Drafter, Tyr, NEXT Activation Command,
 Scapenet, Tranquility Home Grid ("remote server only" not enforced on install), Flower Sermon, Prana Condenser
 (prevents net damage from any source; one use per damage instance), Engram Flush, Konjin, Hyoubu Precog
-Manifold, Kakurenbo, GameNET (partial: triggers on any credit loss / payment by the Runner during a run, the
-"Corp card ability" source is not tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station
+Manifold, Kakurenbo, GameNET (partial: triggers on payments of "pay N credits" choices of Corp card abilities during
+a run (`CreditsPaid` with `Spend.corpAbility`) and on any credit loss of the Runner during a run, whose source is not
+tracked), Bellona, F2P, Gold Farmer, SYNC Rerouting, Ganked!, Earth Station
 (partial: "limit 1 remote server" not enforced), Transport Monopoly, Wall to Wall, Akhet, Colossus, Winchester,
 Argus Crackdown, Cyberdex Sandbox, False Lead, NAPD Cordon.
 
@@ -159,8 +156,7 @@ Not in the database (so not implemented): the `ur` codes 26072, 26078, 26091, 26
 
 ## Simplifications
 
-* Stealth credit restrictions (Afterimage, Penrose, Mu Safecracker) and credit sources restricted to card types
-  (Trickster Taka, Paladin Poemu, Mantle) are relaxed: hosted credits are usable during runs.
+
 * "Instead of breaching" effects set `Run.preventAccess`, so the log says "is prevented from breaching".
 * Access bonuses granted at "breach" time by several cards resolve in trigger order ("Pretty" Mary).
 * Game Over's prevention lets the Runner choose the cards to keep before trashing the others.

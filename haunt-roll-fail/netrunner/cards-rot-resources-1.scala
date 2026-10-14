@@ -374,6 +374,8 @@ object RotResourceCards1 {
 
     object CompromisedEmployee extends RR("02025") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 1)
+        // "Use this credit during traces."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.is("trace")
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 1))
             case Rezzed(c) if c.data.isIce => $(MessageEffect(Runner, "gains 1 credit (Compromised Employee)"), gain(Runner, 1))
@@ -445,8 +447,8 @@ object RotResourceCards1 {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 2))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("remove 1 tag with the hosted credits", $(ClickCost(1), CounterCost("credit", 2)), $(RemoveTagsEffect(1)), click = true, ok = g.tagged, reason = "not tagged"))
+        // "You can spend hosted credits to take the basic action to remove 1 tag."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.is("remove-tag")
         override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
             (kind == "meat").$(Ability("prevent up to 3 meat damage", $(TrashSelfCost), (n > 3).$(PreventWindowAction(kind, n - 3))))
     }
@@ -702,10 +704,9 @@ object RotResourceCards1 {
 
     object GhostRunner extends RR("06040") {
         override def initialCounters(self : Card)(implicit g : Game) = Map("credit" -> 3)
+        // "You can use the credits on Ghost Runner during a run."
         override def creditsUsableForRun(self : Card)(implicit g : Game) = true
         override def triggers(self : Card, e : Event)(implicit g : Game) = trashOnEmpty(self, e, "credit")
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("take 1 hosted credit", $(CounterCost("credit", 1)), $(gain(Runner, 1)), ok = activeRun, reason = "only during a run"))
     }
 
     object GlobalsecSecurityClearance extends RR("09051") {
@@ -776,8 +777,8 @@ object RotResourceCards1 {
             case Rezzed(c) if c.data.isIce => $(AddCounterEffect(self, "credit", 1))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("take 1 hosted credit to install a program", $(CounterCost("credit", 1)), $(gain(Runner, 1)), ok = g.hand(Runner).exists(_.data.isProgram) && g.active.isRunner, reason = "no program to install"))
+        // "You may use credits on Ice Analyzer to install programs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(_.data.isProgram)
     }
 
     object InsideMan extends RR("02068") {
@@ -786,8 +787,8 @@ object RotResourceCards1 {
             case TurnBegins(Runner) => $(RefillCreditsEffect(self, 2))
             case _ => $
         }
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("take the hosted credits to install hardware", NoCost, $(TakeCreditsEffect(Runner, self, 2)), ok = g.counter(self, "credit") > 0 && g.hand(Runner).exists(_.data.isHardware) && g.active.isRunner && g.run.none, reason = "no hardware to install"))
+        // "Use these credits to install hardware."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(_.data.isHardware)
     }
 
     object InvestigativeJournalism extends RR("07049") {
@@ -840,12 +841,16 @@ object RotResourceCards1 {
     object Jackpot extends RR("21090") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) => $(AddCounterEffect(self, "credit", 1))
-            case AgendaStolen(_) if g.isInstalled(self) && g.counter(self, "credit") > 0 => $(OptionalEffect(Runner, "Jackpot!: take all hosted credits and trash it?", $(JackpotAction(self)), $))
+            case AgendaStolen(_) if g.isInstalled(self) && g.counter(self, "credit") > 0 => $(OptionalEffect(Runner, "Jackpot!: take hosted credits and trash it?", $(JackpotAction(self)), $))
             case _ => $
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case JackpotAction(self) =>
-                g.push(TakeCreditsEffect(Runner, self, g.counter(self, "credit")), TrashEffect(self, Runner, false))
+                // "you may take any number of credits from Jackpot!. If you do, trash Jackpot!."
+                g.push(ChooseNumberEffect(Runner, self, 1, g.counter(self, "credit"), "jackpot", "Jackpot!: how many credits to take?"))
+                NextAction
+            case NumberPickedAction(self, n, "jackpot") =>
+                g.push(TakeCreditsEffect(Runner, self, n), TrashEffect(self, Runner, false))
                 NextAction
         }
     }

@@ -191,7 +191,7 @@ object RotHardwareCards1 {
         }
         override def performRH(a : CardAction)(implicit g : Game) = a match {
             case RHBlackguardAction(self, c) =>
-                if (g.isInstalled(c) && !g.isRezzed(c) && g.impl(c).canRez(c) && g.credits(Corp) >= g.rezCost(c) + g.rhRezSurcharge(c) && !g.rhRezBlocked(c)) {
+                if (g.isInstalled(c) && !g.isRezzed(c) && g.impl(c).canRez(c) && g.canSpend(Corp, g.rezCost(c) + g.rhRezSurcharge(c), Spend.rez(c)) && !g.rhRezBlocked(c)) {
                     g.log(Corp, "is forced to rez", c, "(Blackguard)")
                     g.push(RezEffect(c, false))
                 }
@@ -228,13 +228,9 @@ object RotHardwareCards1 {
     }
 
     object PublicTerminal extends RH("05038") {
-        def runEvent(c : Card)(implicit g : Game) = c.data.isEvent && g.has(c, "Run") && c.data.cost.|(0) > 0
         override def recurring(self : Card)(implicit g : Game) = 1
-        override def playCostMod(self : Card, card : Card)(implicit g : Game) = (runEvent(card) && g.counter(self, "credit") > 0).?(-1).|(0)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Played(Runner, c) if runEvent(c) && g.counter(self, "credit") > 0 => $(MessageEffect(Runner, "uses 1 credit from Public Terminal"), AddCounterEffect(self, "credit", -1))
-            case _ => $
-        }
+        // "Use this credit to play run events."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.playing.exists(c => c.data.isEvent && g.has(c, "Run"))
     }
 
     object UnregisteredSW35 extends RH("05039") {
@@ -292,13 +288,9 @@ object RotHardwareCards1 {
     }
 
     object CybsoftMacroDrive extends RH("06098") {
-        def ok(c : Card) = c.data.isProgram && c.data.cost.|(0) > 0
         override def recurring(self : Card)(implicit g : Game) = 1
-        override def installCostMod(self : Card, card : Card)(implicit g : Game) = (ok(card) && g.counter(self, "credit") > 0).?(-1).|(0)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Installed(Runner, c) if ok(c) && c != self && g.counter(self, "credit") > 0 => $(MessageEffect(Runner, "uses 1 credit from Cybsoft MacroDrive"), AddCounterEffect(self, "credit", -1))
-            case _ => $
-        }
+        // "Use this credit to install programs."
+        override def paysFor(self : Card, spend : Spend)(implicit g : Game) = spend.installing.exists(_.data.isProgram)
     }
 
     object ArchivesInterface extends RH("07044") {
@@ -376,7 +368,7 @@ object RotHardwareCards1 {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => c.data.isEvent && g.impl(c).canPlay(c) && g.credits(Runner) >= g.playCost(c))
+            val l = g.hand(Runner).%(c => c.data.isEvent && g.impl(c).canPlay(c) && g.canSpend(Runner, g.playCost(c), Spend.play(c)))
             $(Ability("play another event without spending a click", NoCost, $(SetCounterEffect(self, "comet", 0), ChooseCardEffect(Runner, l, PlayPurpose(self, true, false), "Comet: choose an event to play", false)), ok = g.counter(self, "comet") > 0 && l.any && g.active.isRunner && g.run.none, reason = "no event played this turn"))
         }
     }

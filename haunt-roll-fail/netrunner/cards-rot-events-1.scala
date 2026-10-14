@@ -328,7 +328,7 @@ object RotEventCards1 {
     object PlannedAssault extends RE("05036") {
         override def canPlay(self : Card)(implicit g : Game) = doubleOk()
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.deck(Runner).%(c => g.has(c, "Run") && c.data.isEvent && g.credits(Runner) >= g.playCost(c)).sortBy(_.title)
+            val l = g.deck(Runner).%(c => g.has(c, "Run") && c.data.isEvent && g.canSpend(Runner, g.playCost(c), Spend.play(c))).sortBy(_.title)
             doubleCost() ++ l.any.$(ChooseCardEffect(Runner, l, PlayPurpose(self, true, false), "Planned Assault: choose a run event in the stack to play", true)) :+ ShuffleDeckEffect(Runner)
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -379,7 +379,7 @@ object RotEventCards1 {
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseOneEffect(Runner, "Cyber Threat: choose a server", g.servers./(s => Alt(s.name, $(CyberThreatAction(self, s))))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case CyberThreatAction(self, s) =>
-                val l = g.ice(s).%(c => !g.isRezzed(c) && g.credits(Corp) >= g.rezCost(c) && g.impl(c).canRez(c))
+                val l = g.ice(s).%(c => !g.isRezzed(c) && g.canSpend(Corp, g.rezCost(c), Spend.rez(c)) && g.impl(c).canRez(c))
                 val rezzed = g.ice(s).count(g.isRezzed)
                 if (l.any)
                     g.push(OptionalEffect(Corp, "Cyber Threat: rez a piece of ice protecting " + s.name + "? (otherwise the Runner runs it and no ice can be rezzed)", $(ChooseCardEffect(Corp, l, RezPurpose(false), "Cyber Threat: choose a piece of ice to rez", false)), $), CyberThreatRunAction(self, s, rezzed))

@@ -77,10 +77,10 @@ overrides, each calling `super` and guarded by the relevant card being in play:
 | Override | Purpose |
 |---|---|
 | `performEffects` | `RotPsiRevealed` after `PsiResolveAction`; recurring trace credits in `TraceCorpBoostAction` / `TraceCorpAction` (Net Police, Primary Transmission Dish); `RotTraceSucceeded` after `TraceRunnerAction`; Broadcast Square trace on `BadPubEffect`; Genetics Pavilion cap on `DrawNowEffect(Runner)`; Blacklist on `AddToHandEffect` / `MoveEffect` / `RemoveFromGameEffect` out of the heap |
-| `performCards` | The Root credits on `CorpInstallEffect`; Blacklist on `RunnerInstallEffect` from the heap |
-| `performTurn` | The Root credit on `AdvanceAction`; greys the Runner's click draw (Genetics Pavilion) and current events (The News Now Hour) |
+| `performCards` | Blacklist on `RunnerInstallEffect` from the heap |
+| `performTurn` | greys the Runner's click draw (Genetics Pavilion) and current events (The News Now Hour) |
 | `performRun` | remembers the unbroken subroutines when an encounter ends (`EncounterEndsAction` resets them before the event; Chief Slee) |
-| `rezCard` | spends the hosted recurring rez credits (Dedicated Server, Mumba Temple, The Root) unless the rez ignores costs |
+
 | `resolvePurpose` | Blacklist: generic (non-card) purposes cannot take heap cards |
 | `extImpl` | `AsAgendaImpl` for `RA` cards in a score area; `MinusOnePointImpl` (−1 point) for Runner score area cards while The Board is rezzed |
 | `subs` | Warden Fatuma: rezzed bioroid ice get "The Runner loses [click]" as their first subroutine |
@@ -89,10 +89,8 @@ If another worktree also overrides one of these, both compose as long as each ca
 
 ## Simplifications
 
-* Recurring credits: rez/install discounts are applied as cost modifiers and the hosted credits are removed after payment; a rez
-  paid through a path that computes its own discounted cost and then rezzes "ignoring costs" (`DiscountRezEffect`,
-  `ServerDiscountChosenAction`) does not consume them. The Root's advance credit is used automatically (the advance menu still
-  requires 1 credit in the pool). Net Police refills to the current link at the start of the Corp's turn.
+* Recurring credits (Dedicated Server, Net Police, Primary Transmission Dish, The Root, Mumba Temple) are credit sources of
+  `rules-ext-credits.scala` (`RA.paysFor` from `RA.recurring`). Net Police refills to the current link at the start of the Corp's turn.
 * Broadcast Square resolves its trace when the bad publicity would be taken; on failure the bad publicity is taken normally (no
   separate "prevent" window).
 * Director Haas / Victoria Jenkins: +1 / −1 allotted click applied as next-turn clicks at the end of the opponent's / own turn

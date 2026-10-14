@@ -22,7 +22,7 @@ import Helpers._
 // card specific actions and purposes
 case class ChainReactionCorpAction(card : Card) extends CardAction
 case class KompromatAction(card : Card) extends CardAction
-case class BakerPayAction(card : Card, server : Server) extends CardAction
+
 case class HiramAction(card : Card) extends CardAction
 case class BetaBuildPurpose(card : Card) extends CardPurpose
 case class BetaBuildReturnAction(card : Card) extends CardAction
@@ -106,7 +106,7 @@ object VPCards {
         override def breaks(self : Card)(implicit g : Game) = $(BreakAbility(c(1), 1, $("Barrier")))
         override def abilities(self : Card)(implicit g : Game) = {
             val ice = encounteredIce.%(i => g.has(i, "Barrier"))
-            $(Ability("give -3 strength to the encountered barrier (stealth credit)", c(1), ice.$./(i => PumpIceEffect(i, -3, EncounterDuration)), ok = ice.any && g.stealthCredits >= 1, reason = "needs an encountered barrier and a stealth credit"))
+            $(Ability("give -3 strength to the encountered barrier (stealth credits only)", $(StealthCreditCost(1, 1)), ice.$./(i => PumpIceEffect(i, -3, EncounterDuration)), ok = ice.any, reason = "needs an encountered barrier"))
         }
     }
 
@@ -115,14 +115,15 @@ object VPCards {
         override def accessAbility(self : Card, target : Card)(implicit g : Game) = {
             val cost = target.data.cost.|(0)
             (!target.data.isAgenda && !g.zone(target).is[DiscardZone] && g.counter(self, "power") > 0).?(
-                Ability("trash the accessed card paying its printed cost (" + cost + ") with stealth credits", $(CounterCost("power", 1), CreditCost(cost)), $(TrashEffect(target, Runner, true)), ok = g.stealthCredits >= cost && g.run.exists(!_.cannotStealOrTrash) && !g.accessProtected(target) && !cannotBeTrashedByRunner(target), reason = "needs stealth credits"))
+                Ability("trash the accessed card paying its printed cost (" + cost + ") with stealth credits", $(CounterCost("power", 1), StealthCreditCost(cost, cost)), $(TrashEffect(target, Runner, true)), ok = g.run.exists(!_.cannotStealOrTrash) && !g.accessProtected(target) && !cannotBeTrashedByRunner(target), reason = "cannot trash"))
         }
     }
 
     object Hackerspace extends Startup("36006") {
         def eligible(c : Card)(implicit g : Game) = c.data.isResource && c.data.unique && (g.has(c, "Connection") || g.has(c, "Companion"))
         override def canHost(self : Card, card : Card)(implicit g : Game) = eligible(card)
-        override def installCostMod(self : Card, card : Card)(implicit g : Game) = (card != self && eligible(card)).?(-1).|(0)
+        // "Each resource installed this way costs 1 credit less to install."
+        override def hostedInstallCostMod(self : Card, card : Card)(implicit g : Game) = eligible(card).?(-1).|(0)
         override def handSize(self : Card, f : Faction)(implicit g : Game) = (f.isRunner && g.hosted(self).exists(c => g.has(c, "Connection")) && g.hosted(self).exists(c => g.has(c, "Companion"))).?(2).|(0)
     }
 
@@ -208,21 +209,13 @@ object VPCards {
     object Baker extends Startup("36015") {
         override def abilities(self : Card)(implicit g : Game) = $(Ability("run Archives (may switch to HQ or R&D when approaching)", click(), $(RunEffect(Archives, |(self))), click = true, once = once("baker")))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case ApproachServer(Archives) if thisCardRun(self) && g.stealthCredits >= 1 =>
+            // "you may pay 1 credit ... Spend credits only from stealth cards to pay this cost."
+            case ApproachServer(Archives) if thisCardRun(self) && g.canSpend(Runner, 1, Spend.ability(self), 1) =>
                 $(ChooseOneEffect(Runner, "Baker: pay 1 stealth credit to change the attacked server?", $(
-                    Alt("Change to HQ", $(BakerPayAction(self, HQ), RedirectRunEffect(HQ, 0, false))),
-                    Alt("Change to R&D", $(BakerPayAction(self, RnD), RedirectRunEffect(RnD, 0, false))),
+                    Alt("Change to HQ", $(SpendEffect(Runner, 1, Spend.ability(self), 1, $(RedirectRunEffect(HQ, 0, false))))),
+                    Alt("Change to R&D", $(SpendEffect(Runner, 1, Spend.ability(self), 1, $(RedirectRunEffect(RnD, 0, false))))),
                     Alt("Continue to Archives", $))))
             case _ => $
-        }
-        override def performCard(a : CardAction)(implicit g : Game) = a match {
-            case BakerPayAction(self, s) =>
-                g.activeCards(Runner).%(c => g.has(c, "Stealth") && g.counter(c, "credit") > 0).starting.foreach { c =>
-                    g.addCounter(c, "credit", -1)
-                    g.log(Runner, "spends", 1.credits, "from", c)
-                    g.trigger(CounterAdded(c, "credit"))
-                }
-                NextAction
         }
     }
 
@@ -580,7 +573,7 @@ object VPCards {
     object Lionsmane extends Startup("36041") {
         override def subroutines(self : Card)(implicit g : Game) = $(
             netSub(2),
-            Sub("Do 2 net damage unless the Runner pays 3 credits", ChooseOneEffect(Runner, "Lionsmane", $(Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3), Alt("Suffer 2 net damage", $(net(2)))))),
+            Sub("Do 2 net damage unless the Runner pays 3 credits", ChooseOneEffect(Runner, "Lionsmane", $(Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility)), Alt("Suffer 2 net damage", $(net(2)))))),
             Sub("Do 2 net damage unless the Runner jacks out", ChooseOneEffect(Runner, "Lionsmane", $(Alt("Jack out", $(JackOutEffect)), Alt("Suffer 2 net damage", $(net(2)))))))
     }
 
@@ -683,7 +676,7 @@ object VPCards {
 
     object Grubber extends Startup("36050") {
         override def onRez(self : Card)(implicit g : Game) = g.serverOf(self).exists(_.isCentral).$(BadPubEffect(1))
-        def sub(implicit g : Game) = Sub("End the run unless the Runner pays 3 credits", ChooseOneEffect(Runner, "Grubber", $(Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3), Alt("End the run", $(EndRunEffect)))))
+        def sub(implicit g : Game) = Sub("End the run unless the Runner pays 3 credits", ChooseOneEffect(Runner, "Grubber", $(Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility)), Alt("End the run", $(EndRunEffect)))))
         override def subroutines(self : Card)(implicit g : Game) = $(sub, sub)
     }
 
@@ -700,7 +693,7 @@ object VPCards {
 
     object Paywall extends Startup("36052") {
         override def onEncounter(self : Card)(implicit g : Game) = $(LoseCreditsEffect(Runner, 1))
-        override def subroutines(self : Card)(implicit g : Game) = $(Sub("End the run unless the Runner pays 1 credit", ChooseOneEffect(Runner, "Paywall", $(Alt("Pay 1 credit", $(LoseCreditsEffect(Runner, 1)), g.credits(Runner) >= 1), Alt("End the run", $(EndRunEffect))))))
+        override def subroutines(self : Card)(implicit g : Game) = $(Sub("End the run unless the Runner pays 1 credit", ChooseOneEffect(Runner, "Paywall", $(Alt("Pay 1 credit", $(SpendEffect(Runner, 1, Spend.corpAbility, 0, $)), g.canSpend(Runner, 1, Spend.corpAbility)), Alt("End the run", $(EndRunEffect))))))
     }
 
     object FloodTheMarket extends Startup("36053") {
@@ -768,10 +761,10 @@ object VPCards {
             val programs = g.installedCards(Runner).%(_.data.isProgram)
             $(
                 Sub("Trash 1 installed program unless the Runner pays 3 credits", ChooseOneEffect(Runner, "Event Horizon", $(
-                    Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3),
+                    Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility)),
                     Alt("The Corp trashes a program", $(ChooseCardEffect(Corp, programs, TrashPurpose(Corp), "Event Horizon: choose a program to trash", false)))))),
                 Sub("End the run unless the Runner pays 3 credits", ChooseOneEffect(Runner, "Event Horizon", $(
-                    Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3),
+                    Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility)),
                     Alt("End the run", $(EndRunEffect))))))
         }
     }
@@ -833,10 +826,10 @@ object VPCards {
             case ServerPickedAction(self, server, key) =>
                 val parts = key.split(':')
                 val c = Card(parts(1), parts(2).toInt)
-                val total = g.installCost(c, server) + g.rezCost(c)
-                val cost = (total - 10).atLeast(0)
-                if (g.credits(Corp) >= cost) {
-                    g.credits += Corp -> (g.credits(Corp) - cost)
+                val pay = g.installParts(c, server, None, 10, true)
+                val cost = pay.map(_._1).sum
+                if (g.canSpendAll(Corp, pay)) {
+                    g.spendAll(Corp, pay)
                     g.log(Corp, "pays", cost.credits, "(10 less)")
                     g.push(CorpInstallEffect(c, server, true), RezEffect(c, true))
                     if (!g.has(c, "Liability") && !g.has(c, "Illicit"))
@@ -863,6 +856,8 @@ object VPCards {
     object ShackletonGrid extends Startup("36065") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case CreditsSpentFrom(c, n) if g.isRezzed(self) && g.owner(c).isRunner && runOnThisServer(self) && !g.usedThisTurn(self, "shackleton") =>
+                $(OptionalEffect(Corp, "Shackleton Grid: do 4 meat damage?", $(MarkUsedEffect(self, "shackleton"), meat(4)), $))
+            case BadPublicityCreditsSpent(n) if g.isRezzed(self) && runOnThisServer(self) && !g.usedThisTurn(self, "shackleton") =>
                 $(OptionalEffect(Corp, "Shackleton Grid: do 4 meat damage?", $(MarkUsedEffect(self, "shackleton"), meat(4)), $))
             case _ => $
         }

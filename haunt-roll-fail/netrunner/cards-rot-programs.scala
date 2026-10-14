@@ -82,7 +82,7 @@ abstract class Conspiracy(code : String, val iceType : String) extends Rot(code)
                 g.push(OptionalEffect(Runner, "Install " + g.asciiTitle(self) + " from the heap?", $(RunnerInstallPayingEffect(self, None, 0)), $(MarkUsedRunEffect(self, "no-install"))))
             |(NextAction)
         case HeapBreakerXAction(self, n) =>
-            g.push(PayCreditsEffect(Runner, n), PumpBreakerEffect(self, n, EncounterDuration), SetCounterEffect(self, "break", n))
+            g.push(SpendEffect(Runner, n, Spend.ability(self), 0, $(PumpBreakerEffect(self, n, EncounterDuration), SetCounterEffect(self, "break", n))))
             |(NextAction)
         case _ => None
     }
@@ -179,7 +179,7 @@ abstract class Greek(code : String, firstN : Int, firstType : String, secondN : 
 abstract class Wrestler(code : String, iceType : String) extends Rot(code) {
     override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
         case EncounterIce(ice) if !g.has(ice, iceType) && !g.usedThisTurn(self, "wrestle") && g.availableCredits(Runner, |(self)) >= 2 =>
-            $(OptionalEffect(Runner, "Pay 2 credits to make the encountered ice gain " + iceType + " (" + g.asciiTitle(self) + ")?", $(MarkUsedEffect(self, "wrestle"), PayCreditsEffect(Runner, 2), GiveSubtypeAction(self, ice, iceType)), $))
+            $(OptionalEffect(Runner, "Pay 2 credits to make the encountered ice gain " + iceType + " (" + g.asciiTitle(self) + ")?", $(MarkUsedEffect(self, "wrestle"), SpendEffect(Runner, 2, Spend.ability(self), 0, $(GiveSubtypeAction(self, ice, iceType)))), $))
         case EncounterEnds(ice) if g.state(self).target.has(ice) => $(ClearSubtypeAction(self))
         case _ => $
     }

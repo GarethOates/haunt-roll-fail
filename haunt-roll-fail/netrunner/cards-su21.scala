@@ -182,7 +182,7 @@ object SU21Cards {
 
     object CareerFair extends Ext("31015") {
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => c.data.isResource && g.credits(Runner) >= (g.installCost(c, None) - 3).atLeast(0))
+            val l = g.hand(Runner).%(c => c.data.isResource && g.canSpend(Runner, (g.installCost(c, None) - 3).atLeast(0), Spend.install(c)))
             l.any.$(ChooseCardEffect(Runner, l, CareerFairPurpose(self), "Career Fair: choose a resource to install, paying 3 less", true))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -207,7 +207,7 @@ object SU21Cards {
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
                 g.push(ChooseOneEffect(Corp, "Forged Activation Orders: rez or trash the ice?", $(
-                    Alt("Rez it", $(RezEffect(c, false)), g.credits(Corp) >= g.rezCost(c) && g.impl(c).canRez(c)),
+                    Alt("Rez it", $(RezEffect(c, false)), g.canSpend(Corp, g.rezCost(c), Spend.rez(c)) && g.impl(c).canRez(c)),
                     Alt("Trash it", $(TrashEffect(c, Corp, false))))))
             }
             NextAction
@@ -258,7 +258,7 @@ object SU21Cards {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case EncounterIce(ice) if g.state(self).target.has(ice) =>
                 val n = g.impl(ice).subroutines(ice).num
-                (g.availableCredits(Runner, |(self)) >= n).$(OptionalEffect(Runner, "Femme Fatale: pay " + n + " credits to bypass the ice?", $(LoseCreditsEffect(Runner, n), BypassEffect), $))
+                g.canSpend(Runner, n, Spend.ability(self)).$(OptionalEffect(Runner, "Femme Fatale: pay " + n + " credits to bypass the ice?", $(SpendEffect(Runner, n, Spend.ability(self), 0, $(BypassEffect))), $))
             case _ => $
         }
     }
@@ -445,7 +445,7 @@ object SU21Cards {
     object ArchitectsOfTomorrow extends Ext("31040") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(ice) if g.isRezzed(ice) && g.has(ice, "Bioroid") && !g.usedThisTurn(self, "aot") =>
-                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && g.has(c, "Bioroid") && g.credits(Corp) >= (g.rezCost(c) - 4).atLeast(0) && g.impl(c).canRez(c))
+                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && g.has(c, "Bioroid") && g.canSpend(Corp, (g.rezCost(c) - 4).atLeast(0), Spend.rez(c)) && g.impl(c).canRez(c))
                 $(MarkUsedEffect(self, "aot")) ++ l.any.$(ChooseCardEffect(Corp, l, ArchitectsPurpose(self), "Architects of Tomorrow: rez a bioroid card paying 4 less?", true))
             case _ => $
         }
@@ -657,7 +657,7 @@ object SU21Cards {
 
     object PopUpWindow extends Ext("31065") {
         override def onEncounter(self : Card)(implicit g : Game) = $(gain(Corp, 1))
-        override def subroutines(self : Card)(implicit g : Game) = $(Sub("End the run unless the Runner pays 1 credit", ChooseOneEffect(Runner, "Pop-up Window", $(Alt("Pay 1 credit", $(LoseCreditsEffect(Runner, 1)), g.credits(Runner) >= 1), Alt("End the run", $(EndRunEffect))))))
+        override def subroutines(self : Card)(implicit g : Game) = $(Sub("End the run unless the Runner pays 1 credit", ChooseOneEffect(Runner, "Pop-up Window", $(Alt("Pay 1 credit", $(SpendEffect(Runner, 1, Spend.corpAbility, 0, $)), g.canSpend(Runner, 1, Spend.corpAbility)), Alt("End the run", $(EndRunEffect))))))
     }
 
     object Tollbooth extends Ext("31066") {

@@ -366,11 +366,9 @@ object RotIceCards2 {
         override def subroutines(self : Card)(implicit g : Game) = $(etrSub)
     }
 
-    // RSVP: only break abilities that cost credits are blocked (pumps and other credit spending are not)
+    // RSVP: the run flag "no-spend-credits" blocks every credit payment of the Runner for the run (rules-ext-credits.scala)
     object RSVP extends RI("04077") {
-        override def subroutines(self : Card)(implicit g : Game) = $(Sub("The Runner cannot spend credits for the remainder of this run", CopyAbilityEffect($(MessageEffect(Corp, "uses RSVP: the Runner cannot spend credits to break subroutines this run"), SetMemoEffect(self, "run:" + g.runKeyString)))))
-        override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) =
-            !memoIs(self, "run:" + g.runKeyString) || g.impl(breaker).breaks(breaker).exists(b => !b.costs.exists { case CreditCost(n) => n > 0 ; case _ => false })
+        override def subroutines(self : Card)(implicit g : Game) = $(Sub("The Runner cannot spend any credits for the remainder of this run", CopyAbilityEffect($(MessageEffect(Corp, "uses RSVP: the Runner cannot spend credits for the remainder of this run"), AddFlagEffect(Flag("no-spend-credits", |(self), None, "run", 0, $))))))
     }
 
     object Rainbow extends RI("05025") {
@@ -755,7 +753,7 @@ object RotIceCards2 {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Trace[5]: reveal the grip and trash each card with a cost lower than or equal to the difference", CopyAbilityEffect($(RememberCreditsEffect(self, Runner), TraceEffect(5, $(RotSubAction(self, 1)), $(clearMemo(self)))))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
-                val boost = (memoInt(self) - g.credits(Runner)).atLeast(0)
+                val boost = g.runnerTraceBoost
                 val delta = g.traceStrength - g.link - boost
                 val l = g.hand(Runner).%(c => c.data.cost.|(0) <= delta)
                 g.push(RevealCardsEffect(Runner, g.hand(Runner)), TrashCardsEffect(l, Corp), clearMemo(self))

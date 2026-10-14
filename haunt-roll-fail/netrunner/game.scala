@@ -268,6 +268,7 @@ case class TagCost(n : Int) extends Cost { def elem = ("take " + n + " tag").hl 
 object Cost {
     def desc(l : $[Cost]) : String = l./{
         case CreditCost(n) => n + "[c]"
+        case StealthCreditCost(n, s) => n + "[c] (" + (s >= n).?("stealth only").|(s + " stealth") + ")"
         case ClickCost(n) => "[click]" * n
         case TrashSelfCost => "[trash]"
         case VirusCost(n) => n + " virus"
@@ -337,7 +338,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
     with StartupRules with SU21Rules with PHTAIRules with RWRRules
-    with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules {
+    with RotSharedRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules with RotOperationRules with RotHardwareRules with RotAssetRules with RotAgendaRules with CreditRules {
 
     implicit def implicitGame : Game = this
 
@@ -603,7 +604,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def installCost(c : Card, server : |[Server]) : Int = {
         val base = owner(c).isCorp.?(c.data.isIce.?(server./(ice(_).num).|(0)).|(0)).|(c.data.cost.|(0))
-        (base + allActive./(x => impl(x).installCostMod(x, c)).sum + (!isActive(c)).??(impl(c).installCostMod(c, c))).atLeast(0)
+        (base + allActive./(x => impl(x).installCostMod(x, c)).sum + (!isActive(c)).??(impl(c).installCostMod(c, c)) + allActive./(x => impl(x).installCostModIn(x, c, server)).sum).atLeast(0)
     }
 
     def playCost(c : Card) : Int = (c.data.cost.|(0) + allActive./(x => impl(x).playCostMod(x, c)).sum + (!allActive.has(c)).??(impl(c).playCostMod(c, c))).atLeast(0)
@@ -612,8 +613,9 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     def tagged = tags > 0
 
-    def canPay(f : Faction, costs : $[Cost], self : |[Card] = None) : Boolean = costs.forall {
-        case CreditCost(n) => availableCredits(f, self) >= n
+    def canPay(f : Faction, costs : $[Cost], self : |[Card] = None, spend : |[Spend] = None) : Boolean = costs.forall {
+        case CreditCost(n) => canSpend(f, n, spend.|(Spend.legacy(self, "")))
+        case StealthCreditCost(n, s) => canSpend(f, n, spend.|(Spend.legacy(self, "")), s)
         case ClickCost(n) => clicks(f) >= n
         case TrashSelfCost => self.exists(isInstalled)
         case VirusCost(n) => self.exists(c => counter(c, "virus") >= n)
@@ -626,12 +628,12 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     }
 
     // credits available including hosted credits usable for the purpose (run credits)
-    def availableCredits(f : Faction, self : |[Card], purpose : String = "") : Int = credits(f) + creditSourcesFor(f, purpose)./(c => counter(c, "credit")).sum
+    def availableCredits(f : Faction, self : |[Card], purpose : String = "") : Int = creditsFor(f, Spend.legacy(self, purpose))
 
     def creditSources(f : Faction) : $[Card] = activeCards(f).%(c => impl(c).creditsUsableForRun(c))
 
     // hosted credits usable for a purpose: run credits during a run, plus purpose specific ones (recurring credits)
-    def creditSourcesFor(f : Faction, purpose : String) : $[Card] = activeCards(f).%(c => (f.isRunner && run.any && impl(c).creditsUsableForRun(c)) || (purpose != "" && impl(c).creditsUsableFor(c, purpose)))
+    def creditSourcesFor(f : Faction, purpose : String) : $[Card] = creditSourcesOf(f, Spend.legacy(None, purpose))
 
     def paidAbilitiesUsedThisTurn(c : Card, key : String) = state(c).usedTurn.has(key)
 

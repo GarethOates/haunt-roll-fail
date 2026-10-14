@@ -51,7 +51,7 @@ abstract class RI(code : String) extends NC(code) {
 
     def choose(prompt : String, alts : $[Alt]) = ChooseOneEffect(Runner, name + ": " + prompt, alts)
 
-    def etrUnlessPays(n : Int)(implicit g : Game) = Sub("End the run unless the Runner pays " + n + "[c]", choose("choose one", $(Alt("Pay " + n + " credits", $(LoseCreditsEffect(Runner, n)), g.credits(Runner) >= n), Alt("End the run", $(EndRunEffect)))))
+    def etrUnlessPays(n : Int)(implicit g : Game) = Sub("End the run unless the Runner pays " + n + "[c]", choose("choose one", $(Alt("Pay " + n + " credits", $(SpendEffect(Runner, n, Spend.corpAbility, 0, $)), g.canSpend(Runner, n, Spend.corpAbility)), Alt("End the run", $(EndRunEffect)))))
 
     def etrUnlessClicks(n : Int)(implicit g : Game) = Sub("End the run unless the Runner spends " + "[click]" * n, choose("choose one", $(Alt("Spend " + "[click]" * n, $(LoseClicksEffect(Runner, n)), g.clicks(Runner) >= n), Alt("End the run", $(EndRunEffect)))))
 

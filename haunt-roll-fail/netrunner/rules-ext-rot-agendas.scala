@@ -211,10 +211,11 @@ trait RotAgendaRules extends TurnRules with CardRules with AccessRules with Effe
             super.performEffects(TraceEffect(base + bonus, s, fl))
 
         case TraceRunnerBoostAction(strength, s, fl) if rotLinkZero && reg("rot-traces") <= 1 =>
-            Ask(Runner).group("Trace strength " ~ strength.hl ~ ", your link is treated as " ~ 0.hl ~ ", boost by paying credits").add(0.to(credits(Runner)).$./(n => TraceRunnerAction(Runner, n)))
+            Ask(Runner).group("Trace strength " ~ strength.hl ~ ", your link is treated as " ~ 0.hl ~ ", boost by paying credits").add(0.to(creditsFor(Runner, Spend.trace)).$./(n => TraceRunnerAction(Runner, n)))
 
         case TraceRunnerAction(f, n) =>
-            credits += Runner -> (credits(Runner) - n)
+            spendCredits(Runner, n, Spend.trace)
+            runnerTraceBoost = n
             val zero = rotLinkZero && reg("rot-traces") <= 1
             if (zero)
                 log("The Runner's link is treated as", 0.hl, "for the first trace this turn")

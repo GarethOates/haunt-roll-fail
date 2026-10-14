@@ -72,9 +72,9 @@ trait SU21Rules { game : Game =>
 
     // ---- game-level triggered effects that are not tied to an active card ----------------------------------------------
     def su21Triggers(e : Event) : $[ForcedAction] = e match {
-        // bad publicity: the Runner gains credits when a run begins (simplification: they are not removed when the run ends)
+        // bad publicity: the Runner gets credits for the run when it begins (spent before the pool, lost when the run ends)
         case RunInitiated(_) if badPublicity > 0 =>
-            $(MessageEffect(Runner, "gains " + badPublicity + " credits from bad publicity"), GainCreditsEffect(Runner, badPublicity))
+            $(BadPublicityCreditsEffect)
         // Subliminal Messaging in Archives
         case TurnBegins(Corp) if regLast("runs") == 0 =>
             discard(Corp).%(_.code == "31082")./(c => OptionalEffect(Corp, "Subliminal Messaging: reveal it and add it to HQ?", $(RevealEffect(Corp, c), AddToHandEffect(c)), $))
@@ -224,13 +224,13 @@ trait SU21Rules { game : Game =>
                 NextAction
             else {
                 val cost = (installCost(c, None) - d).atLeast(0)
-                if (credits(Runner) < cost) {
+                if (!canSpend(Runner, cost, Spend.install(c))) {
                     log(Runner, "cannot afford to install", c)
                     NextAction
                 }
                 else {
                     if (cost > 0) {
-                        payCredits(Runner, cost, None)
+                        spendCredits(Runner, cost, Spend.install(c))
                         log(Runner, "pays", cost.credits)
                     }
                     if (impl(c).mustBeHosted(c)) {
@@ -246,11 +246,11 @@ trait SU21Rules { game : Game =>
 
         case RezDiscountEffect(c, d) =>
             if (!isRezzed(c)) {
-                val full = rezCost(c)
-                val cost = (full - d).atLeast(0)
-                if (credits(Corp) >= cost) {
-                    credits += Corp -> (credits(Corp) + (full - cost))
-                    rezCard(c, false)
+                val cost = (rezCost(c) - d).atLeast(0)
+                if (canSpend(Corp, cost, Spend.rez(c))) {
+                    spendCredits(Corp, cost, Spend.rez(c))
+                    log(Corp, "pays", cost.credits, "to rez (" ~ d.hl ~ " less)")
+                    rezCard(c, true)
                 }
                 else
                     log(Corp, "cannot afford to rez", c)

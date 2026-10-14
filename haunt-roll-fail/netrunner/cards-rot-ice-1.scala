@@ -308,7 +308,7 @@ object RotIceCards1 {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("Trace[2]: look at the top X cards of the stack (X = trace strength - link), trash 1 of them, the Runner rearranges the rest", CopyAbilityEffect($(RememberCreditsEffect(self, Runner), TraceEffect(2, $(RotSubAction(self, 1)), $)))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RotSubAction(self, 1) =>
-                val boost = (memoInt(self) - g.credits(Runner)).atLeast(0)
+                val boost = g.runnerTraceBoost
                 val x = (g.traceStrength - g.link - boost).atLeast(0)
                 val l = g.deck(Runner).take(x)
                 if (l.num > 1)
@@ -339,7 +339,7 @@ object RotIceCards1 {
     }
 
     object DataWard extends RI("11075") {
-        override def onEncounter(self : Card)(implicit g : Game) = $(choose("choose one", $(Alt("Pay 3 credits", $(LoseCreditsEffect(Runner, 3)), g.credits(Runner) >= 3), Alt("Take 1 tag", $(tag(1))))))
+        override def onEncounter(self : Card)(implicit g : Game) = $(choose("choose one", $(Alt("Pay 3 credits", $(SpendEffect(Runner, 3, Spend.corpAbility, 0, $)), g.canSpend(Runner, 3, Spend.corpAbility)), Alt("Take 1 tag", $(tag(1))))))
         override def subroutines(self : Card)(implicit g : Game) = 4.times(etrIfTagged)
     }
 
@@ -461,7 +461,7 @@ object RotIceCards1 {
         override def subroutines(self : Card)(implicit g : Game) = $(Sub("End the run unless the Runner suffers 2 net damage", choose("choose one", $(Alt("Suffer 2 net damage", $(net(2))), Alt("End the run", $(EndRunEffect))))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case FormicaryAction(self, s) =>
-                if (!g.isRezzed(self) && g.credits(Corp) >= g.rezCost(self) && g.run.exists(r => !r.ended && r.server == s)) {
+                if (!g.isRezzed(self) && g.canSpend(Corp, g.rezCost(self), Spend.rez(self)) && g.run.exists(r => !r.ended && r.server == s)) {
                     g.rezCard(self, false)
                     g.push(MoveIceOutermostEffect(self, s), MoveIceToIndexEffect(self, 0), MoveRunnerEffect(1, false))
                 }
@@ -690,18 +690,11 @@ object RotIceCards1 {
         override def subroutines(self : Card)(implicit g : Game) = g.tags.times(runnerTrashInstalledSub)
     }
 
-    // Interrupt 0: while the run lasts, a break with an icebreaker needs 1[c] more than its cheapest break ability, charged right after the break
+    // Interrupt 0: each resolved subroutine adds 1[c] to the cost of icebreaker break abilities for the run (run flag
+    // "break-surcharge", added to the break cost by rules-ext-credits.scala; it lasts even if Interrupt 0 leaves play)
     object Interrupt0 extends RI("10016") {
-        def s(self : Card)(implicit g : Game) = Sub("The Runner must pay 1[c] more to use icebreakers to break subroutines this run", CopyAbilityEffect($(MessageEffect(Corp, "uses Interrupt 0: icebreakers cost 1 credit more to break subroutines this run"), SetMemoEffect(self, "run:" + g.runKeyString))))
+        def s(self : Card)(implicit g : Game) = Sub("For the remainder of this run, the Runner must pay 1[c] as an additional cost to use an icebreaker ability to break subroutines", CopyAbilityEffect($(MessageEffect(Corp, "uses Interrupt 0: icebreakers cost 1 credit more to break subroutines this run"), AddFlagEffect(Flag("break-surcharge", |(self), None, "run", 0, $)))))
         override def subroutines(self : Card)(implicit g : Game) = $(s(self), s(self))
-        def on(self : Card)(implicit g : Game) = memoIs(self, "run:" + g.runKeyString) && g.run.exists(!_.ended)
-        override def breakAllowed(self : Card, breaker : Card, ice : Card)(implicit g : Game) =
-            !on(self) || !g.isIcebreaker(breaker) || g.credits(Runner) >= 1 + g.impl(breaker).breaks(breaker)./(_.costs./{ case CreditCost(n) => n ; case _ => 0 }.sum).minOption.|(0)
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(_, _, b) if on(self) && g.isIcebreaker(b) => $(MessageEffect(Corp, "uses Interrupt 0: the Runner pays 1 credit more for the break"), lose(Runner, 1))
-            case RunEnds(_, _, _) if g.state(self).memo != "" => $(clearMemo(self))
-            case _ => $
-        }
     }
 
     object IPBlock extends RI("11094") {

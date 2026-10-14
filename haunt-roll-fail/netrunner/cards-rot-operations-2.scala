@@ -366,10 +366,8 @@ object RotOperationCardsB {
     }
 
     object NetWatchlist extends RotOp("14023") {
-        override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case SubsBroken(_, _, b) if inPlay(self) && g.isIcebreaker(b) => $(MessageEffect(Runner, "pays 2 credits for using an icebreaker (Net Watchlist)"), LoseCreditsEffect(Runner, 2))
-            case _ => $
-        }
+        // "The Runner must pay 2 credits as an additional cost to use an icebreaker." (break and pump abilities)
+        override def icebreakerSurcharge(self : Card, breaker : Card, breaking : Boolean)(implicit g : Game) = inPlay(self).??(2)
     }
 
     object GreenLevelClearance extends RotOp("20073") {
@@ -547,7 +545,7 @@ object RotOperationCardsB {
         }
         override def performOp(a : CardAction)(implicit g : Game) = a match {
             case DivertPowerRezAction(self, d) =>
-                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && !c.data.isAgenda && g.impl(c).canRez(c) && g.credits(Corp) >= (g.rezCost(c) - d).atLeast(0))
+                val l = g.installedCards(Corp).%(c => !g.isRezzed(c) && !c.data.isAgenda && g.impl(c).canRez(c) && g.canSpend(Corp, (g.rezCost(c) - d).atLeast(0), Spend.rez(c)))
                 if (l.any)
                     g.push(ChooseCardEffect(Corp, l, DivertPowerRezPurpose(self, d), "Divert Power: choose a card to rez paying " + d + " credits less", true))
                 NextAction

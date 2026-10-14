@@ -831,7 +831,7 @@ object RWRCards {
     object SuddenCommandment extends NC("34119") {
         override def onPlay(self : Card)(implicit g : Game) = {
             val first = g.reg("mandate") == 0
-            $(RegisterEffect("mandate", 1), draw(Corp, 2), ChooseCardEffect(Corp, g.hand(Corp).%(c => c.data.isOperation && !g.has(c, "Terminal") && g.credits(Corp) >= g.playCost(c) && g.impl(c).canPlay(c)), SuddenCommandmentPurpose(self), "Sudden Commandment: play a non-terminal operation from HQ?", true), SuddenCommandmentThreatAction(self, first))
+            $(RegisterEffect("mandate", 1), draw(Corp, 2), ChooseCardEffect(Corp, g.hand(Corp).%(c => c.data.isOperation && !g.has(c, "Terminal") && g.canSpend(Corp, g.playCost(c), Spend.play(c)) && g.impl(c).canPlay(c)), SuddenCommandmentPurpose(self), "Sudden Commandment: play a non-terminal operation from HQ?", true), SuddenCommandmentThreatAction(self, first))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.push(PlayFreeEffect(c)))

@@ -70,11 +70,10 @@ apply; the order is the `with` order in `game.scala`).
   generic install loops, are not filtered). "Limit 1 region per server" is not enforced (as for the other sets).
 * **Satellite Grid**: no effect ("considered to have an additional advancement token" would need `Game.advancement`).
 * **Navi Mumbai City Grid**: blocks `abilityOptions` only (prevention abilities are not blocked).
-* **Midway Station Grid / Armored Servers** break costs: the break is gated on being able to pay (1 credit / a card in the
-  grip) and the cost is collected right after the break (`SubsBroken`), per break ability use / per subroutine broken.
-* **Simone Diego / Dedicated Technician Team / Khondi Plaza** recurring credits: Simone refunds 1 credit after a basic advance
-  of a card in its server, DTT refunds the ice install cost after an action-phase install protecting its server (up to its
-  credits), Khondi lowers the rez cost of ice protecting its server by its hosted credits and spends them (Mahkota pattern).
+* **Armored Servers** break cost: the break is gated on being able to pay (a card in the grip) and the cost is collected right
+  after the break (`SubsBroken`), per subroutine broken. (Midway Station Grid's 1 credit is now a real additional cost of
+  icebreaker break abilities, and Simone Diego / Dedicated Technician Team / Khondi Plaza are credit sources: see
+  `STATUS-fix-credits.md`.)
 * **Heinlein Grid** is automatic: during a run on its server, whenever the Runner's unspent clicks drop between two events
   they lose all credits.
 * **Personality Profiles**: "installs a card from the heap" uses the heap snapshot; "searches the stack" is detected

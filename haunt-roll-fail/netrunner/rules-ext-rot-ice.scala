@@ -56,7 +56,7 @@ trait RotIceRules { game : Game =>
         case EncounterIce(_) if hasFlag("jack-until-encounter") =>
             $(RemoveFlagEffect("jack-until-encounter", None), RunFlagEffect("cannot-jack-out", false))
         case ApproachServer(s) if run.exists(r => !r.ended) =>
-            allIce.%(c => c.code == "22054" && !isRezzed(c) && credits(Corp) >= rezCost(c) && impl(c).canRez(c))./(c =>
+            allIce.%(c => c.code == "22054" && !isRezzed(c) && canSpend(Corp, rezCost(c), Spend.rez(c)) && impl(c).canRez(c))./(c =>
                 OptionalEffect(Corp, "Formicary: rez it and move it to the innermost position of " + s.name + " (the Runner encounters it)?", $(FormicaryAction(c, s)), $))
         case _ => $
     }
