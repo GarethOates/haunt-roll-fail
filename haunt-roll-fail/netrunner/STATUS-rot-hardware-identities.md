@@ -1,0 +1,148 @@
+# Rotated hardware and identities: status
+
+Every card of type Hardware or Identity that had no implementation now has one: 101 hardware + 90 identities = 191 cards.
+That covers every older printing (Core Set through Reign and Reverie, System Core 2019, Salvaged Memories, the draft
+identities, the unreleased 014001/014002, Cyber Bureau and the Terminal Directive BMI Buffers). They were ported from
+jinteki.net `hardware.clj` / `identities.clj`, checked against the `*_test.clj` files, and written to the HRF engine API.
+After this work, `Cards.all.%(c => c.kind == "Hardware" || c.kind == "Identity")` minus `CardImpls.all` is empty.
+
+## Files
+
+| File | Contents |
+|---|---|
+| `rules-ext-rot-hardware.scala` | `trait RotHardwareRules` (mechanics + interception), base class `RH(code)` (extends `Startup`), generic effects / purposes / events (all prefixed `RH`) |
+| `cards-rot-hardware-1.scala` | `RotHardwareCards1`: 49 hardware, Core Set .. Data and Destiny (01006 .. 09047) |
+| `cards-rot-hardware-2.scala` | `RotHardwareCards2`: 52 hardware, 10002 .. 29003; `object RotHardwareCards { val all }` |
+| `cards-rot-identities-1.scala` | `RotIdentityCards1`: 45 identities, 00005 .. 08111; `RHDraft` base class |
+| `cards-rot-identities-2.scala` | `RotIdentityCards2`: 45 identities, 09001 .. 25123; `object RotIdentityCards { val all }` |
+| `decks-rot-hardware.scala` | `object RotHardwareDecks { val presets }`: 78 generated eternal-legal presets, one per eternal identity, packed with the rotated hardware (all 99 eternal hardware cards appear) |
+
+## Edits to shared files (all additive, one term or one line each)
+
+| File | Line | Edit | Why |
+|---|---|---|---|
+| `abilities.scala` | 128 | `++ RotHardwareCards.all ++ RotIdentityCards.all` in `CardImpls.all` | registration (one term per object) |
+| `game.scala` | 339 | `with RotHardwareRules` | mix in the trait |
+| `game.scala` | 682 | `++ rotHardwareTriggers(e)` in `triggerEffects` | game-level triggers: recurring credit refills (identities too), EMP Device's "one ice rez this run" |
+| `game.scala` | 753 | `performRotHardware orElse` at the **front** of the `pf` chain | see below |
+| `decks.scala` | 252 | `++ RotHardwareDecks.presets` | preset append |
+
+**Why `performRotHardware` is first and not appended.** Most of the new mechanics change how an existing engine action
+resolves (the asks it returns, or what is paid), and only the first partial function in the chain sees those actions.
+`performRotHardware` is defined only for the actions it intercepts (`rhWants`; it is cheap and returns false for
+everything else). For those actions it runs the rest of the chain through `rhInnerPerform(a)`, which calls
+`performInternal(a, NoVoid)` with a re-entrancy guard (`rhInner`). That keeps it independent of how the chain is composed
+after a merge, and it then adjusts the result. The intercepted actions are:
+
+* `EncounterAction` (rez restrictions; icebreaker credits are now ordinary credit sources of `rules-ext-credits.scala`, so the
+  break / pump options and their payment need no interception any more);
+* `UseAbilityAction` / `PreventUseAction` of the Runner (fires `RHTrashAbilityUsed` for [trash] abilities, used by Geist);
+* `InstallWhereAction(Runner, c)` (mods that must be hosted on an icebreaker; extra hosting options on cards that host
+  programs without MU), `InstallMenuAction(Runner)` (Apex's restriction, mods without a host),
+  `RunnerInstallEffect` (records the zone the card came from: Exile, Autoscripter);
+* `RezAction` / `RezEffect` / `ActionPhaseAction` / `PaidWindowAction` / `RezMenuAction`, only while a rez restriction
+  flag exists (Cortez Chip surcharge, Saraswati "cannot rez", EMP Device);
+* `CheckWinAction` (only while a card modifies the agenda points needed: Harmony Medtech, draft identities);
+* `TraceRunnerAction` (fires `RHTraceResolved`, used by Spinal Modem), `PsiResolveAction` (fires `RHPsiRevealed`, used by Nisei
+  Division). (SYNC's remove-tag / trash-resource costs are `Game.removeTagCost` / `trashResourceCost`, Weyland BWBI's and Making
+  News' credits are credit sources: the credits pass removed those interceptions.)
+* `DamageApplyEffect` (damage choice: Titanium Ribs, Chronos Protocol), `TagsEffect` (automatic tag avoidance: Jesminder,
+  Dorm Computer, Qianju PT), `AccessDoneAction` ("after accessing a card": Maya, Maw), `MulliganAction` (Andromeda, Cyber Bureau).
+
+No other shared file was touched (no `rules-*.scala`, `ui.scala`, `meta.scala`, hooks in `abilities.scala`, `cards-data*`, `tools/`).
+
+## New generic mechanics (`rules-ext-rot-hardware.scala`)
+
+Hooks on `RH` (read by the rules through `impl(c)`, so disabled cards lose them):
+`recurring` (max recurring credits, refilled when the owner's turn begins, also for identities), `breakerCredits(self, breaker)`,
+`hostsWithoutMU`, `modHosts`, `blocksInstall`, `winPointsMod`, `removeTagExtraCost` / `trashResourceCostMod`,
+`damageChoice`, `avoidTags`, `afterAccess`, `startingHandBonus`, `rezSurcharge`, and `prevent` (prevention abilities, offered only
+while the amount is > 0; the re-offer loop after a "prevent 1" left 0 is fixed by the prevention windows of
+`rules-ext-prevention.scala`, see `STATUS-fix-prevention.md`).
+
+Effects: `RHExposeEffect` (expose, `RHExposed` event), `RHFacedownInstallEffect` (Apex, `RHFacedownInstalled`), `RHRefillEffect`,
+`RHDamageResolveEffect` / `RHDamageRandomAction` / `RHDamageDiscardEffect` / `RHDamageApplyNowEffect` (chosen + random damage
+discards), `RHChronosStartEffect`, `RHStashFromHeapEffect` (BMI Buffer), `RHSpendVirusEffect` (Freedom Khumalo),
+`RHRemoveAllCopiesEffect` (Chronos Protocol HB), `RHSwapAgendasEffect` (Turntable), `RHInstallInnermostEffect` (Mti Mwekundu).
+Generic purposes (`RHPurpose`, resolved by `RotHardwareExt`): expose, damage pick, trash a program to prevent, add counters,
+advance, pump for the run, to top of deck, shuffle into deck, search to hand.
+Other helpers: `rhHasMostFaction` (draft identities), `says(self, text)` (log line naming the card, for example "Corp uses Blue Sun to ...").
+
+Techniques reused from the other sets: `Startup` loops (`InstallLoopAction` for Monolith / Cyber Bureau, `ChooseServerForAction`,
+`ChooseNumberEffect`, `FlipAction`, `PlayPurpose`, `RevealPurpose`, `StashPurpose`, `TrashRandomFromHandEffect`), PH/TAI flags
+(Cortez Chip, EMP Device, Saraswati, The Gauntlet), `RedirectRunEffect`, `MoveRunnerEffect`, `AccessCardsEffect`,
+`BreachServerEffect`, `insertAfterRunCleanup` (Doppelgänger).
+
+## Simplifications
+
+* **Recurring / restricted credits** are credit sources of `rules-ext-credits.scala` (`RH.paysFor`: icebreaker credits of Toolbox,
+  Lockpick, Silencer, Dyson Fractal Generator, Spinal Modem, Cyberfeeder, Omni-drive, Flame-out, Ele "Smoke"; install / play credits
+  of Cybsoft MacroDrive, Cyberfeeder, Public Terminal; Weyland BWBI's advance credit; Whizzard's trash credits; Making News' trace
+  credits). Māui's credits pay for anything during HQ runs (the printed text).
+  Patchwork is an interrupt of the basic play / install actions (prevention pass) and of the plays / installs by card effects that
+  pay a cost (final rotated pass); its once-per-turn ability (trash 1 grip card: the next play/install this turn costs 2 less) remains
+  only to make a card affordable (the basic options are greyed out when only the discount would make them affordable).
+* **Memory restrictions.** MemStrips / Knobkierie / Deep Red give MU equal to the MU used by virus / Caïssa programs (capped at 3),
+  and a virus / Caïssa program that fits in the unused restricted MU can be installed without trashing (fix-misc pass).
+  Hosted programs on Omni-drive / NetChip / Dinosaurus offset their MU. Ekomind sets MU to the grip size and the limit is
+  checked whenever it is exceeded (fix-misc pass). Facedown programs use no MU (engine-wide).
+* **Apex.** Non-virtual resources cannot be installed by any path (facedown installs excepted) (see `STATUS-fix-restrictions.md`). Facedown cards
+  can't be turned faceup by any card implemented so far (as printed).
+* **Adam.** The 3 directives (of the 4 Directive resources in the database) are installed as extra copies `Card(code, 100+i)`
+  outside the deck. Their own abilities depend on their implementations (resources, other sets).
+* **Expose** reveals unrezzed installed cards only. The Corp's responses (Zaibatsu Loyalty) are offered by `ExposeEffect`
+  (rules-ext-rot-shared.scala).
+* (Fixed in the final rotated pass, see `STATUS-fix-final-rot.md`: Skorpios is a set-aside interrupt of every Runner trash (once per batch, before
+  the other abilities); Gagarin's access cost is a choice before the access; Acme Consulting's tag is a virtual tag; Seidr
+  Laboratories triggers on the first click lost or spent during a run each turn; Mind's Eye's breach skips the root; Harishchandra's
+  grip is shown to the Corp by the UI while tagged; Hayley Kaplan offers mods with their hosts; Cyber Bureau / NEXT Design / Jinteki
+  Biotech resolve before the first turn begins; Q-Coherence Chip is exact.)
+* As printed or as jinteki (not approximations): SSO Industries counts installed faceup agendas only; Archives Interface flips Archives
+  faceup and offers the removal once when Archives is breached (jinteki); Maya / Maw resolve when the access of the card is finished;
+  Top Hat accesses the chosen card without a breach; Kabonesa Wu removes the program at the end of the Runner's turn; Respirocytes
+  checks for an empty grip on every event.
+* **Deck building** is validated per identity by `DeckRules` (`Decks.validate`) (see `STATUS-fix-restrictions.md`): The Professor (first copy of
+  each program free), Custom Biotics (no Jinteki cards), agendas of the identity's faction or neutral (any faction for the draft
+  identities and Nova Initiumia / Ampere), draft identities (no copy limit, no influence limit), Nova Initiumia / Ampere (1 copy
+  of each card, Ampere at most 2 different agendas per faction), alliance cards at 0 influence when their condition holds.
+  Adam's directives are installed at setup outside the deck. Mini-faction cards (Apex, Adam, Sunny Lebeau) are splashable with
+  influence like any other faction, as in the printed rules.
+
+## Testing
+
+Harness: scratchpad `rot-hardware-host/` (copy of `mergehost` pointed at this worktree), with the round trip of every offered and
+chosen action through `Serialize`. A rotated card counts as having fired when a log line other than the setup lines names it
+("uses X to ...", "(X)", "spends N from X", "hosted on X", ...).
+
+* `sbt -batch compile` in `haunt-roll-fail/` is green.
+* `MergeHost`, preset filter `(rot)`, 20 + 100 + 300 + 300 games (seeds 12345 / 777): 0 exceptions, 0 empty asks, 0 serialization
+  mismatches, no over-long games. All 126 presets validate (the first 300-game run found 6 presets over their influence limit
+  because the generator had applied The Professor's rule and treated neutral influence as free; this is fixed). 149 and 153 of the 191
+  cards fired in the two 300-game runs. Their union, plus the scripted checks, covers every card that has a triggered or active ability.
+  The ones that never "fire" in logs are static (MU / link / hand size / cost modifiers: Cerebral Imaging, Industrial Genomics,
+  Cybernetics Division, Chaos Theory, The Professor, Custom Biotics, Sunny Lebeau, Harmony Medtech, HB Stronger Together, ...) or are
+  not in any preset (draft identities, The Collective, Chronos Protocol HB, Cyber Bureau, BMI Buffers: not eternal-legal).
+* `MergeHost` over all 126 presets (every set), 150 games: 0 errors, which checks that the interception doesn't affect other sets.
+* `RotScriptTest` (scratchpad `rot-hardware-host/src/RotScriptTest.scala`): 79 scripted checks, all passing. They cover the
+  Toolbox and Ele Smoke credits paying for breaks; Omni-drive / NetChip / Dinosaurus hosting with no free MU; Adjusted Matrix hosting
+  and AI; Apex facedown install and its resource restriction; Adam's directives; Harmony / draft 6-point wins; Titanium Ribs and
+  Chronos Protocol damage choice; Chronos HB removing every copy; Cortez Chip's surcharge; EMP Device; Jesminder / Dorm Computer tag
+  avoidance; SYNC; Making News trace credits; Cyber Bureau and NEXT Design setup; Mti Mwekundu; AgInfusion; Top Hat; Maw; Spinal
+  Modem; Monolith; Gagarin; Haarpsichord; Omar Keung; BMI Buffer; Respirocytes; Acme; Kate; Whizzard; Saraswati; Severnius;
+  Turntable; Andromeda's mulligan; Security Nexus; Freedom Khumalo; Hippo; Boris / Information Dynamics / Fringe Applications;
+  The Collective; Exile with Clone Chip; Nisei Division; Builder of Nations; Jemison; Heartbeat / Feedback Filter / Plascrete;
+  Māui; Mâché; e3 Feedback Implants; Net-Ready Eyes; Cerebral Imaging; Industrial Genomics; Cybernetics Division; Jinteki: RP.
+  The existing 40 Startup `ScriptTest` checks still pass.
+* New Angeles Sol was not exercised: no Corp current has an implementation yet.
+
+## Merge note (2026-10-14)
+
+After the eight rotated ports were merged into `netrunner`, mechanics that several ports had defined independently were
+reduced to one definition each (see `ENGINE.md` §8.1 and `rules-ext-rot-shared.scala`). Expose is now
+`ExposeEffect(cards)` / `Exposed(cards)`, facedown installs are `InstallFacedownEffect`, and the shared effects are
+`LoseAllCreditsEffect`, `BreachNoRootEffect` and `SwapRootEffect`. The trace result event is `TraceResolved(successful, spent)`,
+the psi result event is `RotPsiRevealed(corp, runner)`, recurring refills use `RefillCreditsEffect`, and the currents
+rule lives in `rotOperationTriggers`. Renames made to avoid clashes: the agendas/upgrades base class `RA` became `RAg`, and
+the purpose traits became `RotIcePurpose` / `RotProgPurpose` / `RotResPurpose` / `RotAgPurpose`. The agendas' `rotActive`
+became `rotAgActive`, and the events' `LevyAction` became `LevyARLabAccessAction`. Apex no longer offsets the MU of facedown
+programs, because facedown programs now use no MU at all. Some notes above may still name the old definitions.

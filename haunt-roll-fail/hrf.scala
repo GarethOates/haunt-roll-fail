@@ -106,6 +106,7 @@ object HRF {
         sehi.Meta -> sehi.UI,
         suok.Meta -> suok.UI,
         yarg.Meta -> yarg.UI,
+        netrunner.Meta -> netrunner.UI,
     )
 
     val metas = metaUIs.lefts
@@ -906,7 +907,7 @@ class HRFMetaUI(val ui : HRFUI, val meta : MetaGame, delayMainMenu : Int)(implic
                 val assets = meta.assets./~(_.get)
 
                 val sources = assets./(a => a.name -> ("webp2/" + meta.path + "/images/" + a.copy(ext = "webp").src)).toMap
-                val preload = HRF.embedded.?(assets./(a => a.name -> a.name)).|(assets.%(_.lzy == Laziness.Immediate)./(a => a.name -> sources(a.name)))
+                val preload = HRF.embedded.?(assets.%(a => a.lzy == Laziness.Immediate || dom.document.getElementById("asset-" + a.name) != null)./(a => a.name -> a.name)).|(assets.%(_.lzy == Laziness.Immediate)./(a => a.name -> sources(a.name)))
                 val loader = HRF.embedded.?(new WrappedEmbeddedImageLoader(s => "asset-" + s)).|(HRF.imageCache)
 
                 ui.logger.alog("Loading assets".spn.div)
@@ -1322,7 +1323,7 @@ class HRFMetaUI(val ui : HRFUI, val meta : MetaGame, delayMainMenu : Int)(implic
         val assets = meta.assets.%(_.condition(seating, options) || true)./~(_.get)
 
         val sources = assets./(a => a.name -> ("webp2/" + meta.path + "/images/" + a.copy(ext = "webp").src)).toMap
-        val preload = HRF.embedded.?(assets./(a => a.name -> a.name)).|(assets.%(_.lzy == Laziness.Immediate)./(a => a.name -> sources(a.name)))
+        val preload = HRF.embedded.?(assets.%(a => a.lzy == Laziness.Immediate || dom.document.getElementById("asset-" + a.name) != null)./(a => a.name -> a.name)).|(assets.%(_.lzy == Laziness.Immediate)./(a => a.name -> sources(a.name)))
         val loader = HRF.embedded.?(new WrappedEmbeddedImageLoader(s => "asset-" + s)).|(HRF.imageCache)
 
         ui.logger.alog("Loading assets".spn.div)

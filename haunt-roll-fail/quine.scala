@@ -22,6 +22,11 @@ import org.scalajs.dom
 import scala.collection.decorators._
 
 
+// A MetaGame that mixes this in has its Laziness.OnDemand image assets embedded in a saved file (Save Replay, Offline
+// Version) only when they were loaded in this browser session; the game loads the images a replay needs before saving
+// (Netrunner declares ~2,000 card images and uses ~100 per game). Without it every declared asset is embedded, as before.
+trait EmbedLoadedOnDemandAssetsOnly
+
 object Quine {
     def openTag(name : String) = "<!-- { | " + name + " | { -->"
     def closeTag(name : String) = "<!-- } | " + name + " | } -->"
@@ -115,10 +120,23 @@ object Quine {
 
             val loader = HRF.embedded.?(new EmbeddedImageSourceLoader(s => "asset-" + s)).|(DataUrlLoader)
 
-            loader.wait(urls ++ resources.images.sources.values.$) {
+            // the assets to embed: all of them, or (EmbedLoadedOnDemandAssetsOnly) the OnDemand ones only if loaded
+            val onDemand : Set[String] = meta.isInstanceOf[EmbedLoadedOnDemandAssetsOnly].??(meta.assets./~(_.get).%(_.lzy == Laziness.OnDemand)./(_.name.toLowerCase)).toSet
+
+            def used(k : String) = onDemand.contains(k.toLowerCase).not || resources.images.has(k) || resources.images.loader.has(resources.images.sources(k))
+
+            val keys = resources.images.sources.keys.$.%(used)
+
+            def source(k : String) = resources.images.sources(k)
+
+            loader.wait(urls ++ keys./(source)) {
                 journal.read(0) { actions =>
                     val self = $(tab, """<!-- "/> --><img style="display: none" id="html-quine" data-src="""", java.util.Base64.getEncoder().encodeToString(HRF.stringLoader.get(HRF.html).getBytes), """" />""")
-                    val assets = resources.images.sources.keys.$./~(k => $(tab, """<!-- "/> --><img style="display: none" id="asset-""", k, """" src="""", loader.get(resources.images.sources(k)), """" />"""))
+                    // an asset that failed to load is left out (the game draws it as missing) instead of failing the save
+                    val failed = keys.%(k => loader.has(source(k)).not)
+                    if (failed.any)
+                        warn("quine: assets not embedded (load failed): " + failed.join(" "))
+                    val assets = keys.%(k => loader.has(source(k)))./~(k => $(tab, """<!-- "/> --><img style="display: none" id="asset-""", k, """" src="""", loader.get(source(k)), """" />"""))
 
                     val story = actions./(meta.writeActionExternal)
                     val lobby = $("meta " + meta.name, "version " + meta.gaming.version, "title " + title) ++
@@ -127,7 +145,7 @@ object Quine {
                         $("seating " + seating./(meta.writeFaction).join(" ")) ++
                         $("options " + options./(meta.writeOption).join(" "))
 
-                    val uhtml = replaceUrls(urls./(u => ("URL " + u) -> DataUrlLoader.get(u)))(nhtml)
+                    val uhtml = replaceUrls(urls./(u => ("URL " + u) -> DataUrlLoader.has(u).?(DataUrlLoader.get(u)).|(u)))(nhtml)
 
                     val result = replaceSections($(
                         "base href".toUpperCase -> $(tab),
