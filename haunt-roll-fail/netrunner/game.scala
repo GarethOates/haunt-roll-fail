@@ -336,7 +336,7 @@ case class GameOverInfo(winner : |[Faction], reason : String) extends BaseInfo("
 
 class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame with ContinueGame with LoggedGame
     with SetupRules with TurnRules with CardRules with RunRules with AccessRules with EffectRules with ManualRules with AbilityRules
-    with StartupRules with SU21Rules with PHTAIRules with RWRRules with RotIceRules with RotProgramRules with RotResourceRules {
+    with StartupRules with SU21Rules with PHTAIRules with RWRRules with RotIceRules with RotProgramRules with RotResourceRules with RotEventRules {
 
     implicit def implicitGame : Game = this
 
@@ -570,7 +570,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
         s.counters += k -> (s.counter(k) + n).atLeast(0)
     }
 
-    def agendaPoints(f : Faction) : Int = scored(f)./(c => c.data.agendaPoints.|(0) + impl(c).agendaPointsBonus(c)).sum
+    def agendaPoints(f : Faction) : Int = scored(f)./(c => c.data.agendaPoints.|(0) + impl(c).agendaPointsBonus(c) + hosted(c)./(h => impl(h).agendaPointsBonus(h)).sum).sum
 
     def pointsToWin = 7
 
@@ -578,7 +578,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def link : Int = baseLink + activeCards(Runner)./(c => impl(c).link(c)).sum
 
     def memoryTotal : Int = 4 + activeCards(Runner)./(c => impl(c).memory(c)).sum
-    def memoryUsed : Int = installedCards(Runner).%(isProgram)./(c => c.data.memory.|(0)).sum
+    def memoryUsed : Int = installedCards(Runner).%(isProgram).%!(c => state(c).facedown)./(c => c.data.memory.|(0)).sum
     def memoryFree : Int = memoryTotal - memoryUsed
 
     def handSize(f : Faction) : Int = 5 + allActive./(c => impl(c).handSize(c, f)).sum - f.isRunner.??(coreDamage)
@@ -679,7 +679,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def triggerEffects(e : Event) : $[ForcedAction] = {
         val ext = phTriggers(e)
         val order = $(active, active.opponent)
-        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e) ++ rotResourceTriggers(e) ++ rotIceTriggers(e) ++ ext
+        order./~(f => activeCards(f).%!(isDisabled)./~(c => impl(c).triggers(c, e))) ++ su21Triggers(e) ++ rotResourceTriggers(e) ++ rotIceTriggers(e) ++ ext ++ rotEventTriggers(e)
     }
 
     // trigger an event: collect triggered abilities and push them to the queue (active player first); true if any
@@ -750,7 +750,7 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
     def info(waiting : $[Faction], self : |[Faction], actions : $[UserAction]) : $[Info] = $
 
     def performInternal(a : Action, soft : Void) : Continue = {
-        val pf = performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse performRotIce orElse performRotPrograms orElse performRotResources
+        val pf = performRotEvents orElse performPHTAI orElse performSetup orElse performTurn orElse performCards orElse performRun orElse performAccess orElse performEffects orElse performManual orElse performAbilities orElse performSU21 orElse performRWR orElse performRotIce orElse performRotPrograms orElse performRotResources
 
         a match {
             case NextAction => nextStep
