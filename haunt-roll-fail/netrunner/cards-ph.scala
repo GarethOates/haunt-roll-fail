@@ -261,7 +261,7 @@ object PHCards {
     }
 
     object AsmundPudlat extends PT("33082") {
-        override def onInstall(self : Card)(implicit g : Game) = $(AsmundSearchAction(self, 2))
+        override def onInstall(self : Card)(implicit g : Game) = $(AsmundSearchAction(self, 2), StackSearchedEffect(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case TurnBegins(Runner) if g.stashed(self).any =>
                 $(OptionalEffect(Runner, "Asmund Pudlat: add a hosted card to the grip?", $(ChooseCardEffect(Runner, g.stashed(self), AddToHandPurpose(Runner, false), "Asmund Pudlat: choose a hosted card", false), AsmundCheckAction(self)), $(AsmundCheckAction(self))))
@@ -394,9 +394,9 @@ object PHCards {
                     g.trashCard(c, Runner, false)
                     val l = g.deck(Runner).%(x => x.data.kind == c.data.kind && runnerCanInstall(x, 3)).sortBy(_.title)
                     if (l.any)
-                        g.push(ChooseCardEffect(Runner, l, WorldTreeInstallPurpose(self), "World Tree: choose a card to install paying 3 credits less", true), ShuffleDeckEffect(Runner))
+                        g.push(ChooseCardEffect(Runner, l, WorldTreeInstallPurpose(self), "World Tree: choose a card to install paying 3 credits less", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                     else
-                        g.push(ShuffleDeckEffect(Runner))
+                        g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 }
                 NextAction
             case WorldTreeInstallPurpose(self) =>
@@ -527,11 +527,15 @@ object PHCards {
         }
     }
 
+    // "you may pay 2[credit] to do 1 core damage. If the Runner has any [click] remaining, they may lose all their [click] to prevent
+    // this damage": the Runner's ability is offered in the damage prevention window of this damage (FinalNsgRules.preventOptions
+    // grants it to the Runner; the window's source is Mr. Hendrik)
     object MrHendrik extends PT("33103") {
         override def onAccess(self : Card)(implicit g : Game) =
-            (g.isInstalled(self) && g.canSpend(Corp, 2, Spend.effect(|(self)))).$(OptionalEffect(Corp, "Mr. Hendrik: pay 2 credits to do 1 core damage?", $(SpendEffect(Corp, 2, Spend.effect(|(self)), 0, $(ChooseOneEffect(Runner, "Mr. Hendrik: choose one", $(
-                Alt("Suffer 1 core damage", $(core(1))),
-                Alt("Lose all remaining clicks", $(LoseClicksEffect(Runner, 99)), g.clicks(Runner) > 0)))))), $))
+            (g.isInstalled(self) && g.canSpend(Corp, 2, Spend.effect(|(self)))).$(OptionalEffect(Corp, "Mr. Hendrik: pay 2 credits to do 1 core damage?", $(SpendEffect(Corp, 2, Spend.effect(|(self)), 0, $(SourcedDamageEffect("core", 1, self)))), $))
+        override def preventions(self : Card, kind : String, n : Int)(implicit g : Game) =
+            (kind == "core" && g.clicks(Runner) > 0 && g.preventTop.exists(ctx => ctx.kind == "damage" && ctx.source.has(self))).$(
+                Ability("lose all [click] to prevent this damage", $(LoseClickCost(g.clicks(Runner))), $(PreventEffect("core", -1))))
     }
 
     object IssuaqAdaptics extends PT("33104") {

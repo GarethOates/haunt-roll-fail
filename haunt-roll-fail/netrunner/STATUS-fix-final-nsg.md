@@ -114,6 +114,9 @@ from the first three (the extra action is taken at once, so the click cannot be 
 
 ## Still approximate (exact list for the current sets)
 
+(All four were replaced by the printed behaviour in the last rules-accuracy pass: STATUS.md "Last rules-accuracy pass", ENGINE.md 8.9.
+The list below is the record of this pass.)
+
 1. **Reanimation Protocol** (36062): when the Corp cannot pay the combined install and rez cost (minus 10), the ice is installed
    unrezzed -- jinteki's behaviour (`corp-install` with `:install-state :rezzed`); kept because the NSG text gives no fallback.
 2. **Bling** (35006): its hosted cards are trashed when the Runner's turn ends (after the discard phase's paid ability window)

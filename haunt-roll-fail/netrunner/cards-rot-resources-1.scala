@@ -167,7 +167,7 @@ object RotResourceCards1 {
     object ArtistColony extends RR("10009") {
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => !c.data.isEvent)
-            $(Ability("forfeit an agenda: search the stack for a card and install it", NoCost, $(forfeitChoice(self, "Artist Colony: choose an agenda to forfeit"), ChooseCardEffect(Runner, l.sortBy(_.title), ArtistColonyPurpose(self), "Artist Colony: choose a card to install", true), ShuffleDeckEffect(Runner)), ok = runnerAgendas.any && l.any, reason = "no agenda to forfeit"))
+            $(Ability("forfeit an agenda: search the stack for a card and install it", NoCost, $(forfeitChoice(self, "Artist Colony: choose an agenda to forfeit"), ChooseCardEffect(Runner, l.sortBy(_.title), ArtistColonyPurpose(self), "Artist Colony: choose a card to install", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), ok = runnerAgendas.any && l.any, reason = "no agenda to forfeit"))
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.pushAll(g.installRunner(c, 0)))
@@ -202,8 +202,8 @@ object RotResourceCards1 {
 
     object Bazaar extends RR("10065") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case Installed(Runner, c) if c.data.isHardware && g.rhInstallFrom.get(c).has(HandZone(Runner)) && g.hand(Runner).exists(x => x.title == c.title && g.runnerInstallableNow(x, 0)) =>
-                $(OptionalEffect(Runner, "Bazaar: install another copy of " + g.promptTitle(c) + " from the grip?", $(MessageEffect(Runner, "uses Bazaar to install another copy"), ChooseCardEffect(Runner, g.hand(Runner).%(x => x.title == c.title), BazaarPurpose(self), "Bazaar: choose a copy to install", false)), $))
+            case Installed(Runner, c) if c.data.isHardware && g.rhInstallFrom.get(c).has(HandZone(Runner)) && g.gripCards.exists(x => x.title == c.title && g.runnerInstallableNow(x, 0)) =>
+                $(OptionalEffect(Runner, "Bazaar: install another copy of " + g.promptTitle(c) + " from the grip?", $(MessageEffect(Runner, "uses Bazaar to install another copy"), ChooseCardEffect(Runner, g.gripCards.%(x => x.title == c.title), BazaarPurpose(self), "Bazaar: choose a copy to install", false)), $))
             case _ => $
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -325,7 +325,7 @@ object RotResourceCards1 {
     object ChatterjeeUniversity extends RR("10010") {
         override def abilities(self : Card)(implicit g : Game) = {
             val d = g.counter(self, "power")
-            val l = g.hand(Runner).%(c => c.data.isProgram && g.runnerInstallableNow(c, d))
+            val l = g.gripCards.%(c => c.data.isProgram && g.runnerInstallableNow(c, d))
             $(Ability("place 1 power counter", click(), $(AddCounterEffect(self, "power", 1)), click = true),
               Ability("install a program from the grip paying " + d + " less", click(), $(ChooseCardEffect(Runner, l, ChatterjeePurpose(self), "Chatterjee University: choose a program to install", false)), click = true, ok = l.any, reason = "nothing to install"))
         }
@@ -470,7 +470,7 @@ object RotResourceCards1 {
         }
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => c.data.isProgram && g.has(c, "Virus")).sortBy(_.title)
-            $(Ability("install a virus program from the stack", $(ClickCost(1), VirusCost(3), TrashSelfCost), $(ChooseCardEffect(Runner, l, CryptPurpose(self), "Crypt: choose a virus program to install", true), ShuffleDeckEffect(Runner)), click = true, ok = l.any, reason = "no virus program in the stack"))
+            $(Ability("install a virus program from the stack", $(ClickCost(1), VirusCost(3), TrashSelfCost), $(ChooseCardEffect(Runner, l, CryptPurpose(self), "Crypt: choose a virus program to install", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), click = true, ok = l.any, reason = "no virus program in the stack"))
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.pushAll(g.installRunner(c, 0)))
@@ -1013,7 +1013,7 @@ object RotResourceCards1 {
 
     object LondonLibrary extends RR("08029") {
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => c.data.isProgram && !g.has(c, "Virus") && !g.impl(c).mustBeHosted(c) && g.memoryFree >= c.data.memory.|(0))
+            val l = g.gripCards.%(c => c.data.isProgram && !g.has(c, "Virus") && !g.impl(c).mustBeHosted(c) && g.memoryFree >= c.data.memory.|(0))
             val h = g.hosted(self).%(_.data.isProgram)
             $(Ability("install a non-virus program from the grip on London Library ignoring the install cost", click(), $(ChooseCardEffect(Runner, l, LondonLibraryPurpose(self), "London Library: choose a program to install", false)), click = true, ok = l.any, reason = "nothing to install"),
               Ability("add a hosted program to the grip", click(), $(ChooseCardEffect(Runner, h, ReturnToHandPurpose, "London Library: choose a program to add to the grip", false)), click = true, ok = h.any, reason = "no hosted program"))

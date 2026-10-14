@@ -316,7 +316,7 @@ object URCards {
     object SelfModifyingCode extends NC("26090") {
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => c.data.isProgram && g.credits(Runner) - 2 >= g.installCost(c, None)).sortBy(_.title)
-            $(Ability("search the stack for a program and install it", $(CreditCost(2), TrashSelfCost), $(ChooseCardEffect(Runner, l, InstallPayingPurpose(0, None, false), "Self-modifying Code: choose a program to install", true), ShuffleDeckEffect(Runner)), ok = g.deck(Runner).any, reason = "empty stack"))
+            $(Ability("search the stack for a program and install it", $(CreditCost(2), TrashSelfCost), $(ChooseCardEffect(Runner, l, InstallPayingPurpose(0, None, false), "Self-modifying Code: choose a program to install", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), ok = g.deck(Runner).any, reason = "empty stack"))
         }
     }
 

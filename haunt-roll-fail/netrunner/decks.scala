@@ -301,6 +301,15 @@ object Decks {
         DeckCheck(true, n + " cards, " + influence + "/" + (limit == Int.MaxValue).?("unlimited").|("" + limit) + " influence")
     }
 
+    // the cards of a deck that are not legal in the format of the game (Casual: none); a warning, the deck can still be used
+    def notLegalIn(format : String, codes : $[String]) : $[CardData] =
+        if (format == "casual") $ else codes.distinct./~(Cards.get).%(c => !c.legalIn(format)).sortBy(_.title)
+
+    def formatWarning(format : String, codes : $[String]) : |[String] = notLegalIn(format, codes) match {
+        case Nil => None
+        case l => |("Not legal in " + Formats.name(format) + ": " + l.take(6)./(_.title).join(", ") + (l.num > 6).??(" and " + (l.num - 6) + " more"))
+    }
+
     def normalize(s : String) : String = {
         s.toLowerCase.toList
             .map {

@@ -337,7 +337,7 @@ object RotHardwareCards2 {
                     else
                         g.log(Runner, "cannot afford to install another", self)
                 }
-                g.push(ShuffleDeckEffect(Runner))
+                g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
     }
@@ -468,10 +468,11 @@ object RotHardwareCards2 {
         override def paysFor(self : Card, spend : Spend)(implicit g : Game) = super.paysFor(self, spend) || spend.installing.exists(c => c.data.isProgram && g.has(c, "Virus"))
     }
 
+    // the interrupt is PreventionRules.openPatchwork (basic play / install) and FinalRotRules' frOpenPatchwork (plays / installs by
+    // card effects); it sets the "patchwork" counter that lowers the cost of the card being played / installed. A basic option that
+    // only the discount makes affordable is offered as "... using Patchwork" (FinalNsgRules)
     object Patchwork extends RH("25009") {
         override def memory(self : Card)(implicit g : Game) = 1
-        override def abilities(self : Card)(implicit g : Game) =
-            $(Ability("trash 1 card from the grip: the next card you play or install this turn costs 2 less", $(TrashFromHandCost(1)), $(SetCounterEffect(self, "patchwork", 1)), once = once("patchwork"), ok = g.hand(Runner).num >= 2 && g.counter(self, "patchwork") == 0, reason = "needs 2 cards in the grip"))
         override def installCostMod(self : Card, card : Card)(implicit g : Game) = (g.counter(self, "patchwork") > 0 && card != self && g.owner(card).isRunner).?(-2).|(0)
         override def playCostMod(self : Card, card : Card)(implicit g : Game) = (g.counter(self, "patchwork") > 0 && card.data.isEvent).?(-2).|(0)
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {

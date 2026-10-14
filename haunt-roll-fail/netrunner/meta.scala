@@ -12,6 +12,40 @@ import hrf.logger._
 
 import hrf.meta._
 import hrf.elem._
+import hrf.options._
+
+// the format of the game (game setup option, recorded with the game): the cards legal in it (Casual: any card). Rebirth's
+// identities and the deck legality warnings follow it.
+trait FormatOption extends GameOption with OneOfGroup {
+    val group = "Format".hh
+    val format : String
+}
+
+case object CasualFormat extends FormatOption {
+    val valueOn = "Casual (any card)".hh
+    val format = "casual"
+}
+
+case object StandardFormat extends FormatOption {
+    val valueOn = "Standard".hh
+    val format = "standard"
+}
+
+case object StartupFormat extends FormatOption {
+    val valueOn = "Startup".hh
+    val format = "startup"
+}
+
+case object EternalFormat extends FormatOption {
+    val valueOn = "Eternal".hh
+    val format = "eternal"
+}
+
+object Formats {
+    val all : $[FormatOption] = $(CasualFormat, StandardFormat, StartupFormat, EternalFormat)
+    def name(format : String) : String = all.%(_.format == format).starting./(_.valueOn.text).|(format)
+    def of(options : $[GameOption]) : String = options.of[FormatOption].starting./(_.format).|("casual")
+}
 
 // Save Replay embeds only the card images loaded in this session (UI.saveReplay loads the cards of the game first)
 object Meta extends MetaGame with hrf.quine.EmbedLoadedOnDemandAssetsOnly { mmm =>
@@ -28,7 +62,11 @@ object Meta extends MetaGame with hrf.quine.EmbedLoadedOnDemandAssetsOnly { mmm 
 
     val minPlayers = 2
 
-    val options = $
+    val options : $[O] = Formats.all
+
+    override def defaultsFor(n : Int, l : $[Faction]) : $[O] = $(CasualFormat)
+
+    override def quickOptions = Map[O, Double](CasualFormat -> 1.0)
 
     override val insignificantSeating : Boolean = true
 
@@ -49,7 +87,9 @@ object Meta extends MetaGame with hrf.quine.EmbedLoadedOnDemandAssetsOnly { mmm 
         else
             InfoResult("")
 
-    def validateFactionSeatingOptions(factions : $[Faction], options : $[O]) = InfoResult("")
+    def validateFactionSeatingOptions(factions : $[Faction], options : $[O]) =
+        if (options.of[FormatOption].num > 1) ErrorResult("Choose one format")
+        else InfoResult("Format: " + Formats.name(Formats.of(options)))
 
     def factionName(f : Faction) = f.name
     def factionElem(f : Faction) = f.name.styled(f)
@@ -69,8 +109,8 @@ object Meta extends MetaGame with hrf.quine.EmbedLoadedOnDemandAssetsOnly { mmm 
     def writeFaction(f : Faction) = f.name
     def parseFaction(s : String) : |[Faction] = factions.%(_.name == s).single
 
-    def writeOption(f : O) = "n/a"
-    def parseOption(s : String) = $
+    def writeOption(f : O) = f.toString
+    def parseOption(s : String) = options.%(_.toString == s)
 
     def parseAction(s : String) : Action = Serialize.parseAction(s)
     def writeAction(a : Action) : String = Serialize.write(a)

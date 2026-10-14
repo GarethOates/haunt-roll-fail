@@ -62,12 +62,12 @@ generic mechanics each set introduced are in the set status files; the engine si
 | Set | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
 | System Gateway (sg) | 77 | 77 | none (see `STATUS-fix-misc.md`) | `cards-sg.scala` | this file |
-| Elevation (elev) | 82 | 82 | 1 (Bling: hosted cards trashed when the turn ends, as jinteki; rotated grip effects do not list its cards) | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
-| Vantage Point (vp) | 66 | 66 | 1 (Reanimation Protocol: install-only fallback, as jinteki) | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Elevation (elev) | 82 | 82 | none (Bling: discard-phase-end event, every grip play / install lists its cards; see "Last rules-accuracy pass") | `cards-elev.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
+| Vantage Point (vp) | 66 | 66 | none (Reanimation Protocol: only ice that can be installed and rezzed; see "Last rules-accuracy pass") | `cards-vp.scala`, `rules-ext-startup.scala` | `STATUS-vp-elev.md` |
 | System Update 2021 (su21) | 82 | 82 | none (see `STATUS-fix-final-nsg.md`) | `cards-su21.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Midnight Sun (ms) | 65 | 65 | none | `cards-ms.scala`, `rules-ext-su21.scala` | `STATUS-su21-ms.md` |
 | Uprising Booster Pack (urbp) | 7 | 7 | none | `cards-ms.scala` | `STATUS-su21-ms.md` |
-| Parhelion (ph) | 63 | 63 | 1 (Mr. Hendrik: click-loss prevention as a choice) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
+| Parhelion (ph) | 63 | 63 | none (Mr. Hendrik: the Runner's ability in the damage prevention window) | `cards-ph.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | The Automata Initiative (tai) | 65 | 65 | none | `cards-tai.scala`, `rules-ext-ph-tai.scala` | `STATUS-ph-tai.md` |
 | Rebellion Without Rehearsal (rwr) | 65 | 65 | none | `cards-rwr.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
 | Downfall (df) | 65 | 65 | none | `cards-df.scala`, `rules-ext-rwr-df-ur.scala` | `STATUS-rwr-df-ur.md` |
@@ -87,22 +87,23 @@ them by name.
 
 | Type | Cards | Implemented | Simplified / approximated | Files | Details |
 |---|---|---|---|---|---|
-| ICE | 211 | 211 | 1 (the encounter-on-access ice are not encountered when accessed while installed) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
-| Programs | 164 | 164 | 2 (Hivemind: no choice of the counters for break / pump virus costs; Surveillance Network Key: an operation played with the basic action that draws counts as "spends [click] to draw") | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
+| ICE | 211 | 211 | none (the encounter-on-access ice are also encountered when accessed while installed) | `cards-rot-ice*.scala`, `rules-ext-rot-ice.scala` | `STATUS-rot-ice.md` |
+| Programs | 164 | 164 | none (Hivemind: choice of the counters for every virus cost; Surveillance Network Key: basic draw and [click] abilities only) | `cards-rot-programs*.scala`, `rules-ext-rot-programs.scala` | `STATUS-rot-programs.md` |
 | Resources | 164 | 164 | none | `cards-rot-resources-*.scala`, `rules-ext-rot-resources.scala` | `STATUS-rot-resources.md` |
-| Events | 148 | 148 | 1 (Rebirth: the format is inferred from the deck) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
+| Events | 148 | 148 | none (Rebirth: the game's format option) | `cards-rot-events-*.scala`, `rules-ext-rot-events.scala` | `STATUS-rot-events.md` |
 | Operations | 146 | 146 | none | `cards-rot-operations*.scala`, `rules-ext-rot-operations.scala` | `STATUS-rot-operations.md` |
 | Assets | 144 | 144 | none | `cards-rot-assets*.scala`, `rules-ext-rot-assets.scala` | `STATUS-rot-assets.md` |
-| Agendas | 114 | 114 | 1 (Personality Profiles: searches recognised from the printed text of the resolving card) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
+| Agendas | 114 | 114 | none (Personality Profiles: a real "searched the stack" event from the 26 searching cards) | `cards-rot-agendas*.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
 | Upgrades | 79 | 79 | none (Daruma's swaps re-check the root rules since the final NSG pass) | `cards-rot-upgrades.scala`, `rules-ext-rot-agendas.scala` | `STATUS-rot-agendas-upgrades.md` |
-| Hardware | 101 | 101 | 1 (Patchwork's prepay ability kept for affordability in the basic menus) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
+| Hardware | 101 | 101 | none (Patchwork: "... using Patchwork" options, no prepay ability) | `cards-rot-hardware-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
 | Identities | 90 | 90 | none | `cards-rot-identities-*.scala`, `rules-ext-rot-hardware.scala` | `STATUS-rot-hardware-identities.md` |
-| **Total rotated** | **1,361** | **1,361** | **6** (was ~176 before the four fix passes, ~70 before the final rotated pass) | | |
-| **All cards** | **2,056** | **2,056** | **10** (current sets 4, one of them engine-wide + rotated 6; was ~280) | | |
+| **Total rotated** | **1,361** | **1,361** | **0** (was ~176 before the four fix passes, ~70 before the final rotated pass, 6 before the last pass) | | |
+| **All cards** | **2,056** | **2,056** | **0** (was ~280 before the fix passes, 10 before the last rules-accuracy pass) | | |
 
 The counts above are after the four rules-accuracy fix passes (credits, restrictions, prevention, card-specific fixes; see
 "Rules-accuracy fix passes" below), the two final passes (`STATUS-fix-final-rot.md`, `STATUS-fix-final-nsg.md`) and their
-integration; the exact list of the 10 remaining approximations is in "Integration of the final passes" below. An entry counts a
+integration and the last rules-accuracy pass, which replaced the 10 approximations left after that integration ("Last rules-accuracy
+pass" below; none remains). An entry counts a
 card whose printed text is approximated or partly unenforced; differences that match jinteki's own implementation, manual-only
 choices and UI-only secrecy (Push Your Luck / Rigged Results amounts and Harishchandra's revealed grip are in every client's
 journal; the UI hides / shows them) are not counted.
@@ -175,7 +176,7 @@ per-theme status file (kept as the detailed record: what was fixed, what is stil
   root limits; any subset of subroutines can be broken (Matryoshka, every "break up to N"); "spend [click]" is a click cost; every
   "pay N" of the current sets goes through the credit engine; Bling, IP Enforcement, Reanimation Protocol, Hostile Architecture,
   Unsmiling Tsarevna, Bankhar, Front Company, Boi-tatá, Cataloguer, "Pretty" Mary, Nuvem SA, Cupellation, Whistleblower, MirrorMorph,
-  double operations. ~45 cards; see "Integration of the final passes" for what is left.
+  double operations. ~45 cards; the 4 approximations it left were replaced by the last rules-accuracy pass.
 
 #### Integration of the four passes
 
@@ -444,28 +445,68 @@ The final NSG pass (`FinalNsgRules`), the final rotated pass (`FinalRotRules`) a
   ordinary break options stay available); Hivemind's counter choice, Tithonium's forfeit and Surveillance Sweep's first boost
   are scored too.
 
-**Remaining approximations (exact list, 10)**:
+**Remaining approximations after the integration (10)**: Reanimation Protocol, Bling, Mr. Hendrik, the credit-source choice inside
+effects, Hivemind's break / pump costs, Patchwork's affordability, the encounter-on-access ice accessed while installed,
+Personality Profiles' searches, Rebirth's format, Surveillance Network Key. All ten were replaced by the printed behaviour in the
+last rules-accuracy pass (next section).
 
-1. Reanimation Protocol (36062): when the Corp cannot pay the combined install and rez cost (minus 10) the ice is installed
-   unrezzed (jinteki's behaviour; the printed text gives no fallback).
-2. Bling (35006): hosted cards are trashed when the Runner's turn ends (jinteki's `:runner-turn-ends`) instead of "when your
-   discard phase ends"; card effects of the rotated sets that pick from the grip do not list Bling's cards.
-3. Mr. Hendrik (33103): "lose all [click] to prevent this damage" is a choice before the damage, not an ability in the damage
-   prevention window (same outcome).
-4. Credit-source choice (engine-wide): offered for the user actions listed in `STATUS-fix-final-nsg.md` when two or more
-   restricted sources could pay; payments inside other effects (a `SpendEffect` that is not the first effect of a choice,
-   card-specific prepaid installs, psi bids, secret spending) use the default order, and a surcharge paid just before the action
-   with the same purpose (Net Watchlist, Hernando Cortez) takes the chosen sources first.
-5. Hivemind (07042): a `VirusCost` of a break or pump ability spends the program's own counters first, then Hivemind's (no choice).
-6. Patchwork (25009): the basic play / install options stay greyed when only Patchwork's discount would make them affordable,
-   so its non-printed "prepay" ability is kept for that case.
-7. Archangel / Chrysalis / Herald / Sapper accessed while installed (only through cards that access installed ice) are not
-   encountered.
-8. Personality Profiles (10066): a search is recognised as a stack shuffle while a card whose printed text says "search your /
-   the stack" resolves.
-9. Rebirth (10083): the format is inferred from the Runner's deck (the game has no declared format).
-10. Surveillance Network Key 1 / 2 (14018 / 14019): an operation played with the basic action that draws counts as "spends
-   [click] to draw" (jinteki only implements the basic draw action).
+### Last rules-accuracy pass: no approximation left (2026-10-14)
+
+Every card now behaves as printed (NSG / FFG rulings; where jinteki deviates from the printed card the printed card is followed).
+Engine side: ENGINE.md 8.9. Per item (fix, ruling):
+
+1. **Reanimation Protocol** (36062) -- ruling: an instruction to "install and rez" a card can only be used on a card that can be both
+   installed and rezzed; a cost is paid in full or not at all, and an ability cannot choose a target it cannot resolve on (NSG
+   Comprehensive Rules, costs and targeting). So only ice whose combined install + rez cost minus 10, plus its additional rez costs
+   (Archer, Bloop, Biawak; Hernando Cortez's surcharge), is payable is offered, and only in the servers where that total is payable
+   (the install cost depends on the ice already there); `canPlay` requires such an ice after paying the play cost. jinteki installs
+   the ice unrezzed instead -- that fallback is gone.
+2. **Bling** (35006) -- "When your discard phase ends": new engine step `DiscardPhaseEndAction` / event `DiscardPhaseEnds(f)` after the
+   discard and the discard-phase paid ability window, before "when your turn ends" (`TurnEnds`). Every effect of every set that plays
+   or installs a card "from your grip" lists Bling's hosted cards (`gripCards`; 16 rotated cards / helpers changed: Modded, Credit
+   Kiting, Scavenge, Mass Install, Comet, Diana's Hunt, Hayley Kaplan, Apex, Khan, Savoir-faire, Chatterjee University, London
+   Library, Bazaar, Dhegdheer, Pawn, Muse (grip), `installableFromHand`, Monolith-style install loops); such an install counts as an
+   install from the grip (Bazaar, Autoscripter). Grip choices that are not plays / installs (trash, host, reveal, discard) are not
+   "as if in the grip" and still list the grip only.
+3. **Mr. Hendrik** (33103) -- the Corp pays 2 (`SpendEffect`) and does 1 core damage with Mr. Hendrik as its source; in that damage's
+   prevention window the Runner (with at least 1 [click]) gets the ability "lose all [click]: prevent this damage" (a `LoseClickCost`
+   of all their clicks), next to every other core damage prevention; the Corp is never offered it.
+4. **Credit-source choice** (engine-wide) -- now also for payments inside effects: a `SpendEffect` anywhere in an effect list, card
+   specific prepaid / discounted installs (`RunnerInstallPayingEffect`, `InstallDiscountEffect`, `RunnerInstallDiscountEffect`,
+   `CorpInstallPayingEffect` install and rez parts, Reanimation Protocol's parts), discounted / effect rezzes, paid plays by effects,
+   psi bids and secret spending (chosen when bidding / spending, paid on reveal; nothing about the amount is logged). A surcharge
+   paid with the same purpose (Net Watchlist on paid abilities, Hernando Cortez on rezzes) is part of the same choice (the plan
+   pays it first, then the payment). The automatic option stays first and is the only one bots take.
+5. **Hivemind** (07042) -- an ability, break or pump whose virus counters can come from the program or Hivemind is offered as a soft
+   menu (`FrHiveMenuAction`: "... (choose the virus counters)") whose leaves split the cost before the break / pump resolves; an
+   effect that spends virus counters (`SpendVirusEffect`) asks the same way; Hivemind's counters only pay for virus programs (they
+   were also spent for non-virus programs before). The Smart / Basic bots choose a leaf (the program's own counters preferred).
+6. **Patchwork** (25009) -- a basic play / install option greyed only because of its cost is offered as "... using Patchwork" when
+   Patchwork's discount makes it affordable (`PatchworkPlayAction` / `PatchworkInstallAction`: the grip card to trash is then chosen,
+   not optional, and the card is played / installed paying 2 less); the non-printed "prepay" ability was removed. The interrupt of
+   affordable plays / installs (basic and card effects) is unchanged.
+7. **Archangel / Chrysalis / Herald / Sapper** -- "when the Runner accesses this ice anywhere except in Archives, they encounter it":
+   accessed while installed (Hangeki, or any card that accesses an installed card), rezzed ice are encountered where they are (the
+   Runner's position does not change); unrezzed ice are encountered as if rezzed (as the uninstalled ones accessed in R&D / HQ) and
+   are unrezzed again when the encounter ends. (Herald and Chrysalis no longer react to an access in Archives; Archangel's 3 credits
+   are a payment, `SpendEffect`.)
+8. **Personality Profiles** (10066) -- `StackSearchedEffect(card)` / `FrStackSearched` is emitted, after the search, by every card whose
+   printed text searches the stack (26 cards, listed in ENGINE.md 8.9; a check compares the list with the printed texts), only when
+   the stack is the zone searched (Muse, Test Run, Compile) and only when the Runner chose to search ("you may"). A plain shuffle is no
+   longer taken for a search.
+9. **Rebirth** (10083) -- new game setup option **Format** (`FormatOption`: Casual (default, any card) / Standard / Startup / Eternal),
+   shown in the setup screen of local and online games ("Format: Standard" under the buttons), recorded with the game's options and
+   logged at the start ("Netrunner - format: Standard"). Rebirth offers the identities of the faction legal in that format (Casual:
+   any constructed identity). Decks are not refused, but the deck preview, the gallery ("not Standard"), the decklist import message
+   and the setup log ("deck warning: Not legal in Standard: ...") warn when a deck has cards not legal in the format. Rebirth is the
+   only card whose text depends on the format.
+10. **Surveillance Network Key 1 / 2** (14018 / 14019) -- only the Corp spending [click] to draw counts: the basic draw action and
+   [click] abilities that draw ("including through a card ability", printed); an operation that draws (the click was spent to play
+   it) no longer counts.
+
+Nothing remains approximate. Choices made where the printed text needed a ruling: item 1 (no install-only fallback), item 7
+(installed unrezzed ice considered rezzed for the encounter, like the uninstalled ones), item 2 (only plays / installs see Bling's
+cards), item 10 (click abilities count, as printed).
 
 ## Simplifications / known gaps
 
@@ -839,6 +880,45 @@ started at 0 credits; credits = average at the start of the side's turns; agenda
     `b2-runner-mid`, `b3-corp-mid`, `g1-iso-spec-over`, `c1-corp-filter`, `c9-after-undo`, `c11-corp-reload`,
     `c15-prevention-window`, `c17-credit-choice`, `g2-iso-runner2-over`, `g2-iso-spec2-over`, `g2-offline-replay`,
     `l4-local-midgame`, `q2-quick-midgame`, `z1-final-quick-1440`: banner badges, side colours, hand pane, gallery and board intact.
+
+### Tested after the last rules-accuracy pass (2026-10-14)
+
+* `sbt -batch fastOptJS` green on the final code (the JVM harness compiles the same sources).
+* JVM harness (scratchpad `ap/host`, a copy of `fm/host` pointed at this checkout) with a new `ApproxScript` (61 checks, one block
+  per item: Reanimation Protocol's targets / servers / payment / `canPlay`; Bling's discard-phase-end trash before the turn ends and
+  Modded installing a hosted card; Mr. Hendrik's ability offered to the Runner in the core damage window (prevented with all clicks
+  lost; damage taken when passed; never offered to the Corp); the credit-source choice for a `SpendEffect` in the middle of an
+  effect list, a `RunnerInstallPayingEffect`, a psi bid (paid on reveal, not logged) and a rez with Hernando Cortez's surcharge in
+  the same choice; Hivemind's soft menu for a pump (leaves, cancel, payment, Smart preference, serialization) and the
+  `SpendVirusEffect` choice (non-virus programs never use Hivemind); Patchwork's "... using Patchwork" install / play options and no
+  prepay ability; Chrysalis (installed, rezzed), Herald (installed, unrezzed: encountered as if rezzed, unrezzed afterwards) and
+  Archangel (installed, Corp pays 3) encountered on access; Personality Profiles after Special Order's search, not after a plain
+  shuffle, and the 26-card list against the printed texts; the format option (default Casual, Rebirth's identities in Standard /
+  Startup / Casual, option round-trip, one format only, deck warnings, the format in the log); Surveillance Network Key with an
+  operation that draws / the basic draw / Jackson Howard's [click] ability). All scripted checks pass: the 866 of the previous
+  record (`ScriptTest` 40, `CreditScript` 92, `PreventionScript` 60, `RestrictionScript` 74, `FixScript` 81, `RotAssetScript` 52,
+  `RotAgendaScript` 33, `RotEventScript` 40, `RotHardwareScript` 80, `RotOperationScript` 56, `RotProgramScript` 50,
+  `RotMergeScript` 20, `FinalNsgScript` 82, `FinalRotScript` 91, `MergeFinalScript` 15) + `ApproxScript` 61 = **927 named checks**,
+  `RotIceScript` (211 ice, 633 encounters, 0 failures), `PresetCheck` (195 presets, 0 invalid).
+* Bot games (`BotHost`, random presets, every offered and chosen action round-tripped through the serializer): Smart vs Smart 1,000
+  (600 + 400 with the "only options not meant for bots" check raising an error), Basic vs Basic 200, Smart vs Smart with rotated
+  presets on both sides 1,200 (200 + 1,000 with that check): **2,400 games, 0 errors, 0 Smart heuristic errors**; none of the new
+  prompts is unhandled by the Smart bot (credit choices inside effects -> automatic, Hivemind leaves, Patchwork options, Mr.
+  Hendrik's prevention). (One rotated batch shows the Smart bot's scoring of manual-adjustment leaves in its statistics, as some
+  batches of the previous record did; it was not reproduced in the 1,000 rotated games run with the hard check.)
+* Browser (real good-game server on port 7070, the JS it serves checked identical to the build; headless Chrome on port 9668 with the
+  DevTools driver in the scratchpad `ap/web/`, each link in its own browser context):
+  * Setup screen of an online game: the new **Format** group (Casual (any card) / Standard / Startup / Eternal, "Format: Casual (any
+    card)" by default); Standard chosen ("Format: Standard"). Online game "Breach through Trace" (Corp `vakdwkrsdxswribl`, Runner
+    `ueycelpfmxufqgss`, spectator `mbhbmyxscgrwpdow`): the log starts with "Netrunner - format: Standard"; the deck gallery marks the
+    FFG-era presets "not Standard"; the Runner previewed Noise ("Not legal in Standard: Archives Interface, Brain Cage, ... and 19
+    more") then confirmed "Elevation Anarch Ryo"; the Corp confirmed "Elevation Weyland Zwicky". Played from both links (165 rounds
+    of automatic clicks) to the Runner's win, 7 agenda points on turn 7. Spectator check every 8 rounds: 0 differences except one
+    transient (Vulture Fund, an operation being played). No plugin exceptions in the three consoles.
+  * Local game, Eternal format, human Corp (Blue Sun preset, with Reanimation Protocol) against the Smart Runner bot (Zahya): played to
+    the bot's win (9-3); no plugin exceptions.
+  * Screenshots (scratchpad `ap/web/`): `s1-setup`, `s2-standard`, `s3-corp-gallery`, `s4-runner-preview`, `s5-runner-noise-warning`,
+    `s6-corp-over`, `s7-local`.
 
 ## Known bugs
 

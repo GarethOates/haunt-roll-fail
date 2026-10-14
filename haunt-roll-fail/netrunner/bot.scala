@@ -43,6 +43,9 @@ class BasicBot(f : Faction) extends EvalBot {
             else if (c.data.isAsset) s./(_ => 25).|(35)
             else s./(_ => 25).|(5)
         case RunnerInstallAction(_, c, _, t) => t.any.?(5).|(c.data.isIcebreaker.?(55).|(c.data.isProgram.?(40).|(c.data.isHardware.?(40).|(35))))
+        case PatchworkInstallAction(f, c, h, t) => weight(RunnerInstallAction(f, c, h, t)) - 10
+        case PatchworkPlayAction(f, c) => weight(PlayCardAction(f, c)) - 10
+        case FrHiveCostAction(_, x, k) => weight(x) - k
         case AdvanceAction(_, c) => c.data.isAgenda.?(60).|(20)
         case RezAction(_, c, ctx) => c.data.isIce.?(80).|((ctx == "window:turn-start" || ctx == "window:turn-begins" || ctx == "action").?(40).|(10))
         case RunAction(_, s) =>

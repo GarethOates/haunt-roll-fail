@@ -101,6 +101,9 @@ kept through a shuffle), LLDS Energy Regulator (its 3 credits are an ability `Cr
 
 ## Still approximate (and why)
 
+(All six rules items below were replaced by the printed behaviour in the last rules-accuracy pass: STATUS.md "Last rules-accuracy
+pass", ENGINE.md 8.9. The list is the record of this pass.)
+
 * Hivemind: a `VirusCost` of a **break or pump** ability spends the program's own counters first, then Hivemind's, without a choice
   (break / pump payments happen inside the break action, they are not asks); paid abilities ask.
 * Patchwork: the basic play / install options are still greyed when only Patchwork's discount would make them affordable, so its

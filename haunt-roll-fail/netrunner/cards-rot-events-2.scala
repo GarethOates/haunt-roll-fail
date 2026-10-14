@@ -357,8 +357,8 @@ object RotEventCards2 {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = $(runAny(self))
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case EncounterIce(_) if thisCardRun(self) && g.hand(Runner).exists(_.data.isProgram) =>
-                $(OptionalEffect(Runner, "Diana's Hunt: install a program from the grip ignoring all costs? (trashed when the run ends)", $(ChooseCardEffect(Runner, g.hand(Runner).%(_.data.isProgram), DianaPurpose(self), "Diana's Hunt: choose a program to install", true)), $))
+            case EncounterIce(_) if thisCardRun(self) && g.gripCards.exists(_.data.isProgram) =>
+                $(OptionalEffect(Runner, "Diana's Hunt: install a program from the grip ignoring all costs? (trashed when the run ends)", $(ChooseCardEffect(Runner, g.gripCards.%(_.data.isProgram), DianaPurpose(self), "Diana's Hunt: choose a program to install", true)), $))
             case RunEnds(_, _, _) if thisCardRun(self) =>
                 val l = g.runnerInstalled.%(c => g.usedThisTurn(c, "diana"))
                 l.any.$(MessageEffect(Runner, "trashes the programs installed with Diana's Hunt"), TrashCardsEffect(l, Runner))
@@ -472,7 +472,7 @@ object RotEventCards2 {
     object CreditKiting extends RE("21023") {
         override def canPlay(self : Card)(implicit g : Game) = centralRun
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = installable(g.hand(Runner).%(c => !c.data.isEvent), 8)
+            val l = installable(g.gripCards.%(c => !c.data.isEvent), 8)
             l.any.$(ChooseCardEffect(Runner, l, InstallPayingPurpose(8, None, false), "Credit Kiting: choose a card to install paying 8 less", true)) :+ tag(1)
         }
     }
@@ -488,9 +488,9 @@ object RotEventCards2 {
             cards.foreach(c => g.trashCard(c, Runner, false))
             val l = installable(g.deck(Runner).%(c => c.data.isProgram || c.data.isHardware), x).sortBy(_.title)
             if (l.any)
-                g.push(ChooseCardEffect(Runner, l, InstallPayingPurpose(x, None, false), "Emergent Creativity: choose a program or piece of hardware in the stack to install paying " + x + " less", true), ShuffleDeckEffect(Runner))
+                g.push(ChooseCardEffect(Runner, l, InstallPayingPurpose(x, None, false), "Emergent Creativity: choose a program or piece of hardware in the stack to install paying " + x + " less", true), ShuffleDeckEffect(Runner), StackSearchedEffect(p.card))
             else
-                g.push(ShuffleDeckEffect(Runner))
+                g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(p.card))
             NextAction
         }
     }
@@ -631,7 +631,7 @@ object RotEventCards2 {
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, CompilePurpose(self, stack), "Compile: choose a program to install ignoring all costs", true))
                 if (stack)
-                    g.push(ShuffleDeckEffect(Runner))
+                    g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -792,7 +792,7 @@ object RotEventCards2 {
         override def canPlay(self : Card)(implicit g : Game) = doubleOk()
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => g.has(c, "Connection")).sortBy(_.title)
-            doubleCost() ++ l.any.$(ChooseCardEffect(Runner, l, HostagePurpose(self), "Hostage: choose a connection in the stack", true)) :+ ShuffleDeckEffect(Runner)
+            doubleCost() ++ l.any.$(ChooseCardEffect(Runner, l, HostagePurpose(self), "Hostage: choose a connection in the stack", true)) :+ ShuffleDeckEffect(Runner) :+ StackSearchedEffect(self)
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
@@ -817,13 +817,13 @@ object RotEventCards2 {
     object SpecialOrder extends RE("25030") {
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(_.data.isIcebreaker).sortBy(_.title)
-            l.any.$(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Special Order: choose an icebreaker in the stack to add to the grip", true)) :+ ShuffleDeckEffect(Runner)
+            l.any.$(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Special Order: choose an icebreaker in the stack to add to the grip", true)) :+ ShuffleDeckEffect(Runner) :+ StackSearchedEffect(self)
         }
     }
 
     object Modded extends RE("25043") {
         override def onPlay(self : Card)(implicit g : Game) = {
-            val l = installable(g.hand(Runner).%(c => c.data.isProgram || c.data.isHardware), 3)
+            val l = installable(g.gripCards.%(c => c.data.isProgram || c.data.isHardware), 3)
             l.any.$(ChooseCardEffect(Runner, l, InstallPayingPurpose(3, None, false), "Modded: choose a program or piece of hardware to install paying 3 less", true))
         }
     }

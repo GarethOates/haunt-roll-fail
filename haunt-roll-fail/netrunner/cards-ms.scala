@@ -305,7 +305,7 @@ object MSCards {
                 val l = g.deck(Runner).%(c => runProgramInstallable(c) && g.canSpend(Runner, g.installCost(c, None), Spend.install(c))).sortBy(_.title)
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, InstallPurpose(false, None), "Into the Depths: choose a program to install", true))
-                g.push(ShuffleDeckEffect(Runner))
+                g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
     }

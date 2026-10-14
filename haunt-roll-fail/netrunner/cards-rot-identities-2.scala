@@ -53,7 +53,7 @@ object RotIdentityCards2 {
     object Apex extends RH("09029") {
         override def blocksInstall(self : Card, card : Card)(implicit g : Game) = card.data.isResource && !g.has(card, "Virtual")
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
-            case TurnBegins(Runner) if g.hand(Runner).any => $(ChooseCardEffect(Runner, g.hand(Runner), RHApexPurpose(self), "Apex: install 1 card from the grip facedown?", true))
+            case TurnBegins(Runner) if g.gripCards.any => $(ChooseCardEffect(Runner, g.gripCards, RHApexPurpose(self), "Apex: install 1 card from the grip facedown?", true))
             case _ => $
         }
         override def chosenRH(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
@@ -136,7 +136,7 @@ object RotIdentityCards2 {
     object Khan extends RH("11027") {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case PassIce(_) if firstTime(self, "khan") =>
-                val l = g.hand(Runner).%(c => c.data.isProgram && c.data.isIcebreaker && g.canAffordInstall(c, 1))
+                val l = g.gripCards.%(c => c.data.isProgram && c.data.isIcebreaker && g.canAffordInstall(c, 1))
                 $(MarkUsedEffect(self, "khan")) ++ l.any.$(says(self, "install an icebreaker paying 1 less")) ++ l.any.$(ChooseCardEffect(Runner, l, InstallPayingPurpose(1, None, false), "Khan: install an icebreaker from the grip paying 1 credit less?", true))
             case _ => $
         }
@@ -235,7 +235,7 @@ object RotIdentityCards2 {
     object KabonesaWu extends RH("21025") {
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => c.data.isProgram && !g.has(c, "Virus") && g.canAffordInstall(c, 1)).sortBy(_.title)
-            $(Ability("install a non-virus program from the stack paying 1 credit less", click(), $(ChooseCardEffect(Runner, l, RHKabonesaPurpose(self), "Kabonesa Wu: choose a program to install", true), ShuffleDeckEffect(Runner)), click = true, ok = g.deck(Runner).any, reason = "the stack is empty"))
+            $(Ability("install a non-virus program from the stack paying 1 credit less", click(), $(ChooseCardEffect(Runner, l, RHKabonesaPurpose(self), "Kabonesa Wu: choose a program to install", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), click = true, ok = g.deck(Runner).any, reason = "the stack is empty"))
         }
         override def chosenRH(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.push(RunnerInstallPayingEffect(c, None, 1), SetChoiceEffect(c, "kabonesa")))

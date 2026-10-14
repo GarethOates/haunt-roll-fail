@@ -64,6 +64,9 @@ case class TraceInitiated(base : Int) extends Event                             
 case class FnsCorpTrashFromHQCostPurpose(n : Int) extends Purpose                             // the Corp trashes the chosen HQ cards as an additional cost
 case class BreakChooseSubsAction(self : Faction, breaker : Card, bi : Int, ice : Card, allowed : $[Int]) extends BaseAction(g => g.cardElem(breaker) ~ " (strength " ~ g.breakerStrength(breaker).hl ~ ")")(g => "Break chosen subroutines...".hl) with Soft with NotForBots
 case class SubPick(ice : Card, idx : Int) extends Record
+// Patchwork: the basic play / install options that only Patchwork's discount makes affordable (the interrupt is then mandatory)
+case class PatchworkPlayAction(self : Faction, card : Card) extends BaseAction("Play")(g => g.cardElem(card) ~ " using Patchwork (trash 1 card from the grip, pay " ~ (g.playCost(card) - 2).atLeast(0).hl ~ "[c])")
+case class PatchworkInstallAction(self : Faction, card : Card, host : |[Card], trash : |[Card]) extends BaseAction("Install")(g => g.cardElem(card) ~ host./(h => " on " ~ g.cardElem(h)).|(Empty) ~ trash./(p => ", trashing " ~ g.cardElem(p)).|(Empty) ~ " using Patchwork (trash 1 card from the grip, pay " ~ (g.hostedInstallCost(card, host) - 2).atLeast(0).hl ~ "[c])")
 
 // a cost paid through the queue before the action it belongs to (an additional steal / trash cost)
 trait ExtCost extends Cost {
@@ -92,15 +95,26 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
 
     // ==== credit sources ==============================================================================================
 
-    class CreditChoice(val f : Faction, val n : Int, val spend : Spend, val stealth : Int, val action : Action) {
+    // one payment of an action / effect: payer, credits, purpose, stealth part
+    case class CreditPay(f : Faction, n : Int, spend : Spend, stealth : Int)
+
+    // the choice of the sources of one payment; `rest` = the other payments of the same action still to be asked; `secret` = a psi
+    // bid or a secret spend (nothing about the amount is logged)
+    class CreditChoice(val f : Faction, val n : Int, val spend : Spend, val stealth : Int, val action : Action, val rest : $[CreditPay], val secret : Boolean) {
         var parts : $[(CreditSrc, Int)] = $
         def paid = parts.map(_._2).sum
         def left = n - paid
     }
 
+    // a chosen allocation, applied by spendCredits to the next payments of f with the same purpose (kind and card) until used up
+    // (a surcharge with the same purpose -- Net Watchlist, Hernando Cortez -- is paid from it first, then the payment itself)
+    class CreditPlan(val f : Faction, val kind : String, val card : |[Card], var parts : $[(CreditSrc, Int)]) {
+        def matches(pf : Faction, s : Spend) = pf == f && s.kind == kind && s.card == card
+    }
+
     var creditChoice : |[CreditChoice] = None
     var creditDecided : |[Action] = None
-    var creditPlan : |[(Faction, Spend, $[(CreditSrc, Int)])] = None
+    var creditPlans : $[CreditPlan] = $
 
     def creditPartOf(l : $[Cost]) : (Int, Int) = l.foldLeft((0, 0)) {
         case ((n, s), CreditCost(k)) => (n + k, s)
@@ -108,29 +122,57 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
         case (x, _) => x
     }
 
-    // the payment a user action will make: (payer, credits, purpose, stealth part)
-    def creditPaymentOf(a : Action) : |[(Faction, Int, Spend, Int)] = a match {
-        case PlayCardAction(f, c) => |((f, playCost(c), Spend.play(c), 0))
-        case RunnerInstallAction(f, c, h, _) => |((f, hostedInstallCost(c, h), Spend.install(c, None, h), 0))
-        case CorpInstallAction(f, c, s) => |((f, installCost(c, s), Spend.install(c, s), 0))
-        case ServerChosenAction(f, c, s, false) => |((f, installCost(c, s), Spend.install(c, s), 0))
-        case RezAction(f, c, _) if !isRezzed(c) => |((Corp, rezCost(c), Spend.rez(c), 0))
-        case AdvanceAction(f, c) => |((f, 1, Spend.advance(c), 0))
-        case TrashResourceAction(f, c) => |((f, trashResourceCost, Spend.trashResource(c), 0))
-        case RemoveTagAction(f) => |((f, removeTagCost, Spend.removeTag, 0))
-        case PayTrashAction(f, c) => |((f, trashCost(c).|(0), Spend.trash(c), 0))
-        case BreakSubAction(f, b, bi, ice, _) => impl(b).breaks(b).lift(bi)./{ br => val (n, s) = creditPartOf(breakCostsWith(b, br.costs)) ; (f, n, Spend.break(b, ice), s) }
-        case BreakSubsAction(f, b, bi, ice, l) => impl(b).breaks(b).lift(bi)./{ br => val (n, s) = creditPartOf(breakCostsWith(b, breakCosts(br, l.num))) ; (f, n, Spend.break(b, ice), s) }
-        case PumpAction(f, b, pi) => impl(b).pumps(b).lift(pi)./{ p => val (n, s) = creditPartOf(pumpCostsWith(b, p.costs)) ; (f, n, Spend.pump(b, run./~(_.ice)), s) }
-        case UseAbilityAction(f, c, i, _) => impl(c).abilities(c).lift(i)./{ ab => val (n, s) = creditPartOf(ab.costs) ; (f, n, Spend.ability(c), s) }
-        case UseRunnerAbilityAction(f, c, i, _) => impl(c).runnerAbilities(c).lift(i)./{ ab => val (n, s) = creditPartOf(ab.costs) ; (f, n, Spend.ability(c), s) }
-        case AccessAbilityAction(f, s, c) => impl(s).accessAbility(s, c)./{ ab => val (n, st) = creditPartOf(ab.costs) ; (f, n, Spend.ability(s), st) }
-        case StealAction(f, c) => val (n, s) = creditPartOf(stealCostOf(c)) ; |((f, n, Spend.other, s))
-        case TraceCorpAction(f, n) => |((f, n, Spend.trace, 0))
-        case TraceRunnerAction(f, n) => |((f, n, Spend.trace, 0))
-        case ChoiceAction(f, _, alt) => alt.effects.starting.of[SpendEffect].map(x => (x.f, x.n, x.spend, x.stealth))
-        case YesAction(f, _, l) => l.starting.of[SpendEffect].map(x => (x.f, x.n, x.spend, x.stealth))
-        case _ => None
+    // the payment a user action will make: (payer, credits, purpose, stealth part) -- the first of creditPaymentsOf
+    def creditPaymentOf(a : Action) : |[(Faction, Int, Spend, Int)] = creditPaymentsOf(a).starting./(p => (p.f, p.n, p.spend, p.stealth))
+
+    def isSecretPayment(a : Action) : Boolean = a match {
+        case PsiBidAction(_, _) | SecretSpendAction(_, _, _) => true
+        case _ => false
+    }
+
+    // every payment an action or effect will make (several for "install and rez"; a surcharge with the same purpose is added)
+    def creditPaymentsOf(a : Action) : $[CreditPay] = creditPaymentsRaw(a).%(_.n > 0)
+
+    def creditPaymentsRaw(a : Action) : $[CreditPay] = a match {
+        case PlayCardAction(f, c) => $(CreditPay(f, playCost(c), Spend.play(c), 0))
+        case RunnerInstallAction(f, c, h, _) => $(CreditPay(f, hostedInstallCost(c, h), Spend.install(c, None, h), 0))
+        case CorpInstallAction(f, c, s) => $(CreditPay(f, installCost(c, s), Spend.install(c, s), 0))
+        case ServerChosenAction(f, c, s, false) => $(CreditPay(f, installCost(c, s), Spend.install(c, s), 0))
+        case RezAction(f, c, _) if !isRezzed(c) => $(CreditPay(Corp, rezCost(c) + frRezSurcharge(c), Spend.rez(c), 0))
+        case AdvanceAction(f, c) => $(CreditPay(f, 1, Spend.advance(c), 0))
+        case TrashResourceAction(f, c) => $(CreditPay(f, trashResourceCost, Spend.trashResource(c), 0))
+        case RemoveTagAction(f) => $(CreditPay(f, removeTagCost, Spend.removeTag, 0))
+        case PayTrashAction(f, c) => $(CreditPay(f, trashCost(c).|(0), Spend.trash(c), 0))
+        case BreakSubAction(f, b, bi, ice, _) => impl(b).breaks(b).lift(bi).$./{ br => val (n, s) = creditPartOf(breakCostsWith(b, br.costs)) ; CreditPay(f, n, Spend.break(b, ice), s) }
+        case BreakSubsAction(f, b, bi, ice, l) => impl(b).breaks(b).lift(bi).$./{ br => val (n, s) = creditPartOf(breakCostsWith(b, breakCosts(br, l.num))) ; CreditPay(f, n, Spend.break(b, ice), s) }
+        case PumpAction(f, b, pi) => impl(b).pumps(b).lift(pi).$./{ p => val (n, s) = creditPartOf(pumpCostsWith(b, p.costs)) ; CreditPay(f, n, Spend.pump(b, run./~(_.ice)), s) }
+        case UseAbilityAction(f, c, i, _) => impl(c).abilities(c).lift(i).$./{ ab => val (n, s) = creditPartOf(ab.costs) ; CreditPay(f, n + f.isRunner.??(frWatchlist(c)), Spend.ability(c), s) }
+        case UseRunnerAbilityAction(f, c, i, _) => impl(c).runnerAbilities(c).lift(i).$./{ ab => val (n, s) = creditPartOf(ab.costs) ; CreditPay(f, n, Spend.ability(c), s) }
+        case AccessAbilityAction(f, s, c) => impl(s).accessAbility(s, c).$./{ ab => val (n, st) = creditPartOf(ab.costs) ; CreditPay(f, n, Spend.ability(s), st) }
+        case StealAction(f, c) => val (n, s) = creditPartOf(stealCostOf(c)) ; $(CreditPay(f, n, Spend.other, s))
+        case TraceCorpAction(f, n) => $(CreditPay(f, n, Spend.trace, 0))
+        case TraceRunnerAction(f, n) => $(CreditPay(f, n, Spend.trace, 0))
+        case ChoiceAction(f, _, alt) => alt.effects.starting.of[SpendEffect].$./(x => CreditPay(x.f, x.n, x.spend, x.stealth))
+        case YesAction(f, _, l) => l.starting.of[SpendEffect].$./(x => CreditPay(x.f, x.n, x.spend, x.stealth))
+        // secret payments: the bid / the secret amount is paid when it is revealed, from the sources chosen now
+        case PsiBidAction(f, n) => $(CreditPay(f, n, Spend.psi, 0))
+        case SecretSpendAction(f, c, n) => $(CreditPay(f, n, Spend.effect(|(c)), 0))
+        // payments inside effects
+        case SpendEffect(f, n, s, st, _) => $(CreditPay(f, n, s, st))
+        case RunnerInstallEffect(c, h, false) if notInPlay(c) => $(CreditPay(Runner, hostedInstallCost(c, h), Spend.install(c, None, h), 0))
+        case CorpInstallEffect(c, s, false) if notInPlay(c) => $(CreditPay(Corp, installCost(c, s), Spend.install(c, s), 0))
+        case RunnerInstallPayingEffect(c, h, d) if notInPlay(c) => $(CreditPay(Runner, (installCost(c, None) - d).atLeast(0), Spend.install(c, None, h), 0))
+        case InstallDiscountEffect(c, d) if notInPlay(c) => $(CreditPay(Runner, (installCost(c, None) - d).atLeast(0), Spend.install(c), 0))
+        case RunnerInstallDiscountEffect(c, d) if notInPlay(c) && !impl(c).mustBeHosted(c) => $(CreditPay(Runner, (installCost(c, None) - d).atLeast(0), Spend.install(c), 0))
+        case CorpInstallPayingEffect(c, s, d, rez) if notInPlay(c) => installParts(c, s, None, d, rez)./{ case (n, sp) => CreditPay(Corp, n + (sp.kind == "rez").??(frRezSurcharge(c)), sp, 0) }
+        case ReanimationRezAction(_, c, s) if zone(c) == DiscardZone(Corp) => VPCards.ReanimationProtocol.parts(c, s)./{ case (n, sp) => CreditPay(Corp, n, sp, 0) }
+        case RezDiscountEffect(c, d) if isInstalled(c) && !isRezzed(c) => $(CreditPay(Corp, (rezCost(c) - d).atLeast(0) + frRezSurcharge(c), Spend.rez(c), 0))
+        case DiscountRezEffect(c, d) if isInstalled(c) && !isRezzed(c) => $(CreditPay(Corp, (rezCost(c) - d).atLeast(0) + frRezSurcharge(c), Spend.rez(c), 0))
+        case RezEffect(c, false) if isInstalled(c) && !isRezzed(c) => $(CreditPay(Corp, rezCost(c) + frRezSurcharge(c), Spend.rez(c), 0))
+        case PlayCardEffect(f, c, true, _) if location.contains(c) => $(CreditPay(f, playCost(c), Spend.play(c), 0))
+        case PlayFreeEffect(c) if location.contains(c) => $(CreditPay(owner(c), playCost(c), Spend.play(c), 0))
+        case PlayCardFreeEffect(c) if location.contains(c) => $(CreditPay(owner(c), playCost(c), Spend.play(c), 0))
+        case _ => $
     }
 
     def creditAvail(f : Faction, s : Spend, src : CreditSrc) : Int = src match {
@@ -151,12 +193,35 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
     def needsCreditChoice(f : Faction, n : Int, s : Spend, stealth : Int) : Boolean =
         n > 0 && !noSpending(f) && restrictedSources(f, s).num >= 2 && creditsFor(f, s) > n && canSpend(f, n, s, stealth)
 
-    def creditPromptFor(a : Action) : |[(Faction, Int, Spend, Int)] = a match {
-        case _ : CreditAutoAction | _ : CreditTakeAction => None
-        // Patchwork's interrupt comes first (it changes the cost): the choice is asked when the action is performed again
-        case PlayCardAction(Runner, c) if !patchworkBypass && patchworkFor(c, playCost(c)).any => None
-        case RunnerInstallAction(Runner, c, _, _) if !patchworkBypass && patchworkFor(c, installCost(c, None)).any => None
-        case _ => creditPaymentOf(a).%{ case (f, n, s, st) => needsCreditChoice(f, n, s, st) }
+    def needsCreditChoice(p : CreditPay) : Boolean = needsCreditChoice(p.f, p.n, p.spend, p.stealth)
+
+    def creditPlanFor(f : Faction, s : Spend) : |[CreditPlan] = creditPlans.find(_.matches(f, s))
+
+    // Patchwork's interrupt comes first (it changes the cost): the choice is asked when the action is performed again
+    def patchworkFirst(a : Action) : Boolean = a match {
+        case PlayCardAction(Runner, c) => !patchworkBypass && patchworkFor(c, playCost(c)).any
+        case RunnerInstallAction(Runner, c, _, _) => !patchworkBypass && patchworkFor(c, installCost(c, None)).any
+        case RunnerInstallEffect(c, h, false) => !frPatchworkBypass && !frPatchworkSkip.has(c) && notInPlay(c) && patchworkFor(c, hostedInstallCost(c, h)).any
+        case x : ForcedAction => frPatchworkWanted(x).any
+        case _ => false
+    }
+
+    // the payments of the action that need a choice of sources: from the first one that does (the later ones are asked in turn)
+    def creditPromptFor(a : Action) : $[CreditPay] = a match {
+        case _ : CreditAutoAction | _ : CreditTakeAction => $
+        case _ if creditPlans.none && !creditSourcesPossible => $
+        case _ if patchworkFirst(a) => $
+        case _ => creditPaymentsOf(a).%(p => creditPlanFor(p.f, p.spend).none).dropWhile(p => !needsCreditChoice(p))
+    }
+
+    // (cheap pre-check) two or more restricted sources exist at all
+    def creditSourcesPossible : Boolean = $(Corp, Runner).exists(f => (f.isRunner && bpCredits(f) > 0).??(1) + activeCards(f).count(c => counter(c, "credit") > 0) >= 2)
+
+    def creditStart(a : Action, l : $[CreditPay]) : Continue = {
+        val p = l.head
+        val ch = new CreditChoice(p.f, p.n, p.spend, p.stealth, a, l.drop(1), isSecretPayment(a))
+        creditChoice = |(ch)
+        creditAsk(ch)
     }
 
     def creditChoiceTitle : Elem = creditChoice./(ch => "Pay " ~ ch.n.credits ~ " (" ~ ch.left.hl ~ " left): choose where the credits come from").|("Pay credits".txt)
@@ -211,25 +276,35 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
 
     def creditResume(ch : CreditChoice) : Continue = {
         creditChoice = None
-        creditDecided = |(ch.action)
-        creditPlan = |((ch.f, ch.spend, ch.parts))
-        if (ch.parts.any)
+        // the decision becomes a plan (empty: automatic) for the matching payment
+        creditPlans = creditPlans.%!(_.matches(ch.f, ch.spend)) :+ new CreditPlan(ch.f, ch.spend.kind, ch.spend.card, ch.parts)
+        if (ch.parts.any && !ch.secret)
             log(ch.f, "chooses the credits:", ch.parts.map { case (src, m) => m.hl ~ " from " ~ creditSrcElem(src) }.join(", "), "(the rest automatically)")
-        performInternal(ch.action, NoVoid)
+        val next = ch.rest.dropWhile(p => !needsCreditChoice(p))
+        if (next.any)
+            creditStart(ch.action, next)
+        else {
+            creditDecided = |(ch.action)
+            performInternal(ch.action, NoVoid)
+        }
     }
 
     // the plan chosen for the next matching payment is applied first, the rest of the payment follows CreditRules' order
     override def spendCredits(f : Faction, n : Int, s : Spend, stealth : Int = 0) {
         if (s.is("install") && n > 0)
             s.card.foreach(c => fnsInstallSpent += c)
-        creditPlan match {
-            case Some((pf, ps, parts)) if pf == f && ps.kind == s.kind && ps.card == s.card && n > 0 =>
-                creditPlan = None
+        creditPlanFor(f, s) match {
+            case Some(plan) if n > 0 =>
                 creditDecided = None
                 var left = n
                 var st = stealth.atMost(n)
-                parts.foreach { case (src, m0) =>
+                var remaining : $[(CreditSrc, Int)] = $
+                plan.parts.foreach { case (src, m0) =>
+                    val lb = left
                     val m = m0.atMost(left).atMost(creditAvail(f, s, src))
+                    // what this payment did not need of the source stays in the plan for the next payment with the same purpose
+                    if (m0 > m && m == lb)
+                        remaining :+= (src -> (m0 - m))
                     if (m > 0) {
                         src match {
                             case PoolCreditSrc => credits += f -> (credits(f) - m)
@@ -243,6 +318,9 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
                         if (creditStealth(src)) st -= m
                     }
                 }
+                plan.parts = remaining
+                if (remaining.none)
+                    creditPlans = creditPlans.%!(_ eq plan)
                 super.spendCredits(f, left, s, st.atLeast(0))
             case _ => super.spendCredits(f, n, s, stealth)
         }
@@ -351,6 +429,20 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
     override def trashCard(c : Card, by : Faction, accessed : Boolean) {
         fnsTrashInfo += c -> ((isInstalled(c), isRezzed(c), zone(c)))
         super.trashCard(c, by, accessed)
+    }
+
+    // ==== prevention abilities granted to the other side ===============================================================
+
+    // a Corp card whose prevention ability is used by the Runner in the window of the damage it does (Mr. Hendrik: "they may lose all
+    // their [click] to prevent this damage"); the Corp never uses it
+    val fnsGrantedPrevention = $("33103")
+
+    override def preventOptions(f : Faction, ctx : PreventCtx) : $[(Card, Int, Ability)] = {
+        val own = super.preventOptions(f, ctx).%{ case (c, _, _) => !(fnsGrantedPrevention.has(c.code) && owner(c) == f) }
+        val granted = (ctx.amount > 0 && !ctx.unpreventable).??(ctx.source.$.%(c => fnsGrantedPrevention.has(c.code) && owner(c) != f && !isDisabled(c))./~ { c =>
+            impl(c).preventions(c, ctx.q, ctx.amount).indexed./((a, i) => (c, i, a)).%{ case (c, i, a) => a.ok && canPay(f, a.costs, |(c)) && ctx.uses.get((c, i)).|(0) < 1 }
+        })
+        own ++ granted.%!(x => own.exists(y => y._1 == x._1 && y._2 == x._2))
     }
 
     // ==== the "trace initiated" window ================================================================================
@@ -467,6 +559,26 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
     // the Runner's cards that can be played / installed as if they were in the grip (the grip and the cards hosted on Bling)
     def gripCards : $[Card] = hand(Runner) ++ blingCards
 
+    // ==== Patchwork: "When you would play or install a card, you may trash 1 card from your grip. If you do, instead play or install
+    //      that card paying 2[credit] less." The interrupt (PreventionRules.openPatchwork) is offered by every play / install; a basic
+    //      option that only the discount makes affordable is offered as "... using Patchwork" (the trash is then not optional)
+
+    def patchworkPlayable(c : Card) : Boolean = clicks(Runner) >= 1 && !canSpend(Runner, playCost(c), Spend.play(c)) && patchworkFor(c, playCost(c)).any &&
+        canSpend(Runner, (playCost(c) - 2).atLeast(0), Spend.play(c)) && impl(c).canPlay(c) && playBlock(c).none
+
+    def patchworkInstallable(c : Card, h : |[Card]) : Boolean = clicks(Runner) >= 1 && !canSpend(Runner, hostedInstallCost(c, h), Spend.install(c, None, h)) && patchworkFor(c, hostedInstallCost(c, h)).any &&
+        canSpend(Runner, (hostedInstallCost(c, h) - 2).atLeast(0), Spend.install(c, None, h)) && runnerInstallBlock(c, h).none
+
+    def patchworkForced(a : Action, c : Card, cost : Int) : Continue = patchworkFor(c, cost) match {
+        case Some(pw) =>
+            patchworkPending = |(a)
+            push(ChooseCardEffect(Runner, hand(Runner).%(_ != c), PrevPatchworkPurpose(pw), "Patchwork: trash a card from the grip to " + c.data.isEvent.?("play").|("install") + " " + asciiTitle(c) + " paying 2 credits less", false), PatchworkResumeEffect)
+            NextAction
+        case None =>
+            log(Runner, "cannot use Patchwork")
+            ActionPhaseAction(Runner)
+    }
+
     // ==== Tsakhia "Bankhar" Gantulga: "whenever the Corp would resolve a subroutine, instead they resolve 'Do 1 net damage'" ======
     // the ice keeps its subroutines (they are broken / shown as printed); the replacement happens when one resolves
     override def extImpl(c : Card) : CardImpl = super.extImpl(c) match {
@@ -483,6 +595,9 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
             case MoveServerChosenAction(_, mc, ms) if rootMoveBlock(mc, ms).any => a.!(true, rootMoveBlock(mc, ms).get)
             case UnavailableReasonAction(PlayMenuAction(Runner), "nothing to play") if blingCards.exists(c => c.data.isEvent) => PlayMenuAction(Runner)
             case UnavailableReasonAction(InstallMenuAction(Runner), "nothing to install") if blingCards.exists(installable) => InstallMenuAction(Runner)
+            // Patchwork: options greyed only because of their cost become "... using Patchwork"
+            case UnavailableReasonAction(PlayCardAction(Runner, c), "not enough credits") if patchworkPlayable(c) => PatchworkPlayAction(Runner, c)
+            case UnavailableReasonAction(RunnerInstallAction(Runner, c, h, t), "not enough credits") if patchworkInstallable(c, h) => PatchworkInstallAction(Runner, c, h, t)
             case x => x
         }
         c match {
@@ -507,7 +622,7 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
             $(FnsWhistleblowerStealEffect(c))
         case TurnEnds(_) =>
             creditDecided = None
-            creditPlan = None
+            creditPlans = $
             fnsExtraPaid = $
             fnsMMExtra = $
             // markers whose closing marker was dropped from the queue (an ended run, ...) are forgotten
@@ -521,13 +636,11 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
 
     def performFinalNsg : PartialFunction[Action, Continue] = {
         // ---- credit sources
-        case a : UserAction if creditDecided != |(a) && creditChoice.none && creditPromptFor(a).any =>
-            val (f, n, s, st) = creditPromptFor(a).get
-            creditPlan = None
+        // (user actions and the effects that pay: SpendEffect anywhere in an effect list, prepaid installs / rezzes / plays, psi bids,
+        // secret spending)
+        case a if creditDecided != |(a) && creditChoice.none && creditPromptFor(a).any =>
             creditDecided = None
-            val ch = new CreditChoice(f, n, s, st, a)
-            creditChoice = |(ch)
-            creditAsk(ch)
+            creditStart(a, creditPromptFor(a))
 
         case CreditAutoAction(f) =>
             creditChoice match {
@@ -546,6 +659,10 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
                 case Some(ch) => creditAsk(ch)
                 case None => NextAction
             }
+
+        // ---- Patchwork: the play / install that only its discount makes affordable
+        case PatchworkPlayAction(f, c) => patchworkForced(PlayCardAction(f, c), c, playCost(c))
+        case PatchworkInstallAction(f, c, h, t) => patchworkForced(RunnerInstallAction(f, c, h, t), c, hostedInstallCost(c, h))
 
         // ---- additional costs of the Corp's basic action to trash a resource (Sebastiao, Manuel Lattes)
         case a @ TrashResourceAction(f, c) if !fnsExtraPaid.has(a) && trashResourceHQCost(c) > 0 =>
@@ -777,6 +894,17 @@ trait FinalNsgRules extends FinalRotRules with PreventionRules with FixRules wit
                 if (effects.any && k >= effects.num && pending.slice(k - effects.num, k) == effects)
                     pending = pending.take(k - effects.num) ++ fnsSourced(c, effects) ++ pending.drop(k)
                 r
+        } : PartialFunction[Action, Continue]) orElse base
+    }
+
+    override def performTurn : PartialFunction[Action, Continue] = {
+        val base = super.performTurn
+        ({
+            // the payments of the previous action are made: credit plans that were not used are forgotten
+            case a @ ActionPhaseAction(f) if creditChoice.none =>
+                creditPlans = $
+                creditDecided = None
+                base(a)
         } : PartialFunction[Action, Continue]) orElse base
     }
 

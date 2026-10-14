@@ -343,7 +343,7 @@ object SU21Cards {
                 val l = (stack.?(g.deck(Runner)).|(g.discard(Runner))).%(runProgramInstallable).sortBy(_.title)
                 g.push(ChooseCardEffect(Runner, l, TestRunPurpose(self, stack), "Test Run: choose a program to install, ignoring all costs", true))
                 if (stack)
-                    g.push(ShuffleDeckEffect(Runner))
+                    g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {

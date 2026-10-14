@@ -395,7 +395,7 @@ object RotIdentityCards1 {
         override def triggers(self : Card, e : Event)(implicit g : Game) = e match {
             case Installed(Runner, c) if firstTime(self, "hayley") =>
                 // mods (hardware that must be installed on a host) are offered with their possible hosts
-                val l = g.hand(Runner).%(x => x.data.kind == c.data.kind && !g.rhInstallBlocked(x) && (g.rhModHosts(x) match {
+                val l = g.gripCards.%(x => x.data.kind == c.data.kind && !g.rhInstallBlocked(x) && (g.rhModHosts(x) match {
                     case Some(hosts) => hosts.exists(h => g.canSpend(Runner, g.hostedInstallCost(x, |(h)), Spend.install(x, None, |(h))))
                     case None => g.canAffordInstall(x, 0)
                 }))

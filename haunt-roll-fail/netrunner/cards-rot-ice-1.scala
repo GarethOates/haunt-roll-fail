@@ -51,7 +51,7 @@ object RotIceCards1 {
 
     object Archangel extends RI("09013") {
         override def onAccess(self : Card)(implicit g : Game) =
-            (!g.isInstalled(self) && g.credits(Corp) >= 3).$(OptionalEffect(Corp, "Archangel: pay 3 credits to force the Runner to encounter it?", $(LoseCreditsEffect(Corp, 3), PhantomEncounterEffect(self)), $))
+            (!g.zone(self).is[DiscardZone] && g.canSpend(Corp, 3, Spend.effect(|(self)))).$(OptionalEffect(Corp, "Archangel: pay 3 credits to force the Runner to encounter it?", $(SpendEffect(Corp, 3, Spend.effect(|(self)), 0, $(FrAccessEncounterEffect(self)))), $))
         override def subroutines(self : Card)(implicit g : Game) = $(trace(6, "Add 1 installed Runner card to the grip", $(ChooseCardEffect(Corp, g.runnerInstalled, ReturnToHandPurpose, "Archangel: choose an installed Runner card to add to the grip", false))))
     }
 
@@ -260,7 +260,7 @@ object RotIceCards1 {
     }
 
     object Chrysalis extends RI("11013") {
-        override def onAccess(self : Card)(implicit g : Game) = (!g.isInstalled(self)).$(PhantomEncounterEffect(self))
+        override def onAccess(self : Card)(implicit g : Game) = (!g.zone(self).is[DiscardZone]).$(FrAccessEncounterEffect(self))
         override def subroutines(self : Card)(implicit g : Game) = $(netSub(2))
     }
 
@@ -605,7 +605,7 @@ object RotIceCards1 {
     }
 
     object Herald extends RI("11115") {
-        override def onAccess(self : Card)(implicit g : Game) = (!g.isInstalled(self)).$(PhantomEncounterEffect(self))
+        override def onAccess(self : Card)(implicit g : Game) = (!g.zone(self).is[DiscardZone]).$(FrAccessEncounterEffect(self))
         override def subroutines(self : Card)(implicit g : Game) = $(gainSub(2), Sub("Pay up to 2[c] to place that many advancement counters on a card that can be advanced", ChooseNumberEffect(Corp, self, 0, 2.atMost(g.credits(Corp)), "herald", "Herald: how many credits to pay for advancement counters?")))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case NumberPickedAction(self, n, "herald") =>

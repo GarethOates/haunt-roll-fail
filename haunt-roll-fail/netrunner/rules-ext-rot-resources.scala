@@ -203,7 +203,7 @@ abstract class RR(val code : String) extends CardImpl {
 
     def firstSuccessfulRunOn(s : Server)(implicit g : Game) = g.successfulRunsThisTurn.count(s) == 1
 
-    def installableFromHand(discount : Int)(implicit g : Game) = g.hand(Runner).%(c => !c.data.isEvent && g.runnerInstallableNow(c, discount))
+    def installableFromHand(discount : Int)(implicit g : Game) = g.gripCards.%(c => !c.data.isEvent && g.runnerInstallableNow(c, discount))
 
     // events after which "whenever you have 0 credits" is checked
     def creditsCheckpoint(e : Event)(implicit g : Game) : Boolean = e match {

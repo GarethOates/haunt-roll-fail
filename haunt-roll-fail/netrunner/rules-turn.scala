@@ -21,6 +21,8 @@ case class ActionPhaseAction(f : Faction) extends ForcedAction with Reaskable
 case class DiscardPhaseAction(f : Faction) extends ForcedAction with Reaskable
 case class DiscardCardsAction(self : Faction, cards : $[Card]) extends ForcedAction
 case class EndTurnAction(f : Faction) extends ForcedAction
+case class DiscardPhaseEndAction(f : Faction) extends ForcedAction                  // the discard phase ends (after discarding and its paid ability window, before the turn ends)
+case class DiscardPhaseEnds(f : Faction) extends Event                              // "when your discard phase ends" (Bling)
 
 case class ClickCreditAction(self : Faction) extends BaseAction("Basic actions")("Gain 1 credit")
 case class ClickDrawAction(self : Faction) extends BaseAction("Basic actions")("Draw a card")
@@ -275,7 +277,7 @@ trait TurnRules { game : Game =>
             NextAction
 
         case EndTurnClickAction(f) =>
-            push(DiscardPhaseAction(f), PaidWindowAction("discard"), EndTurnAction(f))
+            push(DiscardPhaseAction(f), PaidWindowAction("discard"), DiscardPhaseEndAction(f), EndTurnAction(f))
             trigger(ActionPhaseEnds(f))
             NextAction
 
@@ -308,6 +310,10 @@ trait TurnRules { game : Game =>
             }
             log(f, "discards", l.num.cards)
             trigger(DiscardedToHandSize(f, l))
+            NextAction
+
+        case DiscardPhaseEndAction(f) =>
+            trigger(DiscardPhaseEnds(f))
             NextAction
 
         case EndTurnAction(f) =>

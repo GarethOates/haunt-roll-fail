@@ -34,7 +34,7 @@ trait SetupRules { game : Game =>
     def performSetup : PartialFunction[Action, Continue] = {
         case StartAction(version) =>
             log("HRF".hl, "version", gaming.version.hlb)
-            log("Netrunner".hlb)
+            log("Netrunner".hlb, "-", "format:", Formats.name(format).hl)
 
             if (version != gaming.version)
                 log("Saved game version", version.hlb)
@@ -81,6 +81,7 @@ trait SetupRules { game : Game =>
 
         case SetupDecksAction =>
             setup.foreach { f =>
+                Decks.formatWarning(format, decks(f)).foreach(w => log(f, "deck warning:", w))
                 val codes = decks(f)
                 val counts = codes.groupBy(c => c).toList./((c, l) => c -> l.num)
                 val cards = counts.toList.sortBy(_._1)./~((c, n) => 1.to(n)./(i => Card(c, i)))

@@ -428,7 +428,7 @@ trait RotHardwareRules { game : Game =>
 
         case RunnerInstallEffect(c, _, _) =>
             if (!location.get(c).exists(inPlayZone))
-                rhInstallFrom += c -> zone(c)
+                rhInstallFrom += c -> (blingCards.has(c).?(HandZone(Runner) : Zone).|(zone(c)))   // Bling: installed as if from the grip
             rhInnerPerform(a)
 
         case RezAction(f, c, ctx) =>

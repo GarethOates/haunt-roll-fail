@@ -217,7 +217,7 @@ object RotResourceCards2 {
                 l.foreach(c => g.moveTo(c, DiscardZone(Runner)))
                 if (l.any)
                     g.log(Runner, "adds", l.num.hl, "copies of", Cards(code).title.hl, "from the stack to the heap")
-                g.push(ShuffleDeckEffect(Runner))
+                g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
     }
@@ -372,7 +372,7 @@ object RotResourceCards2 {
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case RosettaSearchAction(self, d) =>
                 val l = g.deck(Runner).%(c => c.data.isProgram && !g.has(c, "Virus") && g.runnerInstallableNow(c, d)).sortBy(_.title)
-                g.push(ChooseCardEffect(Runner, l, RotInstallPayingPurpose(self, d), "Rosetta 2.0: choose a program to install", true), ShuffleDeckEffect(Runner))
+                g.push(ChooseCardEffect(Runner, l, RotInstallPayingPurpose(self, d), "Rosetta 2.0: choose a program to install", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
     }
@@ -732,7 +732,7 @@ object RotResourceCards2 {
     object TysonObservatory extends RR("08030") {
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(_.data.isHardware).sortBy(_.title)
-            $(Ability("search the stack for a piece of hardware and add it to the grip", $(ClickCost(2)), $(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Tyson Observatory: choose a piece of hardware", true), ShuffleDeckEffect(Runner)), click = true, ok = g.deck(Runner).any, reason = "empty stack"))
+            $(Ability("search the stack for a piece of hardware and add it to the grip", $(ClickCost(2)), $(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Tyson Observatory: choose a piece of hardware", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), click = true, ok = g.deck(Runner).any, reason = "empty stack"))
         }
     }
 

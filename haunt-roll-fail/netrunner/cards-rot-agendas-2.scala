@@ -101,7 +101,7 @@ object RotAgendaCards2 {
         def punish(implicit g : Game) : $[ForcedAction] = g.hand(Runner).any.$(MessageEffect(Corp, "uses Personality Profiles"), RandomTrashFromHandEffect(Runner, 1))
         override def triggers(self : Card, e : Event)(implicit g : Game) = if (!corpScored(self)) $ else {
             // installs from the heap (FinalRotRules.frFromHeap; facedown installs: the heap before the event) and searches of the
-            // stack (FrStackSearched: a stack shuffle by a card whose text searches the stack)
+            // stack (FrStackSearched: fired by StackSearchedEffect, which every card whose effect searches the stack emits after the search)
             e match {
                 case Installed(Runner, c) if g.frFromHeap.contains(c) => punish
                 case FacedownInstalled(c) if g.rotHeapPrev.has(c) => punish

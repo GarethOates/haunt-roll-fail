@@ -157,7 +157,9 @@ object ElevCards {
             // "without spending credits": no credits were spent on this install (FinalNsgRules.fnsInstallSpent)
             case Installed(Runner, c) if c != self && !g.fnsInstallSpent.contains(c) && g.deck(Runner).any =>
                 $(OptionalEffect(Runner, "Bling: host the top card of the stack?", $(BlingHostAction(self)), $))
-            case TurnEnds(Runner) if g.stashed(self).any => $(BlingTrashAction(self))
+            // "When your discard phase ends, trash all hosted cards" (DiscardPhaseEnds: after discarding and the discard window,
+            // before "when your turn ends")
+            case DiscardPhaseEnds(Runner) if g.stashed(self).any => $(BlingTrashAction(self))
             case _ => $
         }
         // "You can play or install hosted cards as if they were in your grip": the basic play / install actions and the card effects

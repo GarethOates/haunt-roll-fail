@@ -29,7 +29,7 @@ object RotProgramCards1 {
         override def memory(self : Card)(implicit g : Game) = hostedMemory(self)
         override def abilities(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(x => x.data.isProgram && g.has(x, "Virus")).sortBy(_.title)
-            $(Ability("search the stack for a virus program and add it to the grip", clickc(1), $(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Djinn: choose a virus program", true), ShuffleDeckEffect(Runner)), click = true, ok = g.deck(Runner).any, reason = "empty stack"))
+            $(Ability("search the stack for a virus program and add it to the grip", clickc(1), $(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Djinn: choose a virus program", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), click = true, ok = g.deck(Runner).any, reason = "empty stack"))
         }
     }
 
@@ -88,7 +88,7 @@ object RotProgramCards1 {
                     case Some(h) if iceIndex(h) > 0 && caissaFree(serverIce(h).apply(iceIndex(h) - 1)) =>
                         g.push(HostOnEffect(self, serverIce(h).apply(iceIndex(h) - 1), false))
                     case _ =>
-                        val l = (g.hand(Runner) ++ g.discard(Runner)).%(x => g.has(x, "Caïssa") && g.allIce.exists(h => g.impl(x).hostRequirement(x, h)))
+                        val l = (g.gripCards ++ g.discard(Runner)).%(x => g.has(x, "Caïssa") && g.allIce.exists(h => g.impl(x).hostRequirement(x, h)))
                         if (l.any)
                             g.push(ChooseCardEffect(Runner, l, PawnPurpose(self), "Pawn: choose another Caissa to install, ignoring all costs (Pawn is trashed)", true), TrashEffect(self, Runner, false))
                         else

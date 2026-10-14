@@ -23,7 +23,7 @@ definitions (`/Users/gareth/Developer/HRF/netrunner-src/src/clj/game/cards/*.clj
   `CardImpl.triggers(self, event)` — active player's cards first — and pushes them to the front of the queue.
   Events are the `Event` records in game.scala (`TurnBegins(f)`, `AgendaScored(card)`, `SuccessfulRun(server)`,
   `RunEnds(server, successful, didSteal)`, `BreachServer`, `ApproachServer`, `EncounterIce`, `PassIce`,
-  `Installed(f, card)`, `Rezzed`, `Trashed(card, by, accessed)`, `Advanced`, `TagsGained(n)`,
+  `Installed(f, card)`, `Rezzed`, `Trashed(card, by, accessed)`, `Advanced`, `TagsGained(n)`, `DiscardPhaseEnds(f)`,
   `CounterAdded(card, kind)`, `ClickDraw(f)`, `Played`, `Accessed`, `DamageDone`, `SubsBroken`, `Purged`, ...).
 * **Registers.** `reg("key")` counts things this turn (`"tags-gained"`, `"breach-hq"`, `"install-program"`,
   `"click-draw"`, `"trash-accessed"`, `"scored-points"`, `"successful-run"`...); `regLast` is last turn's register.
@@ -660,11 +660,14 @@ its asks are filtered by `restrictContinue` (which it extends with its own greyi
   bad publicity credits of the run) could pay for a user action and the total exceeds the cost, the action is suspended and the
   payer chooses where the credits come from: `CreditAutoAction(f)` (first option; CreditRules' deterministic order, the only option
   bots take) or `CreditTakeAction(f, source, m)` (`CardCreditSrc(card)`, `BadPubCreditSrc`, `PoolCreditSrc`; `NotForBots`), one step
-  at a time until the cost is covered ("the rest automatically" at any point). The chosen parts become a plan applied by
-  `spendCredits` to the next payment with the same Spend kind and card; the rest follows the default order (the stealth part
-  included). The payment of an action is predicted by `creditPaymentOf` (play, install, rez, advance, trash-resource, remove-tag,
-  trash cost, break / pump, paid / runner / access abilities, steal costs, trace boosts, "pay N" choices: `ChoiceAction` / `YesAction`
-  whose first effect is a `SpendEffect`). Patchwork's interrupt is asked first.
+  at a time until the cost is covered ("the rest automatically" at any point). Each decision becomes a `CreditPlan` (empty for the
+  automatic option) applied by `spendCredits` to the next payments of the payer with the same Spend kind and card until its parts
+  are used up (so a surcharge paid just before with the same purpose -- Net Watchlist, Hernando Cortez -- is part of the same
+  choice); the rest follows the default order (the stealth part included); unused plans are dropped at the next action phase. The
+  payments of an action or effect are predicted by `creditPaymentsOf` (8.9): user actions (play, install, rez + Hernando Cortez,
+  advance, trash-resource, remove-tag, trash cost, break / pump, paid abilities + Net Watchlist, runner / access abilities, steal
+  costs, trace boosts, "pay N" choices, psi bids, secret spending) and effects (`SpendEffect` anywhere in an effect list, prepaid /
+  discounted installs, install-and-rez parts, discounted rezzes, paid plays). Patchwork's interrupt is asked first.
 * **Sources of effects.** The effects of the cards' triggers (game.scala `triggerEffects`), "when encountered" abilities
   (`encounterAbility`), "when accessed" abilities, "when rezzed" abilities, paid abilities (`useAbility`) and prevention abilities are
   wrapped in FixRules' `FxSourceEffect(card, on)` markers (one mechanism with FinalRotRules: the triggers are wrapped by
@@ -696,4 +699,53 @@ its asks are filtered by `restrictContinue` (which it extends with its own greyi
   `fnsWasRezzed`, `fnsTrashedFrom`), `fnsInstallSpent` (credits were spent on a card's install: Bling), register
   `fns-runner-trashed-own-installed` (Boi-tata), `canBreakSub` for Unsmiling Tsarevna's printed subroutines, Bankhar's replacement
   at resolution (`FireSubAction`), `RunEffect` honours run restrictions (Front Company).
+
+### 8.9 The last rules-accuracy pass (no approximation left)
+
+The ten approximations listed after the integration of the final passes were replaced by the printed behaviour. Mechanisms any
+card can use:
+
+* **Discard phase end.** `EndTurnClickAction` queues `DiscardPhaseAction`, the "discard" paid ability window,
+  `DiscardPhaseEndAction(f)` (triggers `DiscardPhaseEnds(f)`) and only then `EndTurnAction` (`TurnEnds`). Bling trashes its hosted
+  cards on `DiscardPhaseEnds(Runner)`.
+* **Grip choices and Bling.** `gripCards` (the grip plus Bling's hosted cards) is used by every effect that plays or installs a card
+  from the grip, in all sets (Modded, Credit Kiting, Scavenge, Mass Install, Comet, Diana's Hunt, Hayley Kaplan, Apex, Khan,
+  Savoir-faire, Chatterjee University, London Library, Bazaar, Dhegdheer, Pawn, Muse, `RR.installableFromHand`, the "hand"
+  source of `InstallLoopAction`); an install from Bling counts as an install from the grip (`rhInstallFrom`). Choices that are
+  not plays / installs (trash, host, reveal, discard) still use the grip only.
+* **Searching the stack.** `StackSearchedEffect(source)` (FinalRotRules) fires `FrStackSearched(|(source))` and counts
+  `reg("stack-searched")`. Every card whose printed text searches the stack (26 cards: Djinn, Replicator, Meeting of Minds, Muse,
+  Beta Build, Planned Assault, Logos, Trade-In, Code Siphon, Paige Piper, Tyson Observatory, Artist Colony, Rosetta 2.0, Rabbit
+  Hole, Kabonesa Wu, Emergent Creativity, Crypt, Compile, Hostage, Special Order, Self-modifying Code, Mutual Favor, Test Run, Into
+  the Depths, Asmund Pudlat, World Tree) queues it after its search (after the shuffle; only when the stack is the zone
+  searched). A plain stack shuffle is not a search.
+* **Encounter on access.** `FrAccessEncounterEffect(ice)` ("when the Runner accesses this ice anywhere except in Archives, they
+  encounter it": Archangel after its payment, Chrysalis, Herald, Sapper): not installed -> `PhantomEncounterEffect`; installed and
+  rezzed -> `ForceEncounterEffect` (the Runner's position does not change); installed and unrezzed -> encountered as if rezzed (as
+  an uninstalled one; `frAccessRezzed`), unrezzed again by `FrAccessUnrezAction` when the encounter ends.
+* **Hivemind.** `frHiveOptions(card, n)` (how many of the n virus counters may come from Hivemind; empty when only one side can pay)
+  and `frVirusCostOf(action)` (abilities, breaks, pumps). `restrictContinue` replaces an ability / break / pump whose counters can
+  come from either side by the soft `FrHiveMenuAction(f, action)` (leaves `FrHiveCostAction(f, action, fromHive)`, which sets
+  `frHiveSpend` and performs the action); an action performed without the menu (a subset-break leaf) asks the same leaves without a
+  cancel. `SpendVirusEffect(card, n, false)` asks `FrHiveEffectAction` when both could pay, and Hivemind's counters are spent only
+  for virus programs (`frSpendVirus`). Bots score the leaves (the program's own counters preferred).
+* **Prevention abilities granted to the other side.** `FinalNsgRules.preventOptions` adds the prevention abilities of the window's
+  source card for the opponent of its owner when the card is in `fnsGrantedPrevention` (Mr. Hendrik: the Runner's "lose all
+  [click]: prevent this damage", a `LoseClickCost`, in the core damage window it does; the Corp is never offered it).
+* **Credit sources inside effects** (8.8): the credit-source case of `performFinalNsg` intercepts any action or effect whose
+  `creditPaymentsOf` has a payment that needs a choice and no plan yet; the payments are asked in turn (install part, then rez part)
+  and the action is performed again. Psi bids and secret spending are chosen when bid / spent and paid on reveal; nothing about the
+  amount is logged.
+* **Patchwork.** No paid ability: the interrupt (PreventionRules / FinalRotRules) sets the "patchwork" counter the cost mods read.
+  `fnsFilter` turns a basic play / install option greyed only for its cost into `PatchworkPlayAction` / `PatchworkInstallAction`
+  when the discount makes it affordable (`patchworkPlayable`, `patchworkInstallable`); performing it asks the grip card to trash (not
+  optional) and resumes the basic action with the discount. Restrictions and Always Be Running grey these options too.
+* **Formats.** Game setup option `FormatOption` (meta.scala: `CasualFormat` (default, any card), `StandardFormat`, `StartupFormat`,
+  `EternalFormat`; one of a group, written by name) recorded in the game's options; `Game.format`. Rebirth offers the identities
+  legal in the format; `Decks.notLegalIn` / `Decks.formatWarning` list a deck's cards not legal in it (warning only: deck preview,
+  decklist import message, gallery, and a "deck warning" log line at setup). The format is logged at the start.
+* **Surveillance Network Key.** `frClickDrawContext` is set by the basic draw action and by [click] abilities of Corp cards (printed
+  "including through a card ability"); playing an operation clears it.
+* **Reanimation Protocol** offers only ice that can be both installed and rezzed with the total minus 10 (plus additional rez costs)
+  and only the servers where that is payable (`canPlay` requires one, after the play cost).
 

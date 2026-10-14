@@ -208,7 +208,7 @@ object RWRCards {
             case MeetingOfMindsAction(self, kind) =>
                 val l = g.deck(Runner).%(c => c.data.isResource && g.has(c, kind)).sortBy(_.title)
                 if (l.any)
-                    g.push(OptionalEffect(Runner, "Meeting of Minds: search the stack for a resource?", $(ChooseCardEffect(Runner, l, MeetingOfMindsPurpose(self, kind), "Choose a resource to add to the grip", true), ShuffleDeckEffect(Runner), MeetingOfMindsGainAction(self, kind)), $(MeetingOfMindsGainAction(self, kind))))
+                    g.push(OptionalEffect(Runner, "Meeting of Minds: search the stack for a resource?", $(ChooseCardEffect(Runner, l, MeetingOfMindsPurpose(self, kind), "Choose a resource to add to the grip", true), ShuffleDeckEffect(Runner), StackSearchedEffect(self), MeetingOfMindsGainAction(self, kind)), $(MeetingOfMindsGainAction(self, kind))))
                 else
                     g.push(MeetingOfMindsGainAction(self, kind))
                 NextAction
@@ -440,10 +440,10 @@ object RWRCards {
         override def onInstall(self : Card)(implicit g : Game) = $(ChooseOneEffect(Runner, "Muse: search where?", $("Grip", "Stack", "Heap")./(z => Alt(z, $(MuseAction(self, z))))))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case MuseAction(self, z) =>
-                val from = z match { case "Grip" => g.hand(Runner) ; case "Stack" => g.deck(Runner).sortBy(_.title) ; case _ => g.discard(Runner) }
+                val from = z match { case "Grip" => g.gripCards ; case "Stack" => g.deck(Runner).sortBy(_.title) ; case _ => g.discard(Runner) }
                 val l = from.%(c => c.data.isProgram && !g.has(c, "Daemon") && g.canAffordInstall(c, 0))
                 if (z == "Stack")
-                    g.push(ShuffleDeckEffect(Runner))
+                    g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, MusePurpose(self, z), "Muse: choose a non-daemon program to install", true))
                 NextAction

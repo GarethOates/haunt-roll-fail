@@ -141,7 +141,7 @@ object SGCards {
     object MutualFavor extends SG("30011") {
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(_.data.isIcebreaker).sortBy(_.title)
-            l.any.$(ChooseCardEffect(Runner, l, MutualFavorPurpose(self), "Mutual Favor: choose an icebreaker from the stack", true)) :+ ShuffleDeckEffect(Runner)
+            l.any.$(ChooseCardEffect(Runner, l, MutualFavorPurpose(self), "Mutual Favor: choose an icebreaker from the stack", true)) :+ ShuffleDeckEffect(Runner) :+ StackSearchedEffect(self)
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single match {

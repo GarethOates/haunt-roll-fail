@@ -104,7 +104,7 @@ object RotHardwareCards1 {
                     g.log(Runner, "reveals", x, "from the stack and adds it to the grip")
                     g.moveTo(x, HandZone(Runner))
                 }
-                g.push(ShuffleDeckEffect(Runner))
+                g.push(ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
     }
@@ -224,7 +224,7 @@ object RotHardwareCards1 {
         }
         override def performRH(a : CardAction)(implicit g : Game) = a match {
             case RHLogosAction(self) =>
-                g.push(ChooseCardEffect(Runner, g.deck(Runner).sortBy(_.title), AddToHandPurpose(Runner, false), "Logos: choose a card to add to the grip", false), ShuffleDeckEffect(Runner))
+                g.push(ChooseCardEffect(Runner, g.deck(Runner).sortBy(_.title), AddToHandPurpose(Runner, false), "Logos: choose a card to add to the grip", false), ShuffleDeckEffect(Runner), StackSearchedEffect(self))
                 NextAction
         }
     }
@@ -370,7 +370,7 @@ object RotHardwareCards1 {
             case _ => $
         }
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(c => c.data.isEvent && g.impl(c).canPlay(c) && g.canSpend(Runner, g.playCost(c), Spend.play(c)))
+            val l = g.gripCards.%(c => c.data.isEvent && g.impl(c).canPlay(c) && g.canSpend(Runner, g.playCost(c), Spend.play(c)))
             $(Ability("play another event without spending a click", NoCost, $(SetCounterEffect(self, "comet", 0), ChooseCardEffect(Runner, l, PlayPurpose(self, true, false), "Comet: choose an event to play", false)), ok = g.counter(self, "comet") > 0 && l.any && g.active.isRunner && g.run.none, reason = "no event played this turn"))
         }
     }

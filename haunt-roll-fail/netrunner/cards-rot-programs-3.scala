@@ -220,7 +220,7 @@ object RotProgramCards3 {
         }
         override def abilities(self : Card)(implicit g : Game) = {
             val n = g.counter(self, "power")
-            val l = g.hand(Runner).%(x => (x.data.isProgram || x.data.isHardware || x.data.isResource) && g.installCost(x, None) <= n && (!g.impl(x).mustBeHosted(x) || g.allIce.exists(h => g.impl(x).hostRequirement(x, h))))
+            val l = g.gripCards.%(x => (x.data.isProgram || x.data.isHardware || x.data.isResource) && g.installCost(x, None) <= n && (!g.impl(x).mustBeHosted(x) || g.allIce.exists(h => g.impl(x).hostRequirement(x, h))))
             $(Ability("install a card from the grip with install cost at most " + n + ", ignoring the install cost", $(TrashSelfCost), $(ChooseCardEffect(Runner, l, InstallPayingPurpose(99, None, false), "DaVinci: choose a card to install", false)), ok = l.any, reason = "no card in the grip with a low enough install cost"))
         }
     }
@@ -396,7 +396,7 @@ object RotProgramCards3 {
     object Dhegdheer extends Rot("13020") {
         override def memory(self : Card)(implicit g : Game) = hostedMemory(self)
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(x => x.data.isProgram && !g.impl(x).mustBeHosted(x) && g.canAffordInstall(x, 1))
+            val l = g.gripCards.%(x => x.data.isProgram && !g.impl(x).mustBeHosted(x) && g.canAffordInstall(x, 1))
             $(Ability("install a program from the grip hosted on Dhegdheer, paying 1 credit less (the program uses no memory)", click(), $(ChooseCardEffect(Runner, l, DhegdheerPurpose(self), "Dhegdheer: choose a program to install", true)), click = true, ok = g.hosted(self).none && l.any, reason = "already hosting a program or nothing to install"))
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {

@@ -90,7 +90,7 @@ object RotProgramCards2 {
 
     object SavoirFaire extends Rot("04105") {
         override def abilities(self : Card)(implicit g : Game) = {
-            val l = g.hand(Runner).%(x => x.data.isProgram && g.credits(Runner) - 2 >= g.installCost(x, None) && (!g.impl(x).mustBeHosted(x) || g.allIce.exists(h => g.impl(x).hostRequirement(x, h))))
+            val l = g.gripCards.%(x => x.data.isProgram && g.credits(Runner) - 2 >= g.installCost(x, None) && (!g.impl(x).mustBeHosted(x) || g.allIce.exists(h => g.impl(x).hostRequirement(x, h))))
             $(Ability("install a program from the grip", c(2), $(ChooseCardEffect(Runner, l, InstallPayingPurpose(0, None, false), "Savoir-faire: choose a program to install", true)), once = once("savoir"), ok = l.any, reason = "no affordable program in the grip"))
         }
     }

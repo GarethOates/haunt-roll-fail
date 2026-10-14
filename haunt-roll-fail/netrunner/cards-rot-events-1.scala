@@ -205,7 +205,7 @@ object RotEventCards1 {
         }
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case ScavengeInstallAction(self, x) =>
-                val l = installable((g.hand(Runner) ++ g.discard(Runner)).%(_.data.isProgram), x)
+                val l = installable((g.gripCards ++ g.discard(Runner)).%(_.data.isProgram), x)
                 if (l.any)
                     g.push(ChooseCardEffect(Runner, l, InstallPayingPurpose(x, None, false), "Scavenge: choose a program from the grip or heap to install, paying " + x + " less", true))
                 NextAction
@@ -332,7 +332,7 @@ object RotEventCards1 {
         override def canPlay(self : Card)(implicit g : Game) = doubleOk()
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => g.has(c, "Run") && c.data.isEvent && g.canSpend(Runner, g.playCost(c), Spend.play(c))).sortBy(_.title)
-            doubleCost() ++ l.any.$(ChooseCardEffect(Runner, l, PlayPurpose(self, true, false), "Planned Assault: choose a run event in the stack to play", true)) :+ ShuffleDeckEffect(Runner)
+            doubleCost() ++ l.any.$(ChooseCardEffect(Runner, l, PlayPurpose(self, true, false), "Planned Assault: choose a run event in the stack to play", true)) :+ ShuffleDeckEffect(Runner) :+ StackSearchedEffect(self)
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach(c => g.push(PlayCardEffect(Runner, c, true, false)))
@@ -364,7 +364,7 @@ object RotEventCards1 {
         override def onPlay(self : Card)(implicit g : Game) = $(MassInstallAction(self, 0))
         override def perform(a : CardAction)(implicit g : Game) = a match {
             case MassInstallAction(self, n) =>
-                val l = installable(g.hand(Runner).%(_.data.isProgram), 0)
+                val l = installable(g.gripCards.%(_.data.isProgram), 0)
                 if (n < 3 && l.any)
                     g.push(ChooseCardEffect(Runner, l, MassInstallPurpose(self, n), "Mass Install: choose a program to install (" + (3 - n) + " remaining)", true))
                 NextAction
@@ -476,7 +476,7 @@ object RotEventCards1 {
                 val v = c.data.cost.|(0) / 2
                 g.trashCard(c, Runner, false)
                 val l = g.deck(Runner).%(_.data.isHardware).sortBy(_.title)
-                g.pushAll($(gain(Runner, v)) ++ l.any.??($(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Trade-In: choose a piece of hardware in the stack to add to the grip", true), ShuffleDeckEffect(Runner))))
+                g.pushAll($(gain(Runner, v)) ++ l.any.??($(ChooseCardEffect(Runner, l, AddToHandPurpose(Runner, true), "Trade-In: choose a piece of hardware in the stack to add to the grip", true))) ++ $(ShuffleDeckEffect(Runner), StackSearchedEffect(p.card)))
             }
             NextAction
         }
@@ -489,7 +489,7 @@ object RotEventCards1 {
             case SuccessfulRun(RnD) if thisCardRun(self) =>
                 val d = 3 * g.ice(RnD).num
                 val l = installable(g.deck(Runner).%(_.data.isProgram), d).sortBy(_.title)
-                l.any.$(OptionalEffect(Runner, "Code Siphon: instead of breaching R&D, install a program from the stack paying " + d + " less and take 1 tag?", $(ReplaceBreachEffect, ChooseCardEffect(Runner, l, CodeSiphonPurpose(self, d), "Code Siphon: choose a program to install", false), ShuffleDeckEffect(Runner)), $))
+                l.any.$(OptionalEffect(Runner, "Code Siphon: instead of breaching R&D, install a program from the stack paying " + d + " less and take 1 tag?", $(ReplaceBreachEffect, ChooseCardEffect(Runner, l, CodeSiphonPurpose(self, d), "Code Siphon: choose a program to install", false), ShuffleDeckEffect(Runner), StackSearchedEffect(self)), $))
             case _ => $
         }
         override def chosen(p : CardPurpose, cards : $[Card])(implicit g : Game) = p match {
@@ -822,11 +822,11 @@ object RotEventCards1 {
     }
 
     object Rebirth extends RE("10083") {
+        // "Switch your identity with another identity from the same faction": the identities legal in the format of the game (the
+        // game setup option, Game.format; Casual: any identity of a constructed format)
         def candidates(implicit g : Game) : $[String] = g.identity.get(Runner).$./~ { id =>
-            // the formats of the game = the formats in which every card of the Runner's deck (identity included) is legal
-            val deck = (id.code +: g.decks.get(Runner).|($)).distinct./~(Cards.get)
-            val formats = deck./(_.legal.toSet).reduceOption(_ intersect _).|(Set[String]())
-            Cards.all.%(c => c.isIdentity && c.side == "Runner" && c.faction == id.data.faction && !c.code.startsWith("00") && c.title != id.title && c.legal.any && (formats.none || c.legal.exists(formats.contains)))./(_.code)
+            Cards.all.%(c => c.isIdentity && c.side == "Runner" && c.faction == id.data.faction && !c.code.startsWith("00") && c.title != id.title && c.legal.any &&
+                (g.format == "casual" || c.legalIn(g.format)))./(_.code)
         }
         override def canPlay(self : Card)(implicit g : Game) = candidates.any
         override def onPlay(self : Card)(implicit g : Game) = $(ChooseCodeEffect(Runner, candidates, "Rebirth: choose an identity of the same faction", RebirthPurpose(self)), RemoveFromGameEffect(self))

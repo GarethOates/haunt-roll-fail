@@ -878,6 +878,12 @@ class SmartEval(val me : Faction)(implicit val g : Game) {
         case FrAccessRefuseAction(_, _) => 0.0
         case FrAccessUnpaidAction(_, _) => 0.0
         case FrHiveSpendAction(_, _, _, _, k) => -k.toDouble
+        // rules-accuracy pass: Hivemind's counters for breaks / pumps / abilities / effects (the program's own counters preferred),
+        // the plays / installs only Patchwork's discount makes affordable (a grip card is trashed)
+        case FrHiveCostAction(_, x, k) => score(x) - k * 0.5
+        case FrHiveEffectAction(_, _, _, k) => -k.toDouble
+        case PatchworkPlayAction(f, c) => score(PlayCardAction(f, c)) - 12.0
+        case PatchworkInstallAction(f, c, h, t) => score(RunnerInstallAction(f, c, h, t)) - 12.0
         case FrRezForfeitAction(_, c, ctx) => rez(c, ctx) - 250.0
         case FrSurveillanceBoostAction(_, n) => traceRunner(n)
 

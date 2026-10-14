@@ -446,7 +446,7 @@ object RotIceCards2 {
     }
 
     object Sapper extends RI("11098") {
-        override def onAccess(self : Card)(implicit g : Game) = (!g.isInstalled(self) && !g.zone(self).is[DiscardZone]).$(PhantomEncounterEffect(self))
+        override def onAccess(self : Card)(implicit g : Game) = (!g.zone(self).is[DiscardZone]).$(FrAccessEncounterEffect(self))
         override def subroutines(self : Card)(implicit g : Game) = $(trashProgramSub)
     }
 

@@ -267,7 +267,7 @@ object VPCards {
         override def makesRun(self : Card)(implicit g : Game) = true
         override def onPlay(self : Card)(implicit g : Game) = {
             val l = g.deck(Runner).%(c => c.data.isProgram && !c.data.isVirus && g.memoryFree >= c.data.memory.|(0) && !g.impl(c).mustBeHosted(c)).sortBy(_.title)
-            l.any.$(ChooseCardEffect(Runner, l, BetaBuildPurpose(self), "Beta Build: choose a non-virus program to install ignoring all costs", true)) ++ $(ShuffleDeckEffect(Runner), RunAnyServerEffect(|(self), g.servers))
+            l.any.$(ChooseCardEffect(Runner, l, BetaBuildPurpose(self), "Beta Build: choose a non-virus program to install ignoring all costs", true)) ++ $(ShuffleDeckEffect(Runner), StackSearchedEffect(self), RunAnyServerEffect(|(self), g.servers))
         }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
             cards.single.foreach { c =>
@@ -828,11 +828,31 @@ object VPCards {
         }
     }
 
+    // "Install and rez 1 piece of ice from Archives, paying a total of 10[credit] less." An instruction to install and rez a card can
+    // only be used on a card that can be both installed and rezzed (NSG Comprehensive Rules: a cost that cannot be paid in full is
+    // not paid, and an ability cannot choose a target it cannot resolve on), so only ice whose combined install and rez cost
+    // minus 10 (plus its additional rez costs: Archer, Bloop, Biawak, Hernando Cortez) can be paid is offered, and only in the
+    // servers where that total is payable. jinteki installs the ice unrezzed instead when the rez part cannot be paid.
     object ReanimationProtocol extends Startup("36062") {
-        override def canPlay(self : Card)(implicit g : Game) = g.discard(Corp).exists(_.data.isIce)
-        override def onPlay(self : Card)(implicit g : Game) = $(ChooseCardEffect(Corp, g.discard(Corp).%(_.data.isIce), ReanimationPurpose(self), "Reanimation Protocol: choose a piece of ice in Archives to install and rez", false))
+        def parts(c : Card, s : |[Server])(implicit g : Game) : $[(Int, Spend)] = {
+            val p = g.installParts(c, s, None, 10, true)
+            val x = g.frRezSurcharge(c)
+            (x > 0).?(p :+ ((x, Spend.rez(c)))).|(p)
+        }
+        def ok(c : Card, s : |[Server], before : $[(Int, Spend)] = $)(implicit g : Game) : Boolean =
+            c.data.isIce && g.corpInstallBlock(c, s).none && g.rezBlock(c, false).none && g.canSpendAll(Corp, before ++ parts(c, s))
+        def targets(c : Card, before : $[(Int, Spend)] = $)(implicit g : Game) : $[|[Server]] = (g.servers./(s => |(s)) :+ None).%(s => ok(c, s, before))
+        def candidates(before : $[(Int, Spend)] = $)(implicit g : Game) : $[Card] = g.discard(Corp).%(c => c.data.isIce && targets(c, before).any)
+        override def canPlay(self : Card)(implicit g : Game) = candidates($((g.playCost(self), Spend.play(self)))).any
+        override def onPlay(self : Card)(implicit g : Game) = candidates() match {
+            case Nil => $(MessageEffect(Corp, "cannot install and rez any ice from Archives (Reanimation Protocol)"))
+            case l => $(ChooseCardEffect(Corp, l, ReanimationPurpose(self), "Reanimation Protocol: choose a piece of ice in Archives to install and rez (paying a total of 10 less)", false))
+        }
         override def chosenCard(p : CardPurpose, cards : $[Card])(implicit g : Game) = {
-            cards.single.foreach(c => g.push(ChooseServerForAction(Corp, p.card, g.servers, true, "reanim:" + c.code + ":" + c.n, "Reanimation Protocol: choose a server")))
+            cards.single.foreach { c =>
+                val t = targets(c)
+                g.push(ChooseServerForAction(Corp, p.card, t.flatten, t.has(None), "reanim:" + c.code + ":" + c.n, "Reanimation Protocol: choose a server"))
+            }
             NextAction
         }
         override def performCard(a : CardAction)(implicit g : Game) = a match {
@@ -846,20 +866,18 @@ object VPCards {
                     g.pushAll(extra :+ FnsMarkRezCostPaidEffect(c))
                 NextAction
             case ReanimationRezAction(self, c, server) =>
-                val pay = g.installParts(c, server, None, 10, true)
-                val cost = pay.map(_._1).sum
-                if (g.canSpendAll(Corp, pay) && (g.extraRezCostOf(c).none || g.fnsRezCostPaid.has(c))) {
+                val pay = parts(c, server)
+                if (g.zone(c) == DiscardZone(Corp) && g.canSpendAll(Corp, pay) && (g.extraRezCostOf(c).none || g.fnsRezCostPaid.has(c))) {
+                    val sur = g.frRezSurcharge(c)
                     g.spendAll(Corp, pay)
-                    g.log(Corp, "pays", cost.credits, "(10 less)")
+                    g.log(Corp, "pays", pay.map(_._1).sum.credits, "(10 less" + (sur > 0).??(", " + sur + " for Hernando Cortez") + ")")
                     g.push(CorpInstallEffect(c, server, true), RezEffect(c, true))
                     // printed: "If you rezzed a piece of non-liability ice this way, take 1 bad publicity" (jinteki also exempts illicit ice)
                     if (!g.has(c, "Liability"))
                         g.push(MessageEffect(Corp, "takes 1 bad publicity (Reanimation Protocol)"), BadPubEffect(1))
                 }
-                else {
-                    g.log(Corp, "cannot afford to rez the ice and only installs it")
-                    g.push(CorpInstallEffect(c, server, true))
-                }
+                else
+                    g.log(Corp, "cannot install and rez", c, "(Reanimation Protocol)")
                 NextAction
         }
     }

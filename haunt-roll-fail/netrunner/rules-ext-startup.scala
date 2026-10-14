@@ -498,7 +498,7 @@ object StartupExt {
         case InstallLoopAction(self, f, remaining, discount, ignoreCost, from, kinds) =>
             if (remaining > 0) {
                 val pool : $[Card] = from match {
-                    case "hand" => g.hand(f)
+                    case "hand" => f.isRunner.?(g.gripCards).|(g.hand(f))     // Bling: hosted cards are installed as if they were in the grip
                     case "discard" => g.discard(f)
                     case "stash" => g.stashed(self)
                     case _ => $

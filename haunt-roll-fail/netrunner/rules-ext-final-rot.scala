@@ -45,7 +45,7 @@ import Helpers._
 case class FrCorpTrashBatch(cards : $[Card], servers : $[|[Server]]) extends Event        // Corp cards trashed by the Runner by one effect / access (server each came from)
 case class FrAddedToScoreArea(card : Card, f : Faction) extends Event                     // a card entered f's score area as an agenda (stolen, swapped, "as an agenda", ...)
 case class FrUninstalled(card : Card, zone : Zone) extends Event                           // an installed Runner card left play without being trashed (to the grip, stack, removed from the game)
-case class FrStackSearched(source : |[Card]) extends Event                                // the Runner searched the stack
+case class FrStackSearched(source : |[Card]) extends Event                                // the Runner searched the stack (StackSearchedEffect)
 case class FrBeforeFirstTurn(f : Faction) extends Event                                    // "before taking your first turn"
 
 // ---- effects ----------------------------------------------------------------------------------------------------------
@@ -67,10 +67,18 @@ case class FrPhantomEndAction(card : Card) extends ForcedAction                 
 case class FrArmoredBreakAction(action : Action) extends ForcedAction                      // Armored Servers: the grip cards were trashed, perform the break
 case class FrFaustBreakAction(action : Action) extends ForcedAction                        // Faust: the grip card (the cost) was trashed, perform the break
 case class FrPatchworkResumeAction(action : ForcedAction) extends ForcedAction             // the play / install after the Patchwork interrupt
+case class StackSearchedEffect(source : Card) extends ForcedAction                         // the Runner searched the stack (emitted by every card whose effect searches it, after the search)
+case class FrAccessEncounterEffect(ice : Card) extends ForcedAction                       // "when the Runner accesses this ice anywhere except in Archives, they encounter it" (Archangel, Chrysalis, Herald, Sapper)
+case class FrAccessUnrezAction(ice : Card) extends ForcedAction                           // the encounter with an installed unrezzed ice accessed by the Runner ended: it is unrezzed again
 case class FrEncounterNowEffect(ice : Card) extends ForcedAction                          // the Runner moves to the ice and encounters it (Formicary)
 case class FrGrantedEncounterEffect(ice : Card, effects : $[ForcedAction]) extends ForcedAction   // a "when encountered" ability granted to the ice by another card (ZATO City Grid): through the encounter prevention window
 case class FrGrantedResumeAction(effects : $[ForcedAction]) extends ForcedAction             // after the window: the granted ability resolves unless it was prevented
 case class FrHiveSpendAction(self : Faction, card : Card, idx : Int, ctx : String, fromHive : Int) extends BaseAction(g => g.cardElem(card) ~ ": spend the virus counters from")(g => (fromHive == 0).?("this program".txt).|(fromHive.hl ~ " from Hivemind"))
+// Hivemind: the virus counter cost of an ability / break / pump can be paid with the program's own counters or Hivemind's: a soft
+// menu in place of the action (leaves: FrHiveCostAction) and, for the effects that spend counters (SpendVirusEffect), a choice
+case class FrHiveMenuAction(self : Faction, action : UserAction) extends BaseAction(g => action.question(g))(g => action.option(g) ~ " (choose the virus counters)".txt) with Soft
+case class FrHiveCostAction(self : Faction, action : UserAction, fromHive : Int) extends BaseAction(g => g.frHiveTitle(action))(g => g.frHiveLabel(action, fromHive))
+case class FrHiveEffectAction(self : Faction, card : Card, n : Int, fromHive : Int) extends BaseAction(g => g.cardElem(card) ~ ": spend " ~ n.hl ~ " virus counter" ~ (n != 1).??("s") ~ " from")(g => g.frHiveSplit(card, n, fromHive))
 
 // ---- purposes ---------------------------------------------------------------------------------------------------------
 trait FrPurpose extends Purpose
@@ -183,8 +191,14 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
 
     override def restrictContinue(c : Continue) : Continue = {
         frAfterAction()
-        super.restrictContinue(c)
+        frHiveMenus(super.restrictContinue(c))
     }
+
+    // Hivemind: an ability / break / pump whose virus counters can come from the program or Hivemind becomes a soft menu
+    def frHiveMenus(c : Continue) : Continue = if (frHiveSpend.any || !installedCards(Runner).exists(_.code == "07042")) c else frMapAsk(c)(_./{
+        case a @ (_ : UseAbilityAction | _ : BreakSubAction | _ : BreakSubsAction | _ : PumpAction) if frHiveChoices(a).num > 1 => FrHiveMenuAction(Runner, a)
+        case a => a
+    })
 
     def frAfterAction() {
         if (isOver)
@@ -239,8 +253,56 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
     def frHiveminds(c : Card) : $[Card] = (owner(c).isRunner && c.data.isProgram && has(c, "Virus") && c.code != "07042").??(installedCards(Runner).%(h => h.code == "07042" && isActive(h) && !isDisabled(h)))
     def frHiveCounters(c : Card) : Int = frHiveminds(c)./(h => counter(h, "virus")).sum
 
-    // virus counters spent from Hivemind by the next VirusCost payment (chosen by FrHiveSpendAction)
+    // virus counters spent from Hivemind by the next VirusCost payment (chosen by FrHiveSpendAction / FrHiveCostAction)
     var frHiveSpend : |[Int] = None
+
+    // the numbers of virus counters that may come from Hivemind when c pays n (empty: no choice, the program's own first)
+    def frHiveOptions(c : Card, n : Int) : $[Int] = if (n <= 0) $ else {
+        val own = counter(c, "virus")
+        val hive = frHiveCounters(c)
+        if (hive == 0 || own == 0) $ else ((n - own).atLeast(0) to n.atMost(hive)).$.%(k => own >= n - k)
+    }
+
+    def frVirusOf(l : $[Cost]) : Int = l.of[VirusCost]./(_.n).sum
+
+    // the card and the virus counters a user action pays (abilities, breaks, pumps)
+    def frVirusCostOf(a : UserAction) : |[(Card, Int)] = frVirusCostRaw(a).%(_._2 > 0)
+
+    def frVirusCostRaw(a : UserAction) : |[(Card, Int)] = a match {
+        case UseAbilityAction(Runner, c, i, _) => impl(c).abilities(c).lift(i)./(x => (c, frVirusOf(x.costs)))
+        case BreakSubAction(Runner, b, bi, _, _) => impl(b).breaks(b).lift(bi)./(br => (b, frVirusOf(breakCostsWith(b, br.costs))))
+        case BreakSubsAction(Runner, b, bi, _, l) => impl(b).breaks(b).lift(bi)./(br => (b, frVirusOf(breakCostsWith(b, breakCosts(br, l.num)))))
+        case PumpAction(Runner, b, pi) => impl(b).pumps(b).lift(pi)./(p => (b, frVirusOf(pumpCostsWith(b, p.costs))))
+        case _ => None
+    }
+
+    def frHiveChoices(a : UserAction) : $[Int] = frVirusCostOf(a)./~ { case (c, n) => frHiveOptions(c, n) }
+
+    def frHiveSplit(c : Card, n : Int, k : Int) : Elem =
+        ((n - k > 0).$((n - k).hl ~ " from " ~ cardElem(c)) ++ (k > 0).$(k.hl ~ " from Hivemind")).join(", ")
+
+    def frHiveTitle(a : UserAction) : Elem = a.option(this) ~ ": spend the virus counters from"
+    def frHiveLabel(a : UserAction, k : Int) : Elem = frVirusCostOf(a)./{ case (c, n) => frHiveSplit(c, n, k) }.|(k.hl)
+
+    def frHiveAsk(a : UserAction, cancel : Boolean) : Continue = {
+        val ask = Ask(Runner).add(frHiveChoices(a)./(k => FrHiveCostAction(Runner, a, k)))
+        cancel.?(ask.cancel).|(ask)
+    }
+
+    // the virus counters an effect spends for c (SpendVirusEffect(c, n, false)): own first by default, Hivemind's only for virus programs
+    def frSpendVirus(c : Card, n : Int, fromHive : |[Int]) {
+        val hive = fromHive.|((n - counter(c, "virus")).atLeast(0)).atMost(frHiveCounters(c)).atMost(n)
+        addCounter(c, "virus", -(n - hive).atMost(counter(c, "virus")))
+        var left = hive
+        frHiveminds(c).foreach { h =>
+            val m = left.atMost(counter(h, "virus"))
+            if (m > 0) {
+                addCounter(h, "virus", -m)
+                left -= m
+                log(Runner, "spends", m.hl, "virus counter" + (m != 1).??("s"), "from", h, "for", c)
+            }
+        }
+    }
 
     override def payCosts(f : Faction, costs : $[Cost], self : |[Card], spend : |[Spend] = None) {
         val (virus, rest) = costs.partition(_.is[VirusCost])
@@ -268,10 +330,11 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
     // card-specific state
     // =================================================================================================================
 
-    var frClickDrawContext = false                          // the Corp spent [click] on what is resolving (Surveillance Network Key)
+    var frClickDrawContext = false                          // the Corp spent [click] to draw: the basic draw action or a [click] ability (Surveillance Network Key)
     var frSurveillanceBoost : |[Int] = None                 // Surveillance Sweep: the Runner's boost chosen first
     var frRdAccessedThisRun = 0                             // Psych Mike
     var frPhantom : $[Card] = $                             // ice encountered while not installed (Chrysalis, ...)
+    var frAccessRezzed : $[Card] = $                        // installed unrezzed ice encountered on access (considered rezzed for the encounter)
     var frGagarinPaid : $[Card] = $
     var frHQLeft = 0                                        // HQ cards still to access in the current breach (drawn one at a time)
     var frRDLeft = 0                                        // R&D cards still to access in the current breach (from the top, one at a time)
@@ -364,12 +427,16 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
     override def performAbilities : PartialFunction[Action, Continue] = {
         val base = super.performAbilities
         ({
-            // Hivemind: when both the program and Hivemind could pay the virus counters, the Runner chooses
-            case a @ UseAbilityAction(Runner, c, i, ctx) if frHiveSpend.none && frHiveChoice(c, i).num > 1 =>
-                Ask(Runner).add(frHiveChoice(c, i)./(k => FrHiveSpendAction(Runner, c, i, ctx, k))).cancel
+            // Hivemind: when both the program and Hivemind could pay the virus counters, the Runner chooses (the asks offer the soft
+            // FrHiveMenuAction in place of the action; an action performed without it asks here, without cancelling)
+            case a @ UseAbilityAction(Runner, c, i, ctx) if frHiveSpend.none && frHiveChoices(a).num > 1 => frHiveAsk(a, false)
             case FrHiveSpendAction(f, c, i, ctx, k) =>
                 frHiveSpend = |(k)
                 frUseAbility(UseAbilityAction(f, c, i, ctx))
+            case FrHiveMenuAction(f, a) => frHiveAsk(a, true)
+            case FrHiveCostAction(f, a, k) =>
+                frHiveSpend = |(k)
+                performInternal(a, NoVoid)
 
             case a @ UseAbilityAction(f, c, i, ctx) => frUseAbility(a)
 
@@ -388,13 +455,7 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
     }
 
     // the numbers of virus counters the Runner may spend from Hivemind for the ability
-    def frHiveChoice(c : Card, i : Int) : $[Int] = impl(c).abilities(c).lift(i)./~(_.costs.of[VirusCost])./(_.n).sum match {
-        case 0 => $
-        case n =>
-            val own = counter(c, "virus")
-            val hive = frHiveCounters(c)
-            if (hive == 0 || own == 0) $ else ((n - own).atLeast(0) to n.atMost(hive)).$
-    }
+    def frHiveChoice(c : Card, i : Int) : $[Int] = impl(c).abilities(c).lift(i)./(x => frHiveOptions(c, frVirusOf(x.costs))).|($)
 
     // Net Watchlist: 2 credits as an additional cost to use an icebreaker (its paid abilities; breaks and pumps through
     // CardImpl.icebreakerSurcharge)
@@ -469,12 +530,11 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
                 }
                 base(a)
 
+            // (an operation played with the basic action is not "spending [click] to draw": Surveillance Network Key counts the
+            // basic draw action and [click] abilities only)
             case a @ PlayCardAction(f, c) =>
                 frWindowClosed()
-                if (f.isCorp) {
-                    frClickDrawContext = true
-                    frClickDrawn = 0
-                }
+                frClickDrawContext = false
                 base(a)
 
             case a @ RunnerInstallAction(f, c, _, _) =>
@@ -529,6 +589,23 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
             case BreakSubIndexEffect(ice, i, b) if breakBypass && frTyrPrevented.contains((ice, i)) =>
                 frTyrPrevented = frTyrPrevented.filter(_._1 != ice)
                 log("The subroutine", subs(ice).lift(i)./(_.label).|("?").hl, "on", ice, "is not broken")
+                NextAction
+
+            // Hivemind: virus counters spent by an effect for a virus program (SpendVirusEffect(c, n, false)): the Runner chooses
+            // between the program's counters and Hivemind's when both could pay; Hivemind's counters are spent only for virus programs
+            case SpendVirusEffect(c, n, false) =>
+                if (frHiveSpend.none && frHiveOptions(c, n).num > 1)
+                    Ask(Runner).add(frHiveOptions(c, n)./(k => FrHiveEffectAction(Runner, c, n, k)))
+                else {
+                    val k = frHiveSpend
+                    frHiveSpend = None
+                    frSpendVirus(c, n, k)
+                    NextAction
+                }
+
+            case FrHiveEffectAction(f, c, n, k) =>
+                frHiveSpend = None
+                frSpendVirus(c, n, |(k))
                 NextAction
 
             // virtual tags cannot be removed
@@ -629,14 +706,6 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
                     }
                 }
 
-            // the Runner searched the stack (Personality Profiles): a stack shuffle by a card that searches it
-            case a @ ShuffleDeckEffect(Runner) =>
-                val src = frSourceNow
-                val r = base(a)
-                if (src.exists(c => c.data.text.toLowerCase.contains("search your stack") || c.data.text.toLowerCase.contains("search the stack")))
-                    trigger(FrStackSearched(src))
-                r
-
             // the encounter-on-access ice: the Runner encounters the ice where it is (not installed)
             case PhantomEncounterEffect(c) =>
                 run match {
@@ -731,6 +800,11 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
             case a @ FireSubAction(c, i) =>
                 frSubDepth += c -> fxSources.num
                 base(a)
+
+            // Hivemind: a break / pump paying virus counters both the program and Hivemind could pay (performed without the menu)
+            case a @ BreakSubAction(Runner, _, _, _, _) if frHiveSpend.none && !breakBypass && frHiveChoices(a).num > 1 => frHiveAsk(a, false)
+            case a @ BreakSubsAction(Runner, _, _, _, _) if frHiveSpend.none && !breakBypass && frHiveChoices(a).num > 1 => frHiveAsk(a, false)
+            case a @ PumpAction(Runner, _, _) if frHiveSpend.none && frHiveChoices(a).num > 1 => frHiveAsk(a, false)
 
             case a @ EncounterAction(c) if frPhantom.has(c) && run.exists(r => !r.ended && !r.bypass) && !isInstalled(c) =>
                 restrictContinue(fxRsvpAsk(fxFilterBreaks(frPhantomEncounterAsk(c))))
@@ -1022,6 +1096,41 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
             push(DamageEffect(k, n), FrUnpreventableClearEffect)
             NextAction
 
+        // the encounter-on-access ice: uninstalled (R&D, HQ) -> encountered where it is (PhantomEncounterEffect); installed and rezzed ->
+        // encountered where it is installed (the Runner's position does not change); installed and unrezzed -> encountered as if it
+        // were rezzed (as an uninstalled one), unrezzed again when the encounter ends
+        case FrAccessEncounterEffect(c) =>
+            if (location.contains(c) && c.data.isIce && !zone(c).is[DiscardZone] && run.exists(r => !r.ended)) {
+                if (!isInstalled(c))
+                    push(PhantomEncounterEffect(c))
+                else if (isRezzed(c))
+                    push(ForceEncounterEffect(c))
+                else {
+                    state(c).rezzed = true
+                    state(c).seen = true
+                    frAccessRezzed :+= c
+                    log(c, "is encountered as if it were rezzed")
+                    push(ForceEncounterEffect(c), FrAccessUnrezAction(c))
+                }
+            }
+            NextAction
+
+        case FrAccessUnrezAction(c) =>
+            if (frAccessRezzed.has(c)) {
+                frAccessRezzed = frAccessRezzed.but(c)
+                if (location.contains(c) && isInstalled(c)) {
+                    state(c).rezzed = false
+                    state(c).brokenSubs = $
+                    state(c).strengthEncounter = 0
+                }
+            }
+            NextAction
+
+        case StackSearchedEffect(c) =>
+            regInc("stack-searched")
+            trigger(FrStackSearched(|(c)))
+            NextAction
+
         case FrUnpreventableClearEffect =>
             frUnpreventableNext = false
             NextAction
@@ -1159,6 +1268,9 @@ trait FinalRotRules extends RotAgendaRules with PreventionRules with FixRules wi
             $
         case Accessed(c) if zone(c) == DeckZone(Corp) =>
             frRdAccessedThisRun += 1
+            $
+        case TurnEnds(_) =>
+            frHiveSpend = None
             $
         case CardsDrawn(Corp, _) if frClickDrawContext =>
             frClickDrawn += 1

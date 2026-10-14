@@ -221,6 +221,8 @@ trait RestrictionRules extends EffectRules { game : Game =>
         case RunnerInstallAction(_, c, h, _) => grey(a, runnerInstallBlock(c, h))
         case RezAction(_, c, _) => grey(a, rezBlock(c))
         case PlayCardAction(_, c) => grey(a, playBlock(c))
+        case PatchworkPlayAction(_, c) => grey(a, playBlock(c))
+        case PatchworkInstallAction(_, c, h, _) => grey(a, runnerInstallBlock(c, h))
         case CardChosenAction(_, c, RezPurpose(ig)) => grey(a, rezBlock(c, ig))
         case CardChosenAction(_, c, p) if isCorpInstallKind(c) || isRunnerInstallKind(c) => grey(a, installPurposeBlock(c, p))
         case BreakSubAction(_, b, _, _, _) if programUseBlocked(b) => a.!(true, "cannot use programs this run")
@@ -240,6 +242,7 @@ trait RestrictionRules extends EffectRules { game : Game =>
         val why = "Always Be Running: run or play a run event first"
         l./{
             case a @ PlayCardAction(Runner, c) if !has(c, "Run") => a.!(true, why)
+            case a @ PatchworkPlayAction(Runner, c) if !has(c, "Run") => a.!(true, why)
             case a @ ClickCreditAction(Runner) if canRun => a.!(true, why)
             case a @ ClickDrawAction(Runner) if canRun => a.!(true, why)
             case a @ InstallMenuAction(Runner) if canRun => a.!(true, why)

@@ -625,7 +625,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     Parameter(("deck", a), OnOverOut(OnClick(Div(
                         idc./(c => cardFace(c.code, styles.cardGallery)).|(Empty) ~
                         cleanDeckName(d.name).spn(styles.galleryName) ~
-                        (eraOf(a.index) + " | " + check.message).spn(styles.galleryInfo),
+                        (eraOf(a.index) + " | " + check.message + Decks.notLegalIn(game.format, d.codes).any.??(" | not " + Formats.name(game.format))).spn(styles.galleryInfo),
                         styles.galleryItem))))
                 }
                 val importItem = Parameter("import", OnClick(Div(Image(f.isCorp.?("corp-back").|("runner-back"), styles.cardGallery) ~ "Import a decklist".spn(styles.galleryName) ~ "paste a NetrunnerDB export".spn(styles.galleryInfo), styles.galleryItem)))
@@ -732,7 +732,8 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             (rest.num + " cards").hlb ~ (" (minimum " + min + ")").spn(styles.dim) ~ " | " ~
             p.side.isCorp.?((points + " agenda point".s(points)).hlb ~ " | ").|(Empty) ~
             (influence + "/" + limit + " influence").hlb ~ " | " ~
-            check.ok.?("legal".spn(styles.previewOk)).|(check.message.spn(styles.previewBad))
+            check.ok.?("legal".spn(styles.previewOk)).|(check.message.spn(styles.previewBad)) ~
+            Decks.formatWarning(game.format, p.codes)./(w => " | ".txt ~ w.spn(styles.previewBad)).|(Empty)
 
         val head = Div(
             Span(p.side.name.txt, styles.get(p.side), styles.sideTag)(elem.borders.get(p.side)) ~
@@ -1118,7 +1119,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 return None
             }
             val id = codes./(Cards.get)./~(x => x).%(_.isIdentity).starting./(_.title).|("?")
-            msg.textContent = "Valid: " + id + ", " + v.message
+            msg.textContent = "Valid: " + id + ", " + v.message + Decks.formatWarning(game.format, codes)./(w => "\nWarning: " + w).|("")
             Some(codes)
         }
 

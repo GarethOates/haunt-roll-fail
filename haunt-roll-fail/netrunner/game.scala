@@ -344,6 +344,9 @@ class Game(val setup : $[Faction], val options : $[Meta.O]) extends BaseGame wit
 
     implicit def implicitGame : Game = this
 
+    // the format chosen in the game setup (Meta: FormatOption; Casual = any card)
+    def format : String = Formats.of(options)
+
     var isOver = false
     var winner : |[Faction] = None
 
