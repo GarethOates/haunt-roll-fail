@@ -298,16 +298,20 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     // Boards
     // ---------------------------------------------------------------------------------------------------------------
 
-    def stat(value : Any, label : String, style : Style) : Elem = Span(value.toString.spn(styles.statValue) ~ " " ~ label, styles.stat, style)
+    // A number of the status banner: a large value over a small label in the stat's own colour. A zero (no tags, no bad
+    // publicity...) stays in place but subdued; an alert (tags, bad publicity, core damage) gets a red outline.
+    // (a word value, the name of the marked server, is drawn smaller than a number)
+    def bigStat(value : Any, label : String, style : Style, emphasis : Boolean = false, zero : Boolean = false, alert : Boolean = false, extra : $[Style] = $) : Elem = {
+        val v = value.toString
+        Span(Span(v.txt, styles.bigValue)(v.exists(_.isLetter).$(styles.bigWord)) ~ Span(label.txt, styles.bigLabel), styles.bigStat, style)(emphasis.$(styles.bigEmphasis) ++ zero.$(styles.bigZero) ++ alert.$(styles.bigAlert) ++ extra)
+    }
 
-    // a key number of the status banner: a large value over a small label
-    def bigStat(value : Any, label : String, style : Style, emphasis : Boolean, extra : $[Style] = $) : Elem =
-        Span(Span(value.toString.txt, styles.bigValue) ~ Span(label.txt, styles.bigLabel), styles.bigStat, style)(emphasis.$(styles.bigEmphasis) ++ extra)
+    def plural(n : Int, one : String, many : String) = (n == 1).?(one).|(many)
 
-    // The per-player status banner: name and identity, then the key numbers (credits, clicks, agenda points; tags or
-    // bad publicity when there are any) as large badges, then the other stats small. The active player's banner is
-    // tinted with their colour and their credits / clicks are outlined.
-    def statusBanner(f : Faction, alert : Elem, small : Elem) : Elem = {
+    // The per-player status banner: the player name with the identity under it, then every stat as a large badge of the
+    // same style (credits, clicks and points first, then the side's own stats, see corpStats / runnerStats). The active
+    // player's banner is tinted with their colour and shows the turn number; their credits / clicks are outlined.
+    def statusBanner(f : Faction, stats : $[Elem]) : Elem = {
         val g = game
         val id = g.identity.get(f)
         val active = g.active == f && g.turnStarted && !g.isOver
@@ -318,35 +322,54 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             Span(playerName(f), styles.bannerName) ~
             id./(c => Span(Span(c.title.txt, styles.get(NRFaction.of(c.data.faction))), styles.bannerId)).|(Empty),
             styles.bannerWho)
+        val turn = active.$(bigStat(g.turn, "turn", styles.bigTurn))
+        val main = $(
+            bigStat(credits, plural(credits, "credit", "credits"), styles.bigCredit, emphasis = active),
+            bigStat(clicks, plural(clicks, "click", "clicks"), styles.bigClick, emphasis = active && clicks > 0, extra = (active && clicks == 0).$(styles.bigSpent)),
+            bigStat(points, plural(points, "point", "points"), styles.bigPoints, zero = points == 0))
         Div(
-            who ~
-            activeMark(f) ~
-            bigStat(credits, (credits == 1).?("credit").|("credits"), styles.bigCredit, active) ~
-            bigStat(clicks, (clicks == 1).?("click").|("clicks"), styles.bigClick, active && clicks > 0, (active && clicks == 0).$(styles.bigSpent)) ~
-            bigStat(points, (points == 1).?("point").|("points"), styles.bigPoints, false) ~
-            alert ~
-            extraClicksStat(f) ~
-            Span(small, styles.bannerSmall),
+            who ~ Span((turn ++ main ++ stats ++ extraClicksStat(f)).merge, styles.bannerStats),
             styles.header)(active.$(f.isCorp.?(styles.headerActiveCorp).|(styles.headerActiveRunner)))
     }
 
     def playerName(f : Faction) : Elem = f.name.styled(f)(styles.name) ~ resources.getName(f)./(n => n.spn(styles.dim)(styles.headerItem)).|(Empty)
 
-    def activeMark(f : Faction) : Elem = {
+    def cardsInPlay : $[Card] = {
         val g = game
-        (g.active == f && g.turnStarted && !g.isOver).?(("turn " + g.turn).spn(styles.active)).|(Empty)
+        g.installedCards(Corp) ++ g.installedCards(Runner) ++ g.identity.values.$ ++ g.scored(Corp) ++ g.scored(Runner)
     }
 
     // the threat level is shown only while a card in play refers to it
-    def threatMatters : Boolean = {
-        val g = game
-        (g.installedCards(Corp) ++ g.installedCards(Runner) ++ g.identity.values.$ ++ g.scored(Corp) ++ g.scored(Runner)).exists(_.data.text.contains("Threat"))
-    }
+    def threatMatters : Boolean = cardsInPlay.exists(_.data.text.contains("Threat"))
+
+    // the mark is shown while it is set or while a card in play refers to it
+    def markMatters : Boolean = cardsInPlay.exists(_.data.text.contains("your mark"))
 
     // allotted clicks for the next turn (Wage Workers and the like)
-    def extraClicksStat(f : Faction) : Elem = {
+    def extraClicksStat(f : Faction) : $[Elem] = {
         val n = game.extraClicks.get(f).|(0)
-        (n != 0).?(stat((n > 0).?("+" + n).|("" + n), "clicks next turn", styles.statClick)).|(Empty)
+        (n != 0).$(bigStat((n > 0).?("+" + n).|("" + n), "clicks next turn", styles.bigClick))
+    }
+
+    // the Corp's own stats: bad publicity, threat (while it matters), HQ size / maximum hand size
+    def corpStats : $[Elem] = {
+        val g = game
+        val bp = g.badPublicity
+        $(bigStat(bp, "bad pub", styles.bigBadPub, zero = bp == 0, alert = bp > 0)) ++
+        threatMatters.$(bigStat(g.threatLevel, "threat", styles.bigThreat, zero = g.threatLevel == 0)) ++
+        $(bigStat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.bigHand, zero = g.hand(Corp).none))
+    }
+
+    // the Runner's own stats: tags, link, MU used / total, grip size / maximum hand size, core damage, mark
+    def runnerStats : $[Elem] = {
+        val g = game
+        $(
+            bigStat(g.tags, plural(g.tags, "tag", "tags"), styles.bigTag, zero = g.tags == 0, alert = g.tags > 0),
+            bigStat(g.link, "link", styles.bigLink, zero = g.link == 0),
+            bigStat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.bigMU, zero = g.memoryUsed == 0),
+            bigStat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.bigHand, zero = g.hand(Runner).none),
+            bigStat(g.coreDamage, "core dmg", styles.bigCore, zero = g.coreDamage == 0, alert = g.coreDamage > 0)) ++
+        (g.mark.any || markMatters).$(bigStat(g.mark./(_.name).|("none"), "mark", styles.bigMark, zero = g.mark.none))
     }
 
     // game-level lingering flags (not tied to a card)
@@ -376,10 +399,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def corpBoard : Elem = {
         val g = game
         val id = g.identity.get(Corp)
-        val header = statusBanner(Corp,
-            (g.badPublicity > 0).?(bigStat(g.badPublicity, "bad pub", styles.bigTag, false)).|(Empty),
-            (g.threatLevel > 0 && threatMatters).?(stat(g.threatLevel, "threat", styles.statPoints)).|(Empty) ~
-            stat(g.hand(Corp).num + "/" + g.handSize(Corp), "hand", styles.statHand))
+        val header = statusBanner(Corp, corpStats)
         if (g.phase == "setup")
             return header ~ deckSelection(Corp)
         val idImg = id./(identitySlot).|(Empty)
@@ -394,14 +414,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
     def runnerBoard : Elem = {
         val g = game
         val id = g.identity.get(Runner)
-        val header = statusBanner(Runner,
-            (g.tags > 0).?(bigStat(g.tags, (g.tags == 1).?("tag").|("tags"), styles.bigTag, false)).|(Empty),
-            (g.tags == 0).?(stat(0, "tags", styles.statTag)).|(Empty) ~
-            stat(g.link, "link", styles.statLink) ~
-            stat(g.memoryUsed + "/" + g.memoryTotal, "MU", styles.statMU) ~
-            stat(g.hand(Runner).num + "/" + g.handSize(Runner), "hand", styles.statHand) ~
-            (g.coreDamage > 0).?(stat(g.coreDamage, "core damage", styles.statTag)).|(Empty) ~
-            g.mark./(s => stat(s.name, "mark", styles.statMark)).|(Empty))
+        val header = statusBanner(Runner, runnerStats)
         if (g.phase == "setup")
             return header ~ deckSelection(Runner)
         val idImg = id./(identitySlot).|(Empty)
@@ -549,13 +562,53 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
         redrawAsk()
     }
 
+    // Which side is choosing. The deck prompt asks the Corp first, then the Runner (rules-setup: in a hotseat game the
+    // UI shows the first human of the MultiAsk; online each link chooses at the same time). The gallery and the action
+    // pane say which side they are for ("Corp: choose a deck"), and a two-step line shows both sides' progress.
+    def deckIdentity(codes : $[String]) : |[CardData] = codes./~(Cards.get).%(_.isIdentity).starting
+
+    def deckSteps(current : Faction) : Elem = {
+        val g = game
+        val steps = $(Corp, Runner).%(g.setup.has)./ { s =>
+            val status : Elem = g.decks.get(s) match {
+                case Some(codes) => "chose ".txt ~ deckIdentity(codes)./(c => Span(c.title.txt, styles.get(NRFaction.of(c.faction)))).|("a deck".txt)
+                case None if deckPrompt(s) => "choosing now".hl
+                case None => "not chosen yet".spn(styles.dim)
+            }
+            Span(Span(s.name.txt, styles.get(s), styles.sideName) ~ ": " ~ status, styles.deckStep)((s == current).$(elem.borders.get(s)) ++ (s == current).$(styles.deckStepOn))
+        }
+        Div(steps.merge, styles.deckSteps)
+    }
+
+    // a local game started with Quick Game (the side of the human is random; /play/netrunner/quick or ?quick)
+    def isQuickGame : Boolean = callbacks.canPlayAgain && !hrf.HRF.replay && (hrf.HRF.flag("quick") || dom.window.location.pathname.endsWith("/quick"))
+
+    // restart the Quick Game with the human on the other side (hrf.scala: ?quick&human=<faction>)
+    def playOtherSide(f : Faction) {
+        val other = f.isCorp.?(Runner).|(Corp)
+        // replace (not assign): the new page's startGame rewinds the history (hrf.web.History.nuke) and an extra entry
+        // could send it back to the old page
+        dom.window.location.replace("/play/" + Meta.name + "?quick=1&human=" + other.name)
+    }
+
+    def sideHint(f : Faction) : Elem = {
+        val other = f.isCorp.?(Runner).|(Corp)
+        if (isQuickGame)
+            Div(("Quick Game seated you as the " ~ f.name.styled(f) ~ " (it picks a side at random). ").spn ~
+                Parameter(("other-side", f), OnClick(("Play the " ~ other.name.styled(other) ~ " instead").spn(styles.previewLink))) ~ Break ~
+                ("To choose your side from the start, use Local Game: select Corp and Runner, Start Setup, then click Human next to the side the bot should play").spn(styles.dim),
+                styles.sideHint)
+        else
+            Empty
+    }
+
     def deckSelection(f : Faction) : Elem = {
         val g = game
         val mine = viewer.forall(_ == f)
         g.decks.get(f) match {
             case Some(codes) =>
                 val id = codes./(Cards.get)./~(x => x).%(_.isIdentity).starting
-                Div(id./(c => Div(cardFace(c.code, styles.card), styles.slot)).|(Empty) ~ Div(("Deck chosen: " ~ id./(_.title).|("?").hl ~ " - " ~ (codes.num - 1).toString ~ " cards").spn), styles.row)
+                Div(id./(c => Div(cardFace(c.code, styles.card), styles.slot)).|(Empty) ~ Div((f.name.styled(f) ~ " deck chosen: " ~ id./(_.title).|("?").hl ~ " - " ~ (codes.num - 1).toString ~ " cards").spn), styles.row)
             case None if mine && previewFor(f).any =>
                 deckPreviewElem(previewFor(f).get)
             case None if mine && lastActions.exists(_.is[ChoosePresetDeckAction]) =>
@@ -575,9 +628,10 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 val importItem = Parameter("import", OnClick(Div(Image(f.isCorp.?("corp-back").|("runner-back"), styles.cardGallery) ~ "Import a decklist".spn(styles.galleryName) ~ "paste a NetrunnerDB export".spn(styles.galleryInfo), styles.galleryItem)))
                 val none = presets.none.?(Div("No preset deck matches these filters".spn(styles.dim), styles.galleryItem)).|(Empty)
                 // only the gallery is scaled to the pane, never below a readable size (see fitPane): it scrolls instead
-                Div(Div("Choose a deck".spn(styles.menuTitle) ~ (presets.num + " of " + all.num + " decks shown, click a deck to see its cards").spn(styles.dim)) ~ galleryTabs(f, all) ~ Div((items ++ $(none, importItem)).merge, styles.gallery), styles.boardArea)
+                val title = Div(Span(f.name.txt, styles.get(f), styles.sideTitle) ~ Span(": choose a deck".txt, styles.sideTitleRest) ~ Span(" (" + f.name + " decks only)", styles.dim), styles.deckTitle)
+                Div(title ~ deckSteps(f) ~ sideHint(f) ~ Div((presets.num + " of " + all.num + " " + f.name + " decks shown, click a deck to see its cards").spn(styles.dim)) ~ galleryTabs(f, all) ~ Div((items ++ $(none, importItem)).merge, styles.gallery), styles.boardArea)
             case None =>
-                Div("choosing a deck...".spn(styles.dim))
+                Div((f.name.styled(f) ~ ": no deck chosen yet").spn(styles.dim))
         }
     }
 
@@ -678,6 +732,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             check.ok.?("legal".spn(styles.previewOk)).|(check.message.spn(styles.previewBad))
 
         val head = Div(
+            Span(p.side.name.txt, styles.get(p.side), styles.sideTag)(elem.borders.get(p.side)) ~
             Span(p.name.txt, styles.previewTitle) ~ id./(c => Span(c.title.txt, styles.get(NRFaction.of(c.faction)))).|(Empty) ~ Break ~
             Span(summary, styles.previewSummary) ~ Span(" | ".txt ~ "confirm in the action pane or ".txt ~ Parameter("preview-back", OnClick("pick another deck".spn(styles.previewLink))), styles.previewHint),
             styles.previewHead)
@@ -955,6 +1010,9 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
 
         case "preview-back" =>
             setPreview(None)
+
+        case ("other-side", f : Faction) =>
+            playOtherSide(f)
 
         case ("gallery-faction", f : Faction, x : String) =>
             galleryFaction += f -> x
@@ -1248,7 +1306,7 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                 val id = p.codes./~(Cards.get).%(_.isIdentity).starting
                 val label = p.preset.any.?("Confirm ".txt ~ p.name.hlb).|("Import ".txt ~ id./(_.title).|("?").hlb)
                 val thumb = id./(c => cardFace(c.code, styles.cardTiny, $(styles.presetThumb))).|(Empty)
-                val group = Div(Break ~ "Previewing ".txt ~ p.name.hl ~ " (" ~ (p.codes.num - 1).toString ~ " cards)")(xlo.fullwidth)
+                val group = Div(Break ~ Span(f.name.txt, styles.get(f), styles.sideName) ~ ": previewing ".txt ~ p.name.hl ~ " (" ~ (p.codes.num - 1).toString ~ " cards)")(xlo.fullwidth)
                 confirmAction(p)./(a => ZOption(group, OnClick(Div(thumb ~ Div(label), styles.confirmButton)(elem.borders.get(f))), _ => { preview = None ; then(a) })).$ ++
                 p.preset.none.$(ZOption(group, OnClick(Div("Edit the decklist", styles.confirmBack)), _ => showImport(), false)) ++
                 $(ZOption(group, OnClick(Div("Back to the deck list", styles.confirmBack)), _ => setPreview(None), false))
@@ -1256,6 +1314,9 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
             val presets = actions.of[ChoosePresetDeckAction]
             val hidden = presets.%(a => presetShown(a).not && p.exists(_.preset.contains(a.index)).not)
             val filtered : $[ZOption] = hidden.any.$(ZOption(Div(Break ~ "Decks")(xlo.fullwidth), Div((hidden.num + " more decks hidden by the filters above the board gallery").spn(xstyles.smaller85), xstyles.info, xstyles.xx, xlo.fullwidth), _ => {}, false))
+            // Quick Game seats the human at random: offer the other side (restarts the Quick Game)
+            val other = f.isCorp.?(Runner).|(Corp)
+            val otherSide : $[ZOption] = isQuickGame.$(ZOption(Div(Break ~ "Quick Game seated you as the " ~ f.name.styled(f))(xlo.fullwidth), OnClick(Div(("Play the " ~ other.name.styled(other) ~ " instead").spn ~ Break ~ "restarts the Quick Game".spn(xstyles.smaller85), styles.confirmBack)), _ => playOtherSide(f), false))
             confirm ++ actions./~ {
                 // the "Choose a deck" group header of the prompt: the presets carry their own header here
                 case _ : InfoGroupAction => $
@@ -1264,10 +1325,11 @@ class UI(val uir : ElementAttachmentPoint, arity : Int, val resources : Resource
                     val d = Decks.presets(a.index)
                     val o = Div(cardFace(d.identity, styles.cardTiny, $(styles.presetThumb)) ~ Div(cleanDeckName(d.name).hl ~ Break ~ d.identityTitle.spn(styles.presetIdentity)), styles.presetOption)
                     val ss = styleAction(faction, actions, a, false, None) ++ p.exists(_.preset.contains(a.index)).$(styles.selected)
-                    val q = p.any.?(Div(Break ~ "Preview another deck")(xlo.fullwidth)).|(Div("Choose a deck (click to see its cards)")(xlo.fullwidth))
+                    val side = Span(f.name.txt, styles.get(f), styles.sideName)
+                    val q = p.any.?(Div(Break ~ side ~ ": preview another deck")(xlo.fullwidth)).|(Div(side ~ ": choose a deck (click to see its cards)")(xlo.fullwidth))
                     $(ZOption(q, OnOverOut(OnClick(Div(o, ss))), _ => setPreview(|(presetPreview(a))), false, _ => onOver(("deck", a)), _ => onOut(Nil)))
                 case a => super.convertActions(faction, $(a), then)
-            } ++ filtered
+            } ++ filtered ++ otherSide
         }
 
     override def styleAction(faction : Option[Faction], actions : List[UserAction], a : UserAction, unavailable : Boolean, view : Option[Any]) = {

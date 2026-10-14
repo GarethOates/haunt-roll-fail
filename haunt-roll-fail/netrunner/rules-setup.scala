@@ -42,7 +42,9 @@ trait SetupRules { game : Game =>
             ChooseDecksAction
 
         case ChooseDecksAction =>
-            val waiting = setup.%(f => decks.contains(f).not)
+            // the Corp's ask first: in a hotseat game the UI shows the first human ask of a MultiAsk, so the Corp
+            // chooses first and the Runner second whatever the seating order (online both choose at the same time)
+            val waiting = $(Corp, Runner).%(setup.has).%(f => decks.contains(f).not)
 
             if (waiting.none)
                 SetupDecksAction
