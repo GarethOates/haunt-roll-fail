@@ -10,7 +10,7 @@ Usage:
 
 The first deploy needs both. Later uploads of the script keep the secrets. The API token is read from the
 macOS Keychain (security find-generic-password -s cloudflare-hrf-token) and needs Workers Scripts and
-Workers Routes edit.
+Workers Routes edit. It also adds the routes in BYPASS, which skip the Worker.
 """
 
 import argparse
@@ -27,6 +27,9 @@ ACCOUNT = "bf1298b7b7a088d7ad550bebdf4799be"
 ZONE = "b90269a6ae1440ed4826e953180b4430"
 SCRIPT = "hrf-gate"
 PATTERN = "hrf.botc.games/*"
+# routes with no Worker: an open game polls /read twice a second, which would use up the free plan's 100k Worker
+# requests a day; /read needs the player's own user id and secret, so it does not need the code as well
+BYPASS = ["hrf.botc.games/read/*"]
 API = "https://api.cloudflare.com/client/v4/"
 SOURCE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hrf-gate.js")
 
@@ -76,9 +79,15 @@ def route():
     routes = call("GET", "zones/%s/workers/routes" % ZONE)
     if any(r["pattern"] == PATTERN and r.get("script") == SCRIPT for r in routes):
         print("route %s already in place" % PATTERN)
-        return
-    call("POST", "zones/%s/workers/routes" % ZONE, {"pattern": PATTERN, "script": SCRIPT})
-    print("route %s -> %s" % (PATTERN, SCRIPT))
+    else:
+        call("POST", "zones/%s/workers/routes" % ZONE, {"pattern": PATTERN, "script": SCRIPT})
+        print("route %s -> %s" % (PATTERN, SCRIPT))
+    for pattern in BYPASS:
+        if any(r["pattern"] == pattern and not r.get("script") for r in routes):
+            print("route %s (no Worker) already in place" % pattern)
+        else:
+            call("POST", "zones/%s/workers/routes" % ZONE, {"pattern": pattern})
+            print("route %s -> no Worker" % pattern)
 
 
 def main():
